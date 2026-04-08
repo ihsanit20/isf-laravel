@@ -70,12 +70,16 @@ const openEditDialog = (user: AdminUser) => {
         <section
             class="rounded-xl border border-sidebar-border/70 bg-background p-6 shadow-sm dark:border-sidebar-border"
         >
-            <div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+            <div
+                class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between"
+            >
                 <div>
-                    <h1 class="text-2xl font-semibold tracking-tight">User List</h1>
+                    <h1 class="text-2xl font-semibold tracking-tight">
+                        User List
+                    </h1>
                     <p class="mt-2 text-sm text-muted-foreground">
-                        Admin account গুলো থেকে system user management দেখার জন্য এই
-                        তালিকাটি ব্যবহার করুন।
+                        Admin account গুলো থেকে system user management দেখার
+                        জন্য এই তালিকাটি ব্যবহার করুন।
                     </p>
                 </div>
 
@@ -126,7 +130,10 @@ const openEditDialog = (user: AdminUser) => {
                                     <SquarePen class="size-4" />
                                     Edit
                                 </Button>
-                                <span v-else class="text-sm text-muted-foreground">
+                                <span
+                                    v-else
+                                    class="text-sm text-muted-foreground"
+                                >
                                     Restricted
                                 </span>
                             </td>

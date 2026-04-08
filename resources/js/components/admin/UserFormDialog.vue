@@ -58,21 +58,22 @@ const roleLabel = (role: UserRole): string =>
     role.replace('_', ' ').replace(/\b\w/g, (char) => char.toUpperCase());
 
 const resetFormState = () => {
-    const values = isEditing.value && props.user
-        ? {
-              name: props.user.name,
-              email: props.user.email,
-              role: props.user.role,
-              password: '',
-              password_confirmation: '',
-          }
-        : {
-              name: '',
-              email: '',
-              role: props.assignableRoles[0] ?? 'member',
-              password: '',
-              password_confirmation: '',
-          };
+    const values =
+        isEditing.value && props.user
+            ? {
+                  name: props.user.name,
+                  email: props.user.email,
+                  role: props.user.role,
+                  password: '',
+                  password_confirmation: '',
+              }
+            : {
+                  name: '',
+                  email: '',
+                  role: props.assignableRoles[0] ?? 'member',
+                  password: '',
+                  password_confirmation: '',
+              };
 
     form.defaults(values);
     form.reset();
@@ -102,7 +103,12 @@ const submit = () => {
 };
 
 watch(
-    () => [isOpen.value, props.mode, props.user?.id, props.assignableRoles.join(',')],
+    () => [
+        isOpen.value,
+        props.mode,
+        props.user?.id,
+        props.assignableRoles.join(','),
+    ],
     ([open]) => {
         if (open) {
             resetFormState();
@@ -131,13 +137,22 @@ watch(
             <form class="space-y-4" @submit.prevent="submit">
                 <div class="grid gap-2">
                     <Label for="user-name">Name</Label>
-                    <Input id="user-name" v-model="form.name" placeholder="Full name" />
+                    <Input
+                        id="user-name"
+                        v-model="form.name"
+                        placeholder="Full name"
+                    />
                     <InputError :message="form.errors.name" />
                 </div>
 
                 <div class="grid gap-2">
                     <Label for="user-email">Email</Label>
-                    <Input id="user-email" v-model="form.email" type="email" placeholder="Email address" />
+                    <Input
+                        id="user-email"
+                        v-model="form.email"
+                        type="email"
+                        placeholder="Email address"
+                    />
                     <InputError :message="form.errors.email" />
                 </div>
 
@@ -148,7 +163,11 @@ watch(
                             <SelectValue placeholder="Select a role" />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem v-for="role in assignableRoles" :key="role" :value="role">
+                            <SelectItem
+                                v-for="role in assignableRoles"
+                                :key="role"
+                                :value="role"
+                            >
                                 {{ roleLabel(role) }}
                             </SelectItem>
                         </SelectContent>
@@ -160,7 +179,12 @@ watch(
                     <Label for="user-password">
                         {{ isEditing ? 'New Password' : 'Password' }}
                     </Label>
-                    <Input id="user-password" v-model="form.password" type="password" placeholder="Password" />
+                    <Input
+                        id="user-password"
+                        v-model="form.password"
+                        type="password"
+                        placeholder="Password"
+                    />
                     <p v-if="isEditing" class="text-xs text-muted-foreground">
                         Leave this blank to keep the current password unchanged.
                     </p>
@@ -168,7 +192,9 @@ watch(
                 </div>
 
                 <div class="grid gap-2">
-                    <Label for="user-password-confirmation">Confirm Password</Label>
+                    <Label for="user-password-confirmation"
+                        >Confirm Password</Label
+                    >
                     <Input
                         id="user-password-confirmation"
                         v-model="form.password_confirmation"
@@ -178,7 +204,11 @@ watch(
                 </div>
 
                 <DialogFooter class="gap-2">
-                    <Button type="button" variant="secondary" @click="closeDialog">
+                    <Button
+                        type="button"
+                        variant="secondary"
+                        @click="closeDialog"
+                    >
                         Cancel
                     </Button>
                     <Button type="submit" :disabled="form.processing">

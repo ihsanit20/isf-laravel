@@ -23,7 +23,7 @@ class UserListController extends Controller
             'users' => User::query()
                 ->orderBy('name')
                 ->get(['id', 'name', 'email', 'role', 'created_at'])
-                ->map(fn (User $user): array => [
+                ->map(fn(User $user): array => [
                     'id' => $user->id,
                     'name' => $user->name,
                     'email' => $user->email,

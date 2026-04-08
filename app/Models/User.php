@@ -60,7 +60,7 @@ class User extends Authenticatable
 
         return array_values(array_filter(
             self::roles(),
-            fn (string $candidate): bool => self::roleRank($candidate) <= $maxRank,
+            fn(string $candidate): bool => self::roleRank($candidate) <= $maxRank,
         ));
     }
 

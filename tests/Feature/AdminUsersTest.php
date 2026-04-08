@@ -23,7 +23,7 @@ test('admins can visit the admin user list page', function (string $role) {
         ->get(route('admin.users.index'))
         ->assertOk()
         ->assertInertia(
-            fn (Assert $page) => $page
+            fn(Assert $page) => $page
                 ->component('admin/Users')
                 ->has('users', $listedUsers->count() + 1)
                 ->where('assignableRoles', User::assignableRolesFor($role)),
