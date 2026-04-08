@@ -3,14 +3,14 @@
 namespace Tests;
 
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
-use Laravel\Fortify\Features;
+use PHPUnit\Framework\SkippedTestError;
 
 abstract class TestCase extends BaseTestCase
 {
     protected function skipUnlessFortifyHas(string $feature, ?string $message = null): void
     {
-        if (! Features::enabled($feature)) {
-            $this->markTestSkipped($message ?? "Fortify feature [{$feature}] is not enabled.");
+        if (! in_array($feature, config('fortify.features', []), true)) {
+            throw new SkippedTestError($message ?? "Fortify feature [{$feature}] is not enabled.");
         }
     }
 }
