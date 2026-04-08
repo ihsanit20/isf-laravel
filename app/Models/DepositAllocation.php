@@ -39,4 +39,12 @@ class DepositAllocation extends Model
     {
         return $this->belongsTo(Member::class);
     }
+
+    public function scopeNewestFirst($query)
+    {
+        return $query
+            ->orderByDesc('allocation_month')
+            ->orderByDesc('confirmed_at')
+            ->orderByDesc('id');
+    }
 }

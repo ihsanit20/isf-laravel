@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { Head } from '@inertiajs/vue3';
-import { Check, LogOut, X } from 'lucide-vue-next';
+import { Head, Link } from '@inertiajs/vue3';
+import { CalendarDays, Check, LogOut, X } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 import MemberReviewDialog from '@/components/admin/MemberReviewDialog.vue';
 import { Badge } from '@/components/ui/badge';
@@ -180,11 +180,22 @@ const openExitDialog = (member: AdminMember) => {
                                 {{ member.approver || '-' }}
                             </td>
                             <td class="px-4 py-3">
-                                <div
-                                    v-if="member.status === 'pending'"
-                                    class="flex flex-wrap gap-2"
-                                >
+                                <div class="flex flex-wrap gap-2">
                                     <Button
+                                        as-child
+                                        variant="outline"
+                                        size="sm"
+                                    >
+                                        <Link
+                                            :href="`/admin/members/${member.id}/unit-calendar`"
+                                        >
+                                            <CalendarDays class="size-4" />
+                                            Units
+                                        </Link>
+                                    </Button>
+
+                                    <Button
+                                        v-if="member.status === 'pending'"
                                         variant="outline"
                                         size="sm"
                                         @click="openApproveDialog(member)"
@@ -193,6 +204,7 @@ const openExitDialog = (member: AdminMember) => {
                                         Approve
                                     </Button>
                                     <Button
+                                        v-if="member.status === 'pending'"
                                         variant="outline"
                                         size="sm"
                                         @click="openRejectDialog(member)"
@@ -200,12 +212,8 @@ const openExitDialog = (member: AdminMember) => {
                                         <X class="size-4" />
                                         Reject
                                     </Button>
-                                </div>
-                                <div
-                                    v-else-if="member.status === 'approved'"
-                                    class="flex flex-wrap gap-2"
-                                >
                                     <Button
+                                        v-if="member.status === 'approved'"
                                         variant="outline"
                                         size="sm"
                                         @click="openExitDialog(member)"
@@ -214,12 +222,6 @@ const openExitDialog = (member: AdminMember) => {
                                         Exit
                                     </Button>
                                 </div>
-                                <span
-                                    v-else
-                                    class="text-xs text-muted-foreground"
-                                >
-                                    Reviewed
-                                </span>
                             </td>
                         </tr>
                         <tr v-if="members.length === 0">

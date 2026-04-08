@@ -1,10 +1,12 @@
 <?php
 
 use App\Http\Controllers\Admin\MemberListController;
+use App\Http\Controllers\Admin\MemberUnitCalendarController as AdminMemberUnitCalendarController;
 use App\Http\Controllers\Admin\DepositListController;
 use App\Http\Controllers\Admin\UserListController;
 use App\Http\Controllers\DepositController;
 use App\Http\Controllers\MemberController;
+use App\Http\Controllers\MemberUnitCalendarController;
 use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Features;
 
@@ -17,6 +19,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('my-membership', [MemberController::class, 'index'])->name('members.index');
     Route::get('my-membership/create', [MemberController::class, 'create'])->name('members.create');
     Route::post('my-membership', [MemberController::class, 'store'])->name('members.store');
+    Route::get('my-membership/{member}/unit-calendar', [MemberUnitCalendarController::class, 'show'])->name('members.unit-calendar');
     Route::get('deposits', [DepositController::class, 'index'])->name('deposits.index');
     Route::get('deposits/create', [DepositController::class, 'create'])->name('deposits.create');
     Route::post('deposits', [DepositController::class, 'store'])->name('deposits.store');
@@ -30,6 +33,7 @@ Route::middleware(['auth', 'verified', 'admin'])->group(function () {
     Route::put('admin/users/{user}', [UserListController::class, 'update'])->name('admin.users.update');
     Route::get('admin/members', [MemberListController::class, 'index'])->name('admin.members.index');
     Route::patch('admin/members/{member}/review', [MemberListController::class, 'review'])->name('admin.members.review');
+    Route::get('admin/members/{member}/unit-calendar', [AdminMemberUnitCalendarController::class, 'show'])->name('admin.members.unit-calendar');
     Route::get('admin/deposits', [DepositListController::class, 'index'])->name('admin.deposits.index');
     Route::patch('admin/deposits/{depositSubmission}/review', [DepositListController::class, 'review'])->name('admin.deposits.review');
 });
