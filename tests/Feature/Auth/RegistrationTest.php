@@ -20,11 +20,13 @@ test('new users can register', function () {
     $response = $this->post(route('register.store'), [
         'name' => 'Test User',
         'email' => 'test@example.com',
+        'phone' => '01711111111',
         'password' => 'password',
         'password_confirmation' => 'password',
     ]);
 
     $this->assertAuthenticated();
     expect(User::first())->role->toBe('member');
+    expect(User::first())->phone->toBe('01711111111');
     $response->assertRedirect(route('dashboard', absolute: false));
 });

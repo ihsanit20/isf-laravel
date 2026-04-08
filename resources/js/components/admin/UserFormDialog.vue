@@ -26,6 +26,7 @@ type EditableUser = {
     id: number;
     name: string;
     email: string;
+    phone: string | null;
     role: UserRole;
 };
 
@@ -43,12 +44,14 @@ const isEditing = computed(() => props.mode === 'edit' && !!props.user);
 const form = useForm<{
     name: string;
     email: string;
+    phone: string;
     role: UserRole;
     password: string;
     password_confirmation: string;
 }>({
     name: '',
     email: '',
+    phone: '',
     role: props.assignableRoles[0] ?? 'member',
     password: '',
     password_confirmation: '',
@@ -63,6 +66,7 @@ const resetFormState = () => {
             ? {
                   name: props.user.name,
                   email: props.user.email,
+                  phone: props.user.phone ?? '',
                   role: props.user.role,
                   password: '',
                   password_confirmation: '',
@@ -70,6 +74,7 @@ const resetFormState = () => {
             : {
                   name: '',
                   email: '',
+                  phone: '',
                   role: props.assignableRoles[0] ?? 'member',
                   password: '',
                   password_confirmation: '',
@@ -154,6 +159,17 @@ watch(
                         placeholder="Email address"
                     />
                     <InputError :message="form.errors.email" />
+                </div>
+
+                <div class="grid gap-2">
+                    <Label for="user-phone">Phone</Label>
+                    <Input
+                        id="user-phone"
+                        v-model="form.phone"
+                        type="tel"
+                        placeholder="01XXXXXXXXX"
+                    />
+                    <InputError :message="form.errors.phone" />
                 </div>
 
                 <div class="grid gap-2">

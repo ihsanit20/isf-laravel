@@ -22,11 +22,12 @@ class UserListController extends Controller
             'assignableRoles' => User::assignableRolesFor($actor->role),
             'users' => User::query()
                 ->orderBy('name')
-                ->get(['id', 'name', 'email', 'role', 'created_at'])
+                ->get(['id', 'name', 'email', 'phone', 'role', 'created_at'])
                 ->map(fn(User $user): array => [
                     'id' => $user->id,
                     'name' => $user->name,
                     'email' => $user->email,
+                    'phone' => $user->phone,
                     'role' => $user->role,
                     'created_at' => $user->created_at?->format('d M Y, h:i A'),
                     'can_edit' => $actor->canManageUser($user),
@@ -37,14 +38,14 @@ class UserListController extends Controller
 
     public function store(StoreUserRequest $request): RedirectResponse
     {
-        User::create($request->safe()->only(['name', 'email', 'role', 'password']));
+        User::create($request->safe()->only(['name', 'email', 'phone', 'role', 'password']));
 
         return to_route('admin.users.index');
     }
 
     public function update(UpdateUserRequest $request, User $user): RedirectResponse
     {
-        $data = $request->safe()->only(['name', 'email', 'role']);
+        $data = $request->safe()->only(['name', 'email', 'phone', 'role']);
 
         if ($request->filled('password')) {
             $data['password'] = $request->string('password')->toString();

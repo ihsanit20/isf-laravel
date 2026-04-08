@@ -10,6 +10,7 @@ type AdminUser = {
     id: number;
     name: string;
     email: string;
+    phone: string | null;
     role: UserRole;
     created_at: string;
     can_edit: boolean;
@@ -46,6 +47,7 @@ const editableUser = computed(() => {
         id: selectedUser.value.id,
         name: selectedUser.value.name,
         email: selectedUser.value.email,
+        phone: selectedUser.value.phone,
         role: selectedUser.value.role,
     };
 });
@@ -101,6 +103,7 @@ const openEditDialog = (user: AdminUser) => {
                         <tr>
                             <th class="px-4 py-3 font-medium">Name</th>
                             <th class="px-4 py-3 font-medium">Email</th>
+                            <th class="px-4 py-3 font-medium">Phone</th>
                             <th class="px-4 py-3 font-medium">Role</th>
                             <th class="px-4 py-3 font-medium">Joined At</th>
                             <th class="px-4 py-3 font-medium">Action</th>
@@ -113,6 +116,9 @@ const openEditDialog = (user: AdminUser) => {
                             </td>
                             <td class="px-4 py-3 text-muted-foreground">
                                 {{ user.email }}
+                            </td>
+                            <td class="px-4 py-3 text-muted-foreground">
+                                {{ user.phone || 'Not set' }}
                             </td>
                             <td class="px-4 py-3 capitalize">
                                 {{ roleLabel(user.role) }}
@@ -140,7 +146,7 @@ const openEditDialog = (user: AdminUser) => {
                         </tr>
                         <tr v-if="users.length === 0">
                             <td
-                                colspan="5"
+                                colspan="6"
                                 class="px-4 py-8 text-center text-muted-foreground"
                             >
                                 No users found.

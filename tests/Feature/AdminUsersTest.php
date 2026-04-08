@@ -50,6 +50,7 @@ test('admins can add a user with an allowed role', function () {
     post(route('admin.users.store'), [
         'name' => 'New Admin',
         'email' => 'new-admin@example.com',
+        'phone' => '01722222222',
         'role' => 'admin',
         'password' => 'password',
         'password_confirmation' => 'password',
@@ -59,6 +60,7 @@ test('admins can add a user with an allowed role', function () {
 
     expect($createdUser)->not->toBeNull();
     expect($createdUser?->role)->toBe('admin');
+    expect($createdUser?->phone)->toBe('01722222222');
 });
 
 test('admins cannot assign a higher role than their own when creating a user', function () {
@@ -71,6 +73,7 @@ test('admins cannot assign a higher role than their own when creating a user', f
     post(route('admin.users.store'), [
         'name' => 'Blocked User',
         'email' => 'blocked@example.com',
+        'phone' => '01733333333',
         'role' => 'super_admin',
         'password' => 'password',
         'password_confirmation' => 'password',
@@ -93,6 +96,7 @@ test('admins can edit a user from the list', function () {
     put(route('admin.users.update', $member), [
         'name' => 'Updated Member',
         'email' => 'updated-member@example.com',
+        'phone' => '01744444444',
         'role' => 'admin',
         'password' => '',
         'password_confirmation' => '',
@@ -100,6 +104,7 @@ test('admins can edit a user from the list', function () {
 
     expect($member->refresh()->name)->toBe('Updated Member');
     expect($member->email)->toBe('updated-member@example.com');
+    expect($member->phone)->toBe('01744444444');
     expect($member->role)->toBe('admin');
 });
 
@@ -117,6 +122,7 @@ test('admins cannot edit a user to a higher role than their own', function () {
     put(route('admin.users.update', $member), [
         'name' => $member->name,
         'email' => $member->email,
+        'phone' => $member->phone,
         'role' => 'super_admin',
         'password' => '',
         'password_confirmation' => '',
