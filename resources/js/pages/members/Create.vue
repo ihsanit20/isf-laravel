@@ -69,13 +69,7 @@ const submit = () => {
                 class="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between"
             >
                 <div class="max-w-2xl">
-                    <div
-                        class="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700"
-                    >
-                        <ShieldCheck class="size-4" />
-                        Basic Membership Application
-                    </div>
-                    <h1 class="mt-4 text-3xl font-semibold tracking-tight">
+                    <h1 class="text-3xl font-semibold tracking-tight">
                         Membership Form
                     </h1>
                     <p class="mt-3 text-sm leading-6 text-muted-foreground">
