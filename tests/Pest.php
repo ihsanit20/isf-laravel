@@ -2,8 +2,6 @@
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
-use function Pest\expect;
-use function Pest\pest;
 
 /*
 |--------------------------------------------------------------------------
