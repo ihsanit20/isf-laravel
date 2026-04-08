@@ -20,11 +20,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('my-membership/create', [MemberController::class, 'create'])->name('members.create');
     Route::post('my-membership', [MemberController::class, 'store'])->name('members.store');
     Route::get('my-membership/{member}/unit-calendar', [MemberUnitCalendarController::class, 'show'])->name('members.unit-calendar');
-    Route::get('deposits', [DepositController::class, 'index'])->name('deposits.index');
-    Route::get('deposits/create', [DepositController::class, 'create'])->name('deposits.create');
-    Route::post('deposits', [DepositController::class, 'store'])->name('deposits.store');
-    Route::get('deposits/{depositSubmission}/allocate', [DepositController::class, 'allocate'])->name('deposits.allocate');
-    Route::post('deposits/{depositSubmission}/allocate', [DepositController::class, 'storeAllocations'])->name('deposits.allocations.store');
+    Route::get('my-deposits', [DepositController::class, 'index'])->name('deposits.index');
+    Route::get('my-deposits/create', [DepositController::class, 'create'])->name('deposits.create');
+    Route::post('my-deposits', [DepositController::class, 'store'])->name('deposits.store');
+    Route::get('my-deposits/{depositSubmission}/allocate', [DepositController::class, 'allocate'])->name('deposits.allocate');
+    Route::post('my-deposits/{depositSubmission}/allocate', [DepositController::class, 'storeAllocations'])->name('deposits.allocations.store');
 });
 
 Route::middleware(['auth', 'verified', 'admin'])->group(function () {

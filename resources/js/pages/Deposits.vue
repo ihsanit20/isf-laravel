@@ -47,8 +47,8 @@ defineOptions({
     layout: {
         breadcrumbs: [
             {
-                title: 'Deposits',
-                href: '/deposits',
+                title: 'My Deposits',
+                href: '/my-deposits',
             },
         ],
     },
@@ -77,7 +77,7 @@ const statusVariant = (
 </script>
 
 <template>
-    <Head title="Deposits" />
+    <Head title="My Deposits" />
 
     <div class="flex h-full flex-1 flex-col gap-4 rounded-xl p-4">
         <section
@@ -88,7 +88,7 @@ const statusVariant = (
             >
                 <div class="max-w-2xl">
                     <h1 class="text-3xl font-semibold tracking-tight">
-                        Deposits
+                        My Deposits
                     </h1>
                     <p class="mt-3 text-sm leading-6 text-muted-foreground">
                         Submit a single bank deposit, wait for admin
@@ -98,7 +98,7 @@ const statusVariant = (
                 </div>
 
                 <Button as-child class="shrink-0">
-                    <Link href="/deposits/create">
+                    <Link href="/my-deposits/create">
                         <Plus class="size-4" />
                         Submit Deposit
                     </Link>
@@ -200,7 +200,7 @@ const statusVariant = (
 
                 <div class="mt-5 flex flex-wrap gap-3">
                     <Button v-if="deposit.can_allocate" as-child>
-                        <Link :href="`/deposits/${deposit.id}/allocate`">
+                        <Link :href="`/my-deposits/${deposit.id}/allocate`">
                             <ArrowRight class="size-4" />
                             Allocate Deposit
                         </Link>
@@ -271,7 +271,7 @@ const statusVariant = (
                     verified amount to your approved members.
                 </p>
                 <Button as-child class="mt-6">
-                    <Link href="/deposits/create">
+                    <Link href="/my-deposits/create">
                         <Plus class="size-4" />
                         Submit Deposit
                     </Link>

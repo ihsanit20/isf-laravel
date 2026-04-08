@@ -27,12 +27,12 @@ defineOptions({
     layout: {
         breadcrumbs: [
             {
-                title: 'Deposits',
-                href: '/deposits',
+                title: 'My Deposits',
+                href: '/my-deposits',
             },
             {
                 title: 'Submit Deposit',
-                href: '/deposits/create',
+                href: '/my-deposits/create',
             },
         ],
     },
@@ -41,14 +41,14 @@ defineOptions({
 const props = defineProps<Props>();
 
 const form = useForm<{
-    amount: number | null;
+    amount: number | '';
     payment_method: PaymentMethod;
     reference_no: string;
     deposit_date: string;
     proof: File | null;
     notes: string;
 }>({
-    amount: null,
+    amount: '',
     payment_method: 'bank_transfer',
     reference_no: '',
     deposit_date: new Date().toISOString().slice(0, 10),
@@ -65,7 +65,7 @@ const handleProofChange = (event: Event) => {
 };
 
 const submit = () => {
-    form.post('/deposits', {
+    form.post('/my-deposits', {
         preserveScroll: true,
         forceFormData: true,
     });
@@ -94,9 +94,9 @@ const submit = () => {
                 </div>
 
                 <Button as-child variant="outline">
-                    <Link href="/deposits">
+                    <Link href="/my-deposits">
                         <ArrowLeft class="size-4" />
-                        Back to Deposits
+                        Back to My Deposits
                     </Link>
                 </Button>
             </div>

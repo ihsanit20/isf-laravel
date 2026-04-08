@@ -3,10 +3,13 @@ import { Link } from '@inertiajs/vue3';
 import { usePage } from '@inertiajs/vue3';
 import {
     BookOpen,
+    FileBadge2,
     FolderGit2,
     LayoutGrid,
-    PiggyBank,
+    SquarePen,
+    UserRound,
     Users,
+    WalletCards,
 } from 'lucide-vue-next';
 import { computed } from 'vue';
 import AppLogo from '@/components/AppLogo.vue';
@@ -39,12 +42,12 @@ const mainNavItems = computed<NavItem[]>(() => {
         {
             title: 'My Membership',
             href: '/my-membership',
-            icon: Users,
+            icon: UserRound,
         },
         {
-            title: 'Deposits',
-            href: '/deposits',
-            icon: PiggyBank,
+            title: 'My Deposits',
+            href: '/my-deposits',
+            icon: WalletCards,
         },
     ];
 
@@ -58,13 +61,13 @@ const mainNavItems = computed<NavItem[]>(() => {
         items.push({
             title: 'User List',
             href: '/admin/users',
-            icon: Users,
+            icon: SquarePen,
         });
 
         items.push({
             title: 'Deposit Reviews',
             href: '/admin/deposits',
-            icon: PiggyBank,
+            icon: FileBadge2,
         });
     }
 

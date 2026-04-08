@@ -46,8 +46,8 @@ defineOptions({
     layout: {
         breadcrumbs: [
             {
-                title: 'Deposits',
-                href: '/deposits',
+                title: 'My Deposits',
+                href: '/my-deposits',
             },
             {
                 title: 'Allocate Deposit',
@@ -110,7 +110,7 @@ const submit = () => {
             ...row,
             member_id: Number(row.member_id),
         })),
-    })).post(`/deposits/${props.deposit.id}/allocate`, {
+    })).post(`/my-deposits/${props.deposit.id}/allocate`, {
         preserveScroll: true,
     });
 };
@@ -140,9 +140,9 @@ const money = (amount: number): string => `${amount.toLocaleString()} BDT`;
                 </div>
 
                 <Button as-child variant="outline">
-                    <Link href="/deposits">
+                    <Link href="/my-deposits">
                         <ArrowLeft class="size-4" />
-                        Back to Deposits
+                        Back to My Deposits
                     </Link>
                 </Button>
             </div>
