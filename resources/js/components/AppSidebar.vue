@@ -30,12 +30,23 @@ const mainNavItems = computed<NavItem[]>(() => {
             href: dashboard(),
             icon: LayoutGrid,
         },
+        {
+            title: 'My Members',
+            href: '/members',
+            icon: Users,
+        },
     ];
 
     if (adminRoles.includes(page.props.auth.user.role)) {
         items.push({
             title: 'User List',
             href: '/admin/users',
+            icon: Users,
+        });
+
+        items.push({
+            title: 'Member List',
+            href: '/admin/members',
             icon: Users,
         });
     }

@@ -79,10 +79,6 @@ const openEditDialog = (user: AdminUser) => {
                     <h1 class="text-2xl font-semibold tracking-tight">
                         User List
                     </h1>
-                    <p class="mt-2 text-sm text-muted-foreground">
-                        Admin account গুলো থেকে system user management দেখার
-                        জন্য এই তালিকাটি ব্যবহার করুন।
-                    </p>
                 </div>
 
                 <Button class="shrink-0" @click="isCreateDialogOpen = true">
