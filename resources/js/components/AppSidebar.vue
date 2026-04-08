@@ -2,10 +2,10 @@
 import { Link } from '@inertiajs/vue3';
 import { usePage } from '@inertiajs/vue3';
 import {
-    BookOpen,
     FileBadge2,
-    FolderGit2,
+    Info,
     LayoutGrid,
+    ScrollText,
     SquarePen,
     UserRound,
     Users,
@@ -76,14 +76,14 @@ const mainNavItems = computed<NavItem[]>(() => {
 
 const footerNavItems: NavItem[] = [
     {
-        title: 'Repository',
-        href: 'https://github.com/laravel/vue-starter-kit',
-        icon: FolderGit2,
+        title: 'About Us',
+        href: '/about-isf',
+        icon: Info,
     },
     {
-        title: 'Documentation',
-        href: 'https://laravel.com/docs/starter-kits#vue',
-        icon: BookOpen,
+        title: 'Terms & Conditions',
+        href: '/terms-and-conditions',
+        icon: ScrollText,
     },
 ];
 </script>

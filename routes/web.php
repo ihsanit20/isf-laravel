@@ -16,6 +16,8 @@ Route::inertia('/', 'Welcome', [
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::inertia('dashboard', 'Dashboard')->name('dashboard');
+    Route::inertia('about-isf', 'AboutIsf')->name('about');
+    Route::inertia('terms-and-conditions', 'TermsAndConditions')->name('terms');
     Route::get('my-membership', [MemberController::class, 'index'])->name('members.index');
     Route::get('my-membership/create', [MemberController::class, 'create'])->name('members.create');
     Route::post('my-membership', [MemberController::class, 'store'])->name('members.store');
