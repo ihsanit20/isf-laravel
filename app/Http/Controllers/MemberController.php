@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\MemberStatus;
 use App\Http\Requests\Members\StoreMemberRequest;
 use App\Models\Member;
 use App\Models\User;
@@ -41,7 +42,7 @@ class MemberController extends Controller
 
         $user->managedMembers()->create([
             ...$request->safe()->only(['full_name', 'phone', 'relationship_to_user', 'units']),
-            'status' => Member::STATUS_PENDING,
+            'status' => MemberStatus::Pending,
             'applied_at' => now(),
         ]);
 
@@ -56,7 +57,7 @@ class MemberController extends Controller
             'phone' => $member->phone,
             'relationship_to_user' => $member->relationship_to_user,
             'units' => $member->units,
-            'status' => $member->status,
+            'status' => $member->status->value,
             'rejection_note' => $member->rejection_note,
             'applied_at' => $member->applied_at?->format('d M Y, h:i A'),
             'approved_at' => $member->approved_at?->format('d M Y, h:i A'),

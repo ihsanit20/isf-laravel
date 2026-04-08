@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\MemberStatus;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -15,7 +16,7 @@ return new class extends Migration
             $table->string('phone', 20)->nullable();
             $table->string('relationship_to_user', 20);
             $table->unsignedInteger('units')->default(1);
-            $table->string('status', 20)->default('pending');
+            $table->enum('status', MemberStatus::values())->default(MemberStatus::Pending->value);
             $table->timestamp('applied_at')->nullable();
             $table->timestamp('approved_at')->nullable();
             $table->foreignId('approved_by_user_id')->nullable()->constrained('users')->nullOnDelete();

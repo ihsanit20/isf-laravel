@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Enums\MemberStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\ReviewMemberRequest;
 use App\Models\Member;
@@ -25,7 +26,7 @@ class MemberListController extends Controller
                     'phone' => $member->phone,
                     'relationship_to_user' => $member->relationship_to_user,
                     'units' => $member->units,
-                    'status' => $member->status,
+                    'status' => $member->status->value,
                     'rejection_note' => $member->rejection_note,
                     'applied_at' => $member->applied_at?->format('d M Y, h:i A'),
                     'approved_at' => $member->approved_at?->format('d M Y, h:i A'),
@@ -41,16 +42,16 @@ class MemberListController extends Controller
 
     public function review(ReviewMemberRequest $request, Member $member): RedirectResponse
     {
-        $status = $request->string('status')->toString();
+        $status = MemberStatus::from($request->string('status')->toString());
 
         $data = [
             'status' => $status,
-            'rejection_note' => $status === Member::STATUS_REJECTED
+            'rejection_note' => $status === MemberStatus::Rejected
                 ? $request->string('rejection_note')->toString()
                 : null,
         ];
 
-        if ($status === Member::STATUS_APPROVED) {
+        if ($status === MemberStatus::Approved) {
             $data['approved_at'] = now();
             $data['approved_by_user_id'] = $request->user()?->id;
         } else {

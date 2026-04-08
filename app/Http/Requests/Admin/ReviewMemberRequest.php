@@ -2,7 +2,7 @@
 
 namespace App\Http\Requests\Admin;
 
-use App\Models\Member;
+use App\Enums\MemberStatus;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -16,8 +16,8 @@ class ReviewMemberRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'status' => ['required', 'string', Rule::in([Member::STATUS_APPROVED, Member::STATUS_REJECTED])],
-            'rejection_note' => ['nullable', 'string', 'max:255', Rule::requiredIf(fn(): bool => $this->string('status')->toString() === Member::STATUS_REJECTED)],
+            'status' => ['required', Rule::in([MemberStatus::Approved->value, MemberStatus::Rejected->value])],
+            'rejection_note' => ['nullable', 'string', 'max:255', Rule::requiredIf(fn(): bool => $this->string('status')->toString() === MemberStatus::Rejected->value)],
         ];
     }
 }

@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Enums\MemberStatus;
 use App\Models\Member;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -19,7 +20,7 @@ class MemberFactory extends Factory
             'phone' => fake()->numerify('01#########'),
             'relationship_to_user' => fake()->randomElement(Member::relationshipOptions()),
             'units' => fake()->numberBetween(1, 5),
-            'status' => Member::STATUS_PENDING,
+            'status' => MemberStatus::Pending,
             'applied_at' => now(),
             'approved_at' => null,
             'approved_by_user_id' => null,

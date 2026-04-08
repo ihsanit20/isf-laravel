@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\MemberStatus;
 use Database\Factories\MemberFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -22,14 +23,6 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 ])]
 class Member extends Model
 {
-    public const STATUS_PENDING = 'pending';
-
-    public const STATUS_APPROVED = 'approved';
-
-    public const STATUS_REJECTED = 'rejected';
-
-    public const STATUS_INACTIVE = 'inactive';
-
     public const RELATIONSHIP_SELF = 'self';
 
     public const RELATIONSHIP_SPOUSE = 'spouse';
@@ -46,6 +39,7 @@ class Member extends Model
     protected function casts(): array
     {
         return [
+            'status' => MemberStatus::class,
             'applied_at' => 'datetime',
             'approved_at' => 'datetime',
             'units' => 'integer',

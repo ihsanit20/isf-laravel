@@ -15,11 +15,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
 type ReviewMode = 'approve' | 'reject';
+type ReviewStatus = 'approved' | 'rejected';
 
 type ReviewableMember = {
     id: number;
     full_name: string;
-    status: string;
+    status: 'pending' | 'approved' | 'rejected' | 'exited';
 };
 
 type Props = {
@@ -30,8 +31,11 @@ type Props = {
 const props = defineProps<Props>();
 const isOpen = defineModel<boolean>('isOpen', { default: false });
 
+const reviewStatus = (): ReviewStatus =>
+    props.mode === 'approve' ? 'approved' : 'rejected';
+
 const form = useForm({
-    status: props.mode === 'approve' ? 'approved' : 'rejected',
+    status: reviewStatus(),
     rejection_note: '',
 });
 
@@ -39,7 +43,7 @@ const isRejecting = computed(() => props.mode === 'reject');
 
 const resetFormState = () => {
     form.defaults({
-        status: props.mode === 'approve' ? 'approved' : 'rejected',
+        status: reviewStatus(),
         rejection_note: '',
     });
     form.reset();

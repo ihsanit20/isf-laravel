@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\MemberStatus;
 use App\Models\Member;
 use App\Models\User;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -121,11 +122,11 @@ test('admins can approve a member application', function () {
     actingAs($admin);
 
     patch(route('admin.members.review', $member), [
-        'status' => Member::STATUS_APPROVED,
+        'status' => MemberStatus::Approved->value,
         'rejection_note' => '',
     ])->assertRedirect(route('admin.members.index'));
 
-    expect($member->refresh()->status)->toBe(Member::STATUS_APPROVED);
+    expect($member->refresh()->status)->toBe(MemberStatus::Approved);
     expect($member->approved_by_user_id)->toBe($admin->id);
     expect($member->approved_at)->not->toBeNull();
 });
@@ -135,17 +136,17 @@ test('admins can reject a member application with note', function () {
         'role' => 'admin',
     ]);
     $member = Member::factory()->create([
-        'status' => Member::STATUS_PENDING,
+        'status' => MemberStatus::Pending,
     ]);
 
     actingAs($admin);
 
     patch(route('admin.members.review', $member), [
-        'status' => Member::STATUS_REJECTED,
+        'status' => MemberStatus::Rejected->value,
         'rejection_note' => 'Phone number could not be verified.',
     ])->assertRedirect(route('admin.members.index'));
 
-    expect($member->refresh()->status)->toBe(Member::STATUS_REJECTED);
+    expect($member->refresh()->status)->toBe(MemberStatus::Rejected);
     expect($member->rejection_note)->toBe('Phone number could not be verified.');
     expect($member->approved_by_user_id)->toBeNull();
     expect($member->approved_at)->toBeNull();
@@ -160,7 +161,7 @@ test('rejecting a member requires a rejection note', function () {
     actingAs($admin);
 
     patch(route('admin.members.review', $member), [
-        'status' => Member::STATUS_REJECTED,
+        'status' => MemberStatus::Rejected->value,
         'rejection_note' => '',
     ])->assertSessionHasErrors('rejection_note');
 });

@@ -12,7 +12,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 
-type MemberStatus = 'pending' | 'approved' | 'rejected' | 'inactive';
+type MemberStatus = 'pending' | 'approved' | 'rejected' | 'exited';
 type RelationshipOption = 'self' | 'spouse' | 'child' | 'parent' | 'other';
 
 type MemberItem = {
@@ -61,7 +61,7 @@ const statusVariant = (
         return 'destructive';
     }
 
-    if (status === 'inactive') {
+    if (status === 'exited') {
         return 'outline';
     }
 
@@ -77,7 +77,7 @@ const statusSurfaceClass = (status: MemberStatus): string => {
         return 'border-rose-200/80 bg-linear-to-br from-rose-50 via-background to-background';
     }
 
-    if (status === 'inactive') {
+    if (status === 'exited') {
         return 'border-slate-200/80 bg-linear-to-br from-slate-100 via-background to-background';
     }
 

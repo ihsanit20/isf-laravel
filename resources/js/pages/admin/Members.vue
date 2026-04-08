@@ -6,7 +6,7 @@ import MemberReviewDialog from '@/components/admin/MemberReviewDialog.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 
-type MemberStatus = 'pending' | 'approved' | 'rejected' | 'inactive';
+type MemberStatus = 'pending' | 'approved' | 'rejected' | 'exited';
 type RelationshipOption = 'self' | 'spouse' | 'child' | 'parent' | 'other';
 
 type AdminMember = {
@@ -73,7 +73,7 @@ const statusVariant = (
         return 'destructive';
     }
 
-    if (status === 'inactive') {
+    if (status === 'exited') {
         return 'outline';
     }
 
@@ -174,7 +174,10 @@ const openRejectDialog = (member: AdminMember) => {
                                 {{ member.approver || '-' }}
                             </td>
                             <td class="px-4 py-3">
-                                <div class="flex flex-wrap gap-2">
+                                <div
+                                    v-if="member.status === 'pending'"
+                                    class="flex flex-wrap gap-2"
+                                >
                                     <Button
                                         variant="outline"
                                         size="sm"
@@ -192,6 +195,12 @@ const openRejectDialog = (member: AdminMember) => {
                                         Reject
                                     </Button>
                                 </div>
+                                <span
+                                    v-else
+                                    class="text-xs text-muted-foreground"
+                                >
+                                    Reviewed
+                                </span>
                             </td>
                         </tr>
                         <tr v-if="members.length === 0">
