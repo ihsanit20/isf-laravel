@@ -6,6 +6,8 @@ use App\Models\DepositAllocation;
 use App\Models\DepositSubmission;
 use App\Models\Member;
 use App\Models\User;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
 use function Pest\Laravel\actingAs;
 use function Pest\Laravel\get;
@@ -32,11 +34,15 @@ test('authenticated users can view the membership form page', function () {
         ->assertOk()
         ->assertInertia(fn(Assert $page) => $page
             ->component('members/Create')
-            ->where('relationshipOptions', Member::relationshipOptions()));
+            ->where('relationshipOptions', Member::relationshipOptions())
+            ->where('paymentMethods', Member::registrationFeePaymentMethods())
+            ->where('registrationFeeAmount', Member::REGISTRATION_FEE_AMOUNT));
 });
 
 test('user can submit multiple member applications', function () {
     $user = User::factory()->create();
+
+    Storage::fake('public');
 
     actingAs($user);
 
@@ -45,6 +51,9 @@ test('user can submit multiple member applications', function () {
         'phone' => '01711111111',
         'relationship_to_user' => 'self',
         'units' => 1,
+        'registration_fee_payment_method' => Member::PAYMENT_METHOD_BANK_TRANSFER,
+        'registration_fee_reference_no' => 'MEM-1001',
+        'registration_fee_proof' => UploadedFile::fake()->image('fee-proof-1.jpg'),
     ])->assertRedirect(route('members.index'));
 
     post(route('members.store'), [
@@ -52,10 +61,17 @@ test('user can submit multiple member applications', function () {
         'phone' => '01722222222',
         'relationship_to_user' => 'spouse',
         'units' => 3,
+        'registration_fee_payment_method' => Member::PAYMENT_METHOD_MOBILE_BANKING,
+        'registration_fee_reference_no' => 'MEM-1002',
+        'registration_fee_proof' => UploadedFile::fake()->image('fee-proof-2.jpg'),
     ])->assertRedirect(route('members.index'));
 
     expect($user->managedMembers()->count())->toBe(2);
     expect($user->managedMembers()->where('full_name', 'Applicant Two')->first()?->units)->toBe(3);
+    expect($user->managedMembers()->where('full_name', 'Applicant One')->first()?->registration_fee_amount)
+        ->toBe(Member::REGISTRATION_FEE_AMOUNT);
+    expect($user->managedMembers()->where('full_name', 'Applicant One')->first()?->registration_fee_proof_path)
+        ->not->toBeNull();
 });
 
 test('user only sees members they manage', function () {
@@ -88,7 +104,13 @@ test('member application validates units and relationship', function () {
         'phone' => '01733333333',
         'relationship_to_user' => 'cousin',
         'units' => 0,
-    ])->assertSessionHasErrors(['relationship_to_user', 'units']);
+        'registration_fee_payment_method' => 'invalid_method',
+    ])->assertSessionHasErrors([
+        'relationship_to_user',
+        'units',
+        'registration_fee_payment_method',
+        'registration_fee_proof',
+    ]);
 });
 
 test('users can view the annual unit calendar for their managed member', function () {

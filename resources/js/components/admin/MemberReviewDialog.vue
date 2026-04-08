@@ -21,6 +21,10 @@ type ReviewableMember = {
     id: number;
     full_name: string;
     status: 'pending' | 'approved' | 'rejected' | 'exited';
+    registration_fee_amount: number;
+    registration_fee_payment_method_label: string | null;
+    registration_fee_reference_no: string | null;
+    registration_fee_proof_url: string | null;
 };
 
 type Props = {
@@ -101,12 +105,45 @@ watch(
                             ? `Record a rejection note for ${member?.full_name}.`
                             : isExiting
                               ? `Confirm that ${member?.full_name} has exited the fund.`
-                              : `Confirm approval for ${member?.full_name}.`
+                              : `Confirm approval for ${member?.full_name} after reviewing the membership details and registration fee proof.`
                     }}
                 </DialogDescription>
             </DialogHeader>
 
             <form class="space-y-4" @submit.prevent="submit">
+                <div
+                    v-if="!isRejecting && member"
+                    class="rounded-2xl border border-border/70 bg-muted/20 px-4 py-3 text-sm"
+                >
+                    <p class="font-medium text-foreground">
+                        Registration fee review
+                    </p>
+                    <p class="mt-1 text-muted-foreground">
+                        {{ member.registration_fee_amount.toLocaleString() }}
+                        BDT via
+                        {{
+                            member.registration_fee_payment_method_label ||
+                            'Unknown method'
+                        }}
+                    </p>
+                    <p class="mt-1 text-muted-foreground">
+                        Reference:
+                        {{
+                            member.registration_fee_reference_no ||
+                            'Not provided'
+                        }}
+                    </p>
+                    <a
+                        v-if="member.registration_fee_proof_url"
+                        :href="member.registration_fee_proof_url"
+                        class="mt-2 inline-flex font-medium text-foreground underline underline-offset-4"
+                        target="_blank"
+                        rel="noreferrer"
+                    >
+                        View uploaded proof
+                    </a>
+                </div>
+
                 <div v-if="isRejecting" class="grid gap-2">
                     <Label for="rejection-note">Rejection note</Label>
                     <Input

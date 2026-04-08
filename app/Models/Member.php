@@ -16,6 +16,10 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'phone',
     'relationship_to_user',
     'units',
+    'registration_fee_amount',
+    'registration_fee_payment_method',
+    'registration_fee_reference_no',
+    'registration_fee_proof_path',
     'status',
     'applied_at',
     'approved_at',
@@ -24,6 +28,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 ])]
 class Member extends Model
 {
+    public const REGISTRATION_FEE_AMOUNT = 100;
+
     public const RELATIONSHIP_SELF = 'self';
 
     public const RELATIONSHIP_SPOUSE = 'spouse';
@@ -33,6 +39,14 @@ class Member extends Model
     public const RELATIONSHIP_PARENT = 'parent';
 
     public const RELATIONSHIP_OTHER = 'other';
+
+    public const PAYMENT_METHOD_BANK_TRANSFER = 'bank_transfer';
+
+    public const PAYMENT_METHOD_CASH_DEPOSIT = 'cash_deposit';
+
+    public const PAYMENT_METHOD_MOBILE_BANKING = 'mobile_banking';
+
+    public const PAYMENT_METHOD_OTHER = 'other';
 
     /** @use HasFactory<MemberFactory> */
     use HasFactory;
@@ -44,6 +58,7 @@ class Member extends Model
             'applied_at' => 'datetime',
             'approved_at' => 'datetime',
             'units' => 'integer',
+            'registration_fee_amount' => 'integer',
         ];
     }
 
@@ -56,6 +71,25 @@ class Member extends Model
             self::RELATIONSHIP_PARENT,
             self::RELATIONSHIP_OTHER,
         ];
+    }
+
+    public static function registrationFeePaymentMethods(): array
+    {
+        return [
+            self::PAYMENT_METHOD_BANK_TRANSFER,
+            self::PAYMENT_METHOD_CASH_DEPOSIT,
+            self::PAYMENT_METHOD_MOBILE_BANKING,
+            self::PAYMENT_METHOD_OTHER,
+        ];
+    }
+
+    public static function paymentMethodLabel(?string $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        return str($value)->replace('_', ' ')->title()->toString();
     }
 
     public function manager(): BelongsTo

@@ -15,6 +15,11 @@ type AdminMember = {
     phone: string | null;
     relationship_to_user: RelationshipOption;
     units: number;
+    registration_fee_amount: number;
+    registration_fee_payment_method: string | null;
+    registration_fee_payment_method_label: string | null;
+    registration_fee_reference_no: string | null;
+    registration_fee_proof_url: string | null;
     status: MemberStatus;
     rejection_note: string | null;
     applied_at: string | null;
@@ -57,6 +62,13 @@ const reviewableMember = computed(() => {
         id: selectedMember.value.id,
         full_name: selectedMember.value.full_name,
         status: selectedMember.value.status,
+        registration_fee_amount: selectedMember.value.registration_fee_amount,
+        registration_fee_payment_method_label:
+            selectedMember.value.registration_fee_payment_method_label,
+        registration_fee_reference_no:
+            selectedMember.value.registration_fee_reference_no,
+        registration_fee_proof_url:
+            selectedMember.value.registration_fee_proof_url,
     };
 });
 
@@ -128,6 +140,7 @@ const openExitDialog = (member: AdminMember) => {
                             <th class="px-4 py-3 font-medium">Managed By</th>
                             <th class="px-4 py-3 font-medium">Relationship</th>
                             <th class="px-4 py-3 font-medium">Units</th>
+                            <th class="px-4 py-3 font-medium">Reg Fee</th>
                             <th class="px-4 py-3 font-medium">Status</th>
                             <th class="px-4 py-3 font-medium">Applied At</th>
                             <th class="px-4 py-3 font-medium">Reviewed By</th>
@@ -162,6 +175,35 @@ const openExitDialog = (member: AdminMember) => {
                                 }}
                             </td>
                             <td class="px-4 py-3">{{ member.units }}</td>
+                            <td class="px-4 py-3 text-muted-foreground">
+                                <div>
+                                    {{
+                                        member.registration_fee_amount.toLocaleString()
+                                    }}
+                                    BDT
+                                </div>
+                                <div class="text-xs">
+                                    {{
+                                        member.registration_fee_payment_method_label ||
+                                        'Method not set'
+                                    }}
+                                </div>
+                                <div class="text-xs">
+                                    {{
+                                        member.registration_fee_reference_no ||
+                                        'No reference'
+                                    }}
+                                </div>
+                                <a
+                                    v-if="member.registration_fee_proof_url"
+                                    :href="member.registration_fee_proof_url"
+                                    class="text-xs font-medium text-foreground underline underline-offset-4"
+                                    target="_blank"
+                                    rel="noreferrer"
+                                >
+                                    View proof
+                                </a>
+                            </td>
                             <td class="px-4 py-3">
                                 <Badge :variant="statusVariant(member.status)">
                                     {{ relationshipLabel(member.status) }}
@@ -226,7 +268,7 @@ const openExitDialog = (member: AdminMember) => {
                         </tr>
                         <tr v-if="members.length === 0">
                             <td
-                                colspan="8"
+                                colspan="9"
                                 class="px-4 py-8 text-center text-muted-foreground"
                             >
                                 No members found.

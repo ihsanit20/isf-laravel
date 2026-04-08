@@ -17,6 +17,8 @@ trait MemberValidationRules
             'phone' => ['nullable', 'string', 'max:20'],
             'relationship_to_user' => ['required', 'string', Rule::in(Member::relationshipOptions())],
             'units' => ['required', 'integer', 'min:1'],
+            'registration_fee_payment_method' => ['required', 'string', Rule::in(Member::registrationFeePaymentMethods())],
+            'registration_fee_reference_no' => ['nullable', 'string', 'max:100'],
         ];
     }
 }
