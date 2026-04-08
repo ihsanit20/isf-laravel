@@ -58,18 +58,19 @@ withDefaults(
                     class="w-full rounded-2xl bg-white p-8 shadow-sm ring-1 ring-slate-200 md:p-12"
                 >
                     <p class="text-sm font-medium text-slate-500">
-                        Simple savings platform
+                        Group savings platform
                     </p>
                     <h1
                         class="mt-3 text-3xl font-semibold tracking-tight md:text-4xl"
                     >
-                        Member savings, deposits, and statements in one place.
+                        Savings records, deposit tracking, and member statements
+                        in one place.
                     </h1>
                     <p
                         class="mt-4 max-w-2xl text-base leading-7 text-slate-600"
                     >
-                        ISF keeps member balances, deposit history, and account
-                        updates clear and easy to check.
+                        ISF gives members and administrators a clear view of
+                        balances, deposit history, and account activity.
                     </p>
 
                     <div class="mt-8 flex flex-wrap gap-3">
@@ -107,7 +108,8 @@ withDefaults(
                                 Savings tracking
                             </p>
                             <p class="mt-1">
-                                See deposits and current balance clearly.
+                                Review deposits and current balances with
+                                clarity.
                             </p>
                         </div>
                         <div class="rounded-xl bg-slate-50 p-4">
@@ -115,16 +117,17 @@ withDefaults(
                                 Verification status
                             </p>
                             <p class="mt-1">
-                                Members can follow pending and approved
-                                deposits.
+                                Follow pending and approved deposits without
+                                ambiguity.
                             </p>
                         </div>
                         <div class="rounded-xl bg-slate-50 p-4">
                             <p class="font-medium text-slate-900">
-                                Simple access
+                                Member access
                             </p>
                             <p class="mt-1">
-                                Login and check statements without extra steps.
+                                Sign in and review statements without
+                                unnecessary steps.
                             </p>
                         </div>
                     </div>

@@ -12,7 +12,8 @@ import { email } from '@/routes/password';
 defineOptions({
     layout: {
         title: 'Forgot password',
-        description: 'Enter your email to receive a password reset link',
+        description:
+            'Enter your email address to receive a password reset link.',
     },
 });
 
@@ -53,7 +54,7 @@ defineProps<{
                     data-test="email-password-reset-link-button"
                 >
                     <Spinner v-if="processing" />
-                    Email password reset link
+                    Send password reset link
                 </Button>
             </div>
         </Form>

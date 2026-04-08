@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Head, Link, useForm } from '@inertiajs/vue3';
-import { ArrowLeft, ShieldCheck } from 'lucide-vue-next';
+import { ArrowLeft } from 'lucide-vue-next';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -73,9 +73,9 @@ const submit = () => {
                         Membership Form
                     </h1>
                     <p class="mt-3 text-sm leading-6 text-muted-foreground">
-                        Submit basic membership information for yourself or a
-                        family member. After admin review, the updated status
-                        will appear in your membership list.
+                        Submit the required membership details for yourself or a
+                        family member. Application status will be updated after
+                        administrative review.
                     </p>
                 </div>
 
@@ -152,7 +152,8 @@ const submit = () => {
                                 min="1"
                             />
                             <p class="text-xs text-muted-foreground">
-                                Monthly savings = units × 1000 BDT.
+                                Monthly savings are calculated as units × 1000
+                                BDT.
                             </p>
                             <InputError :message="form.errors.units" />
                         </div>
@@ -171,34 +172,34 @@ const submit = () => {
                     <p
                         class="text-xs font-medium tracking-[0.2em] text-muted-foreground uppercase"
                     >
-                        What Happens Next
+                        Review Process
                     </p>
                     <div class="mt-5 space-y-4 text-sm">
                         <div
                             class="rounded-2xl bg-background px-4 py-4 shadow-sm"
                         >
-                            <p class="font-medium">1. Application submitted</p>
+                            <p class="font-medium">1. Submission</p>
                             <p class="mt-1 leading-6 text-muted-foreground">
-                                Your basic membership information will be added
-                                to the admin review queue.
+                                The application is recorded and placed in the
+                                review queue.
                             </p>
                         </div>
                         <div
                             class="rounded-2xl bg-background px-4 py-4 shadow-sm"
                         >
-                            <p class="font-medium">2. Admin review</p>
+                            <p class="font-medium">2. Review</p>
                             <p class="mt-1 leading-6 text-muted-foreground">
-                                An admin will approve or reject the application
-                                and add a note when needed.
+                                An administrator approves or rejects the
+                                application and records a note when required.
                             </p>
                         </div>
                         <div
                             class="rounded-2xl bg-background px-4 py-4 shadow-sm"
                         >
-                            <p class="font-medium">3. Status visible</p>
+                            <p class="font-medium">3. Status Update</p>
                             <p class="mt-1 leading-6 text-muted-foreground">
-                                The final status will appear on your My
-                                Membership page in card view.
+                                The latest decision appears on the My Membership
+                                page.
                             </p>
                         </div>
                     </div>

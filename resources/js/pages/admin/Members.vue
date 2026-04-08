@@ -102,6 +102,10 @@ const openRejectDialog = (member: AdminMember) => {
                 <h1 class="text-2xl font-semibold tracking-tight">
                     Member List
                 </h1>
+                <p class="mt-2 text-sm text-muted-foreground">
+                    Review submitted membership applications and record approval
+                    decisions.
+                </p>
             </div>
         </section>
 
@@ -131,12 +135,14 @@ const openRejectDialog = (member: AdminMember) => {
                                     {{ member.full_name }}
                                 </div>
                                 <div class="text-xs text-muted-foreground">
-                                    {{ member.phone || 'No phone provided' }}
+                                    {{ member.phone || 'Phone not provided' }}
                                 </div>
                             </td>
                             <td class="px-4 py-3 text-muted-foreground">
                                 <div>
-                                    {{ member.manager.name || 'Unknown user' }}
+                                    {{
+                                        member.manager.name || 'Unknown account'
+                                    }}
                                 </div>
                                 <div class="text-xs">
                                     {{ member.manager.email || '-' }}

@@ -83,7 +83,7 @@ watch(
                 <DialogDescription>
                     {{
                         isRejecting
-                            ? `Provide a short reason before rejecting ${member?.full_name}.`
+                            ? `Record a rejection note for ${member?.full_name}.`
                             : `Confirm approval for ${member?.full_name}.`
                     }}
                 </DialogDescription>
@@ -95,7 +95,7 @@ watch(
                     <Input
                         id="rejection-note"
                         v-model="form.rejection_note"
-                        placeholder="Short reason for rejection"
+                        placeholder="Enter the reason for rejection"
                     />
                     <InputError :message="form.errors.rejection_note" />
                 </div>

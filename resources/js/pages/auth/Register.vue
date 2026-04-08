@@ -13,7 +13,7 @@ import { store } from '@/routes/register';
 defineOptions({
     layout: {
         title: 'Create an account',
-        description: 'Enter your details below to create your account',
+        description: 'Provide your details to create a new account.',
     },
 });
 </script>

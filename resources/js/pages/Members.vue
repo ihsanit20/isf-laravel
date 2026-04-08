@@ -102,9 +102,8 @@ const statusSurfaceClass = (status: MemberStatus): string => {
                     <p
                         class="mt-2 max-w-xl text-sm leading-6 text-muted-foreground"
                     >
-                        View your membership applications here in a card-based
-                        layout. Submit new applications from the separate form
-                        page.
+                        Review all membership applications and their current
+                        status in one place.
                     </p>
                 </div>
 
@@ -200,7 +199,7 @@ const statusSurfaceClass = (status: MemberStatus): string => {
                                 Applied At
                             </div>
                             <p class="mt-2 font-medium text-foreground">
-                                {{ member.applied_at || 'Pending' }}
+                                {{ member.applied_at || 'Not available' }}
                             </p>
                         </div>
 
@@ -212,7 +211,7 @@ const statusSurfaceClass = (status: MemberStatus): string => {
                                 Approval
                             </div>
                             <p class="mt-2 font-medium text-foreground">
-                                {{ member.approved_at || 'Awaiting review' }}
+                                {{ member.approved_at || 'Pending review' }}
                             </p>
                         </div>
                     </div>
@@ -230,8 +229,8 @@ const statusSurfaceClass = (status: MemberStatus): string => {
                             {{
                                 member.rejection_note ||
                                 (member.approved_at
-                                    ? 'Approved by admin.'
-                                    : 'No review note yet.')
+                                    ? 'Approved by an administrator.'
+                                    : 'No review note available.')
                             }}
                         </p>
                     </div>
@@ -250,16 +249,16 @@ const statusSurfaceClass = (status: MemberStatus): string => {
                     No Membership Yet
                 </p>
                 <h2 class="mt-3 text-2xl font-semibold tracking-tight">
-                    Start your first membership application
+                    No membership applications found
                 </h2>
                 <p class="mt-3 text-sm leading-6 text-muted-foreground">
-                    Use the separate form page to submit a membership
-                    application for yourself or a family member.
+                    Submit a new application to create a membership record for
+                    yourself or an eligible family member.
                 </p>
                 <Button as-child class="mt-6">
                     <Link href="/my-membership/create">
                         <Plus class="size-4" />
-                        Go to Membership Form
+                        Open Membership Form
                     </Link>
                 </Button>
             </div>
