@@ -79,4 +79,14 @@ class User extends Authenticatable
     {
         return $this->hasMany(Member::class, 'managed_by_user_id');
     }
+
+    public function depositSubmissions(): HasMany
+    {
+        return $this->hasMany(DepositSubmission::class);
+    }
+
+    public function verifiedDepositReviews(): HasMany
+    {
+        return $this->hasMany(DepositSubmission::class, 'verified_by_user_id');
+    }
 }

@@ -1,7 +1,13 @@
 <script setup lang="ts">
 import { Link } from '@inertiajs/vue3';
 import { usePage } from '@inertiajs/vue3';
-import { BookOpen, FolderGit2, LayoutGrid, Users } from 'lucide-vue-next';
+import {
+    BookOpen,
+    FolderGit2,
+    LayoutGrid,
+    PiggyBank,
+    Users,
+} from 'lucide-vue-next';
 import { computed } from 'vue';
 import AppLogo from '@/components/AppLogo.vue';
 import NavFooter from '@/components/NavFooter.vue';
@@ -35,6 +41,11 @@ const mainNavItems = computed<NavItem[]>(() => {
             href: '/my-membership',
             icon: Users,
         },
+        {
+            title: 'Deposits',
+            href: '/deposits',
+            icon: PiggyBank,
+        },
     ];
 
     if (adminRoles.includes(page.props.auth.user.role)) {
@@ -48,6 +59,12 @@ const mainNavItems = computed<NavItem[]>(() => {
             title: 'User List',
             href: '/admin/users',
             icon: Users,
+        });
+
+        items.push({
+            title: 'Deposit Reviews',
+            href: '/admin/deposits',
+            icon: PiggyBank,
         });
     }
 
