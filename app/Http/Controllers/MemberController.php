@@ -18,23 +18,19 @@ class MemberController extends Controller
         $user = $request->user();
 
         return Inertia::render('Members', [
-            'relationshipOptions' => Member::relationshipOptions(),
             'members' => $user->managedMembers()
                 ->latest('applied_at')
                 ->latest('id')
                 ->get()
-                ->map(fn(Member $member): array => [
-                    'id' => $member->id,
-                    'full_name' => $member->full_name,
-                    'phone' => $member->phone,
-                    'relationship_to_user' => $member->relationship_to_user,
-                    'units' => $member->units,
-                    'status' => $member->status,
-                    'rejection_note' => $member->rejection_note,
-                    'applied_at' => $member->applied_at?->format('d M Y, h:i A'),
-                    'approved_at' => $member->approved_at?->format('d M Y, h:i A'),
-                ])
+                ->map(fn(Member $member): array => $this->transformMember($member))
                 ->values(),
+        ]);
+    }
+
+    public function create(): Response
+    {
+        return Inertia::render('members/Create', [
+            'relationshipOptions' => Member::relationshipOptions(),
         ]);
     }
 
@@ -50,5 +46,20 @@ class MemberController extends Controller
         ]);
 
         return to_route('members.index');
+    }
+
+    private function transformMember(Member $member): array
+    {
+        return [
+            'id' => $member->id,
+            'full_name' => $member->full_name,
+            'phone' => $member->phone,
+            'relationship_to_user' => $member->relationship_to_user,
+            'units' => $member->units,
+            'status' => $member->status,
+            'rejection_note' => $member->rejection_note,
+            'applied_at' => $member->applied_at?->format('d M Y, h:i A'),
+            'approved_at' => $member->approved_at?->format('d M Y, h:i A'),
+        ];
     }
 }

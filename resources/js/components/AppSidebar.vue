@@ -31,22 +31,22 @@ const mainNavItems = computed<NavItem[]>(() => {
             icon: LayoutGrid,
         },
         {
-            title: 'My Members',
-            href: '/members',
+            title: 'My Membership',
+            href: '/my-membership',
             icon: Users,
         },
     ];
 
     if (adminRoles.includes(page.props.auth.user.role)) {
         items.push({
-            title: 'User List',
-            href: '/admin/users',
+            title: 'Member List',
+            href: '/admin/members',
             icon: Users,
         });
 
         items.push({
-            title: 'Member List',
-            href: '/admin/members',
+            title: 'User List',
+            href: '/admin/users',
             icon: Users,
         });
     }

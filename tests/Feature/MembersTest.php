@@ -17,7 +17,17 @@ test('authenticated users can view their member list page', function () {
         ->assertOk()
         ->assertInertia(fn(Assert $page) => $page
             ->component('Members')
-            ->has('members', 2)
+            ->has('members', 2));
+});
+
+test('authenticated users can view the membership form page', function () {
+    $user = User::factory()->create();
+
+    actingAs($user)
+        ->get(route('members.create'))
+        ->assertOk()
+        ->assertInertia(fn(Assert $page) => $page
+            ->component('members/Create')
             ->where('relationshipOptions', Member::relationshipOptions()));
 });
 

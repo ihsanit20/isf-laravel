@@ -12,8 +12,9 @@ Route::inertia('/', 'Welcome', [
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::inertia('dashboard', 'Dashboard')->name('dashboard');
-    Route::get('members', [MemberController::class, 'index'])->name('members.index');
-    Route::post('members', [MemberController::class, 'store'])->name('members.store');
+    Route::get('my-membership', [MemberController::class, 'index'])->name('members.index');
+    Route::get('my-membership/create', [MemberController::class, 'create'])->name('members.create');
+    Route::post('my-membership', [MemberController::class, 'store'])->name('members.store');
 });
 
 Route::middleware(['auth', 'verified', 'admin'])->group(function () {

@@ -1,17 +1,16 @@
 <script setup lang="ts">
-import { Head, useForm } from '@inertiajs/vue3';
-import InputError from '@/components/InputError.vue';
+import { Head, Link } from '@inertiajs/vue3';
+import {
+    CalendarDays,
+    CircleAlert,
+    Clock3,
+    Phone,
+    Plus,
+    UserRound,
+    WalletCards,
+} from 'lucide-vue-next';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
 
 type MemberStatus = 'pending' | 'approved' | 'rejected' | 'inactive';
 type RelationshipOption = 'self' | 'spouse' | 'child' | 'parent' | 'other';
@@ -30,33 +29,20 @@ type MemberItem = {
 
 type Props = {
     members: MemberItem[];
-    relationshipOptions: RelationshipOption[];
 };
 
 defineOptions({
     layout: {
         breadcrumbs: [
             {
-                title: 'My Members',
-                href: '/members',
+                title: 'My Membership',
+                href: '/my-membership',
             },
         ],
     },
 });
 
-const props = defineProps<Props>();
-
-const form = useForm<{
-    full_name: string;
-    phone: string;
-    relationship_to_user: RelationshipOption;
-    units: number;
-}>({
-    full_name: '',
-    phone: '',
-    relationship_to_user: 'self',
-    units: 1,
-});
+defineProps<Props>();
 
 const relationshipLabel = (value: RelationshipOption): string =>
     value.replace('_', ' ').replace(/\b\w/g, (char) => char.toUpperCase());
@@ -82,160 +68,200 @@ const statusVariant = (
     return 'secondary';
 };
 
-const submit = () => {
-    form.post('/members', {
-        preserveScroll: true,
-        onSuccess: () => {
-            form.reset();
-            form.relationship_to_user = 'self';
-            form.units = 1;
-        },
-    });
+const statusSurfaceClass = (status: MemberStatus): string => {
+    if (status === 'approved') {
+        return 'border-emerald-200/80 bg-linear-to-br from-emerald-50 via-background to-background';
+    }
+
+    if (status === 'rejected') {
+        return 'border-rose-200/80 bg-linear-to-br from-rose-50 via-background to-background';
+    }
+
+    if (status === 'inactive') {
+        return 'border-slate-200/80 bg-linear-to-br from-slate-100 via-background to-background';
+    }
+
+    return 'border-amber-200/80 bg-linear-to-br from-amber-50 via-background to-background';
 };
 </script>
 
 <template>
-    <Head title="My Members" />
+    <Head title="My Membership" />
 
     <div class="flex h-full flex-1 flex-col gap-4 rounded-xl p-4">
         <section
-            class="rounded-xl border border-sidebar-border/70 bg-background p-6 shadow-sm dark:border-sidebar-border"
+            class="rounded-3xl border border-sidebar-border/70 bg-background p-6 shadow-sm"
         >
-            <div class="max-w-2xl">
-                <h1 class="text-2xl font-semibold tracking-tight">
-                    My Members
-                </h1>
-                <p class="mt-2 text-sm text-muted-foreground">
-                    নিজের জন্য বা family member-এর জন্য membership application
-                    এখান থেকে submit করুন।
-                </p>
-            </div>
-
-            <form
-                class="mt-6 grid gap-4 md:grid-cols-2"
-                @submit.prevent="submit"
+            <div
+                class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between"
             >
-                <div class="grid gap-2 md:col-span-2">
-                    <Label for="member-full-name">Full name</Label>
-                    <Input
-                        id="member-full-name"
-                        v-model="form.full_name"
-                        placeholder="Member full name"
-                    />
-                    <InputError :message="form.errors.full_name" />
-                </div>
-
-                <div class="grid gap-2">
-                    <Label for="member-phone">Phone</Label>
-                    <Input
-                        id="member-phone"
-                        v-model="form.phone"
-                        type="tel"
-                        placeholder="01XXXXXXXXX"
-                    />
-                    <InputError :message="form.errors.phone" />
-                </div>
-
-                <div class="grid gap-2">
-                    <Label for="member-relationship">Relationship</Label>
-                    <Select v-model="form.relationship_to_user">
-                        <SelectTrigger id="member-relationship" class="w-full">
-                            <SelectValue placeholder="Select relationship" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem
-                                v-for="relationship in props.relationshipOptions"
-                                :key="relationship"
-                                :value="relationship"
-                            >
-                                {{ relationshipLabel(relationship) }}
-                            </SelectItem>
-                        </SelectContent>
-                    </Select>
-                    <InputError :message="form.errors.relationship_to_user" />
-                </div>
-
-                <div class="grid gap-2 md:col-span-2 md:max-w-xs">
-                    <Label for="member-units">Units</Label>
-                    <Input
-                        id="member-units"
-                        v-model.number="form.units"
-                        type="number"
-                        min="1"
-                    />
-                    <p class="text-xs text-muted-foreground">
-                        Monthly savings will be calculated as units × 1000 BDT.
+                <div class="max-w-2xl">
+                    <h1 class="mt-3 text-3xl font-semibold tracking-tight">
+                        My Membership
+                    </h1>
+                    <p
+                        class="mt-2 max-w-xl text-sm leading-6 text-muted-foreground"
+                    >
+                        View your membership applications here in a card-based
+                        layout. Submit new applications from the separate form
+                        page.
                     </p>
-                    <InputError :message="form.errors.units" />
                 </div>
 
-                <div class="md:col-span-2">
-                    <Button type="submit" :disabled="form.processing">
-                        Submit Membership Application
-                    </Button>
-                </div>
-            </form>
+                <Button as-child class="shrink-0">
+                    <Link href="/my-membership/create">
+                        <Plus class="size-4" />
+                        Apply for Membership
+                    </Link>
+                </Button>
+            </div>
         </section>
 
         <section
-            class="overflow-hidden rounded-xl border border-sidebar-border/70 bg-background shadow-sm dark:border-sidebar-border"
+            v-if="members.length > 0"
+            class="grid gap-4 xl:grid-cols-2 2xl:grid-cols-3"
         >
-            <div class="overflow-x-auto">
-                <table
-                    class="min-w-full divide-y divide-sidebar-border/70 text-sm"
-                >
-                    <thead class="bg-muted/40 text-left">
-                        <tr>
-                            <th class="px-4 py-3 font-medium">Member</th>
-                            <th class="px-4 py-3 font-medium">Phone</th>
-                            <th class="px-4 py-3 font-medium">Relationship</th>
-                            <th class="px-4 py-3 font-medium">Units</th>
-                            <th class="px-4 py-3 font-medium">Status</th>
-                            <th class="px-4 py-3 font-medium">Applied At</th>
-                            <th class="px-4 py-3 font-medium">Note</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-sidebar-border/70">
-                        <tr v-for="member in members" :key="member.id">
-                            <td class="px-4 py-3 font-medium">
-                                {{ member.full_name }}
-                            </td>
-                            <td class="px-4 py-3 text-muted-foreground">
-                                {{ member.phone || 'Not set' }}
-                            </td>
-                            <td class="px-4 py-3 text-muted-foreground">
+            <article
+                v-for="member in members"
+                :key="member.id"
+                class="rounded-[26px] border p-5 shadow-sm transition-transform duration-200 hover:-translate-y-0.5"
+                :class="statusSurfaceClass(member.status)"
+            >
+                <div class="flex items-start justify-between gap-3">
+                    <div>
+                        <p
+                            class="text-xs font-medium tracking-[0.2em] text-muted-foreground uppercase"
+                        >
+                            Application #{{ member.id }}
+                        </p>
+                        <h2
+                            class="mt-2 text-xl font-semibold tracking-tight text-foreground"
+                        >
+                            {{ member.full_name }}
+                        </h2>
+                    </div>
+
+                    <Badge :variant="statusVariant(member.status)">
+                        {{ statusLabel(member.status) }}
+                    </Badge>
+                </div>
+
+                <div class="mt-5 grid gap-3 text-sm">
+                    <div
+                        class="flex items-center gap-3 rounded-2xl bg-background/75 px-3 py-3"
+                    >
+                        <UserRound class="size-4 text-muted-foreground" />
+                        <div>
+                            <p class="text-xs text-muted-foreground">
+                                Relationship
+                            </p>
+                            <p class="font-medium text-foreground">
                                 {{
                                     relationshipLabel(
                                         member.relationship_to_user,
                                     )
                                 }}
-                            </td>
-                            <td class="px-4 py-3">{{ member.units }}</td>
-                            <td class="px-4 py-3">
-                                <Badge :variant="statusVariant(member.status)">
-                                    {{ statusLabel(member.status) }}
-                                </Badge>
-                            </td>
-                            <td class="px-4 py-3 text-muted-foreground">
-                                {{ member.applied_at || 'Pending' }}
-                            </td>
-                            <td class="px-4 py-3 text-muted-foreground">
-                                {{
-                                    member.rejection_note ||
-                                    (member.approved_at ? 'Approved' : '-')
+                            </p>
+                        </div>
+                    </div>
+
+                    <div
+                        class="flex items-center gap-3 rounded-2xl bg-background/75 px-3 py-3"
+                    >
+                        <WalletCards class="size-4 text-muted-foreground" />
+                        <div>
+                            <p class="text-xs text-muted-foreground">Units</p>
+                            <p class="font-medium text-foreground">
+                                {{ member.units }} unit{{
+                                    member.units > 1 ? 's' : ''
                                 }}
-                            </td>
-                        </tr>
-                        <tr v-if="members.length === 0">
-                            <td
-                                colspan="7"
-                                class="px-4 py-8 text-center text-muted-foreground"
+                            </p>
+                        </div>
+                    </div>
+
+                    <div
+                        class="flex items-center gap-3 rounded-2xl bg-background/75 px-3 py-3"
+                    >
+                        <Phone class="size-4 text-muted-foreground" />
+                        <div>
+                            <p class="text-xs text-muted-foreground">Phone</p>
+                            <p class="font-medium text-foreground">
+                                {{ member.phone || 'Not set' }}
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="grid gap-3 md:grid-cols-2">
+                        <div class="rounded-2xl bg-background/75 px-3 py-3">
+                            <div
+                                class="flex items-center gap-2 text-xs text-muted-foreground"
                             >
-                                No member applications submitted yet.
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
+                                <CalendarDays class="size-4" />
+                                Applied At
+                            </div>
+                            <p class="mt-2 font-medium text-foreground">
+                                {{ member.applied_at || 'Pending' }}
+                            </p>
+                        </div>
+
+                        <div class="rounded-2xl bg-background/75 px-3 py-3">
+                            <div
+                                class="flex items-center gap-2 text-xs text-muted-foreground"
+                            >
+                                <Clock3 class="size-4" />
+                                Approval
+                            </div>
+                            <p class="mt-2 font-medium text-foreground">
+                                {{ member.approved_at || 'Awaiting review' }}
+                            </p>
+                        </div>
+                    </div>
+
+                    <div
+                        class="rounded-2xl border border-dashed border-border/80 bg-background/70 px-3 py-3"
+                    >
+                        <div
+                            class="flex items-center gap-2 text-xs text-muted-foreground"
+                        >
+                            <CircleAlert class="size-4" />
+                            Review Note
+                        </div>
+                        <p class="mt-2 text-sm leading-6 text-foreground">
+                            {{
+                                member.rejection_note ||
+                                (member.approved_at
+                                    ? 'Approved by admin.'
+                                    : 'No review note yet.')
+                            }}
+                        </p>
+                    </div>
+                </div>
+            </article>
+        </section>
+
+        <section
+            v-else
+            class="rounded-[28px] border border-dashed border-sidebar-border/80 bg-background p-10 text-center shadow-sm"
+        >
+            <div class="mx-auto max-w-md">
+                <p
+                    class="text-sm font-medium tracking-[0.2em] text-muted-foreground uppercase"
+                >
+                    No Membership Yet
+                </p>
+                <h2 class="mt-3 text-2xl font-semibold tracking-tight">
+                    Start your first membership application
+                </h2>
+                <p class="mt-3 text-sm leading-6 text-muted-foreground">
+                    Use the separate form page to submit a membership
+                    application for yourself or a family member.
+                </p>
+                <Button as-child class="mt-6">
+                    <Link href="/my-membership/create">
+                        <Plus class="size-4" />
+                        Go to Membership Form
+                    </Link>
+                </Button>
             </div>
         </section>
     </div>
