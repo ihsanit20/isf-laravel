@@ -43,6 +43,7 @@ class MemberListController extends Controller
     public function review(ReviewMemberRequest $request, Member $member): RedirectResponse
     {
         $status = MemberStatus::from($request->string('status')->toString());
+        $wasApproved = $member->status === MemberStatus::Approved;
 
         $data = [
             'status' => $status,
@@ -54,6 +55,9 @@ class MemberListController extends Controller
         if ($status === MemberStatus::Approved) {
             $data['approved_at'] = now();
             $data['approved_by_user_id'] = $request->user()?->id;
+        } elseif ($status === MemberStatus::Exited && $wasApproved) {
+            $data['approved_at'] = $member->approved_at;
+            $data['approved_by_user_id'] = $member->approved_by_user_id;
         } else {
             $data['approved_at'] = null;
             $data['approved_by_user_id'] = null;

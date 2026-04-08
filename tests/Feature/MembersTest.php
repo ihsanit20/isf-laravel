@@ -165,3 +165,28 @@ test('rejecting a member requires a rejection note', function () {
         'rejection_note' => '',
     ])->assertSessionHasErrors('rejection_note');
 });
+
+test('admins can mark an approved member as exited', function () {
+    $admin = User::factory()->create([
+        'role' => 'admin',
+    ]);
+    $member = Member::factory()->create([
+        'status' => MemberStatus::Approved,
+        'approved_at' => now()->subDay(),
+        'approved_by_user_id' => $admin->id,
+    ]);
+
+    $approvedAt = $member->approved_at;
+
+    actingAs($admin);
+
+    patch(route('admin.members.review', $member), [
+        'status' => MemberStatus::Exited->value,
+        'rejection_note' => '',
+    ])->assertRedirect(route('admin.members.index'));
+
+    expect($member->refresh()->status)->toBe(MemberStatus::Exited);
+    expect($member->approved_by_user_id)->toBe($admin->id);
+    expect($member->approved_at?->toDateTimeString())->toBe($approvedAt?->toDateTimeString());
+    expect($member->rejection_note)->toBeNull();
+});
