@@ -25,6 +25,8 @@ export default defineConfig({
         wayfinder({
             formVariants: true,
         }),
-        vueDevTools(),
+        vueDevTools({
+            appendTo: 'resources/js/app.ts',
+        }),
     ],
 });
