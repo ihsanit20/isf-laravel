@@ -7,7 +7,6 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 #[Fillable([
-    'deposit_submission_id',
     'member_id',
     'allocation_month',
     'units',
@@ -28,11 +27,6 @@ class DepositAllocation extends Model
             'allocated_amount' => 'integer',
             'confirmed_at' => 'datetime',
         ];
-    }
-
-    public function depositSubmission(): BelongsTo
-    {
-        return $this->belongsTo(DepositSubmission::class);
     }
 
     public function member(): BelongsTo

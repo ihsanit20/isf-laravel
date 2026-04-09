@@ -27,12 +27,27 @@ test('authenticated users can view their deposit list page', function () {
         'status' => DepositSubmissionStatus::Pending,
     ]);
 
+    DepositAllocation::query()->create([
+        'member_id' => Member::factory()->for($user, 'manager')->create([
+            'status' => MemberStatus::Approved,
+            'approved_at' => now(),
+        ])->id,
+        'allocation_month' => now()->startOfMonth()->toDateString(),
+        'units' => 1,
+        'unit_amount' => 1000,
+        'allocated_amount' => 1000,
+        'confirmed_at' => now(),
+    ]);
+
     actingAs($user)
         ->get(route('deposits.index'))
         ->assertOk()
         ->assertInertia(fn(Assert $page) => $page
             ->component('Deposits')
-            ->has('deposits', 1));
+            ->has('deposits', 1)
+            ->has('allocations', 1)
+            ->where('summary.total_deposit_amount', 4000)
+            ->where('summary.total_allocated_amount', 1000));
 });
 
 test('authenticated users can submit a deposit proof', function () {
@@ -61,7 +76,7 @@ test('authenticated users can submit a deposit proof', function () {
     expect(Storage::disk('public')->exists((string) $depositSubmission?->proof_path))->toBeTrue();
 });
 
-test('verified deposits can be allocated to approved managed members', function () {
+test('verified deposits can be allocated globally to approved managed members', function () {
     $user = User::factory()->create();
 
     $member = Member::factory()->for($user, 'manager')->create([
@@ -70,7 +85,7 @@ test('verified deposits can be allocated to approved managed members', function 
         'approved_at' => now(),
     ]);
 
-    $depositSubmission = DepositSubmission::query()->create([
+    DepositSubmission::query()->create([
         'user_id' => $user->id,
         'amount' => 6000,
         'payment_method' => DepositSubmission::PAYMENT_METHOD_BANK_TRANSFER,
@@ -83,7 +98,7 @@ test('verified deposits can be allocated to approved managed members', function 
 
     actingAs($user);
 
-    post(route('deposits.allocations.store', $depositSubmission), [
+    post(route('deposits.allocations.store'), [
         'rows' => [
             [
                 'member_id' => $member->id,
@@ -93,7 +108,7 @@ test('verified deposits can be allocated to approved managed members', function 
         ],
     ])->assertRedirect(route('deposits.index'));
 
-    $allocation = DepositAllocation::query()->where('deposit_submission_id', $depositSubmission->id)->first();
+    $allocation = DepositAllocation::query()->where('member_id', $member->id)->first();
 
     expect($allocation)->not->toBeNull();
     expect($allocation?->member_id)->toBe($member->id);
@@ -102,7 +117,7 @@ test('verified deposits can be allocated to approved managed members', function 
     expect($allocation?->allocated_amount)->toBe(2000);
 });
 
-test('allocation cannot exceed the remaining verified deposit amount', function () {
+test('allocation cannot exceed the total allocatable verified deposit amount', function () {
     $user = User::factory()->create();
 
     $member = Member::factory()->for($user, 'manager')->create([
@@ -111,7 +126,7 @@ test('allocation cannot exceed the remaining verified deposit amount', function 
         'approved_at' => now(),
     ]);
 
-    $depositSubmission = DepositSubmission::query()->create([
+    DepositSubmission::query()->create([
         'user_id' => $user->id,
         'amount' => 1000,
         'payment_method' => DepositSubmission::PAYMENT_METHOD_BANK_TRANSFER,
@@ -124,7 +139,7 @@ test('allocation cannot exceed the remaining verified deposit amount', function 
 
     actingAs($user);
 
-    post(route('deposits.allocations.store', $depositSubmission), [
+    post(route('deposits.allocations.store'), [
         'rows' => [
             [
                 'member_id' => $member->id,
@@ -134,7 +149,77 @@ test('allocation cannot exceed the remaining verified deposit amount', function 
         ],
     ])->assertSessionHasErrors('rows');
 
-    expect(DepositAllocation::query()->where('deposit_submission_id', $depositSubmission->id)->exists())->toBeFalse();
+    expect(DepositAllocation::query()->where('member_id', $member->id)->exists())->toBeFalse();
+});
+
+test('users can open the global allocation page', function () {
+    $user = User::factory()->create();
+
+    Member::factory()->for($user, 'manager')->create([
+        'status' => MemberStatus::Approved,
+        'approved_at' => now(),
+        'units' => 2,
+    ]);
+
+    DepositSubmission::query()->create([
+        'user_id' => $user->id,
+        'amount' => 3000,
+        'payment_method' => DepositSubmission::PAYMENT_METHOD_BANK_TRANSFER,
+        'reference_no' => 'POOL-01',
+        'deposit_date' => now()->toDateString(),
+        'proof_path' => 'deposit-proofs/pool-proof.jpg',
+        'status' => DepositSubmissionStatus::Verified,
+        'verified_at' => now(),
+    ]);
+
+    actingAs($user)
+        ->get(route('deposits.allocate'))
+        ->assertOk()
+        ->assertInertia(fn(Assert $page) => $page
+            ->component('deposits/Allocate')
+            ->where('summary.total_deposit_amount', 3000)
+            ->where('summary.total_verified_amount', 3000)
+            ->where('summary.total_allocatable_amount', 3000)
+            ->has('members', 1));
+});
+
+test('available to allocate shows exact verified balance after allocations', function () {
+    $user = User::factory()->create();
+
+    $member = Member::factory()->for($user, 'manager')->create([
+        'status' => MemberStatus::Approved,
+        'approved_at' => now(),
+        'units' => 3,
+    ]);
+
+    DepositSubmission::query()->create([
+        'user_id' => $user->id,
+        'amount' => 5500,
+        'payment_method' => DepositSubmission::PAYMENT_METHOD_BANK_TRANSFER,
+        'reference_no' => 'POOL-EXACT-01',
+        'deposit_date' => now()->toDateString(),
+        'proof_path' => 'deposit-proofs/pool-exact-proof.jpg',
+        'status' => DepositSubmissionStatus::Verified,
+        'verified_at' => now(),
+    ]);
+
+    DepositAllocation::query()->create([
+        'member_id' => $member->id,
+        'allocation_month' => now()->startOfMonth()->toDateString(),
+        'units' => 2,
+        'unit_amount' => 1000,
+        'allocated_amount' => 2000,
+        'confirmed_at' => now(),
+    ]);
+
+    actingAs($user)
+        ->get(route('deposits.index'))
+        ->assertOk()
+        ->assertInertia(fn(Assert $page) => $page
+            ->component('Deposits')
+            ->where('summary.total_verified_amount', 5500)
+            ->where('summary.total_allocated_amount', 2000)
+            ->where('summary.total_allocatable_amount', 3500));
 });
 
 test('admins can view the deposit review page', function () {

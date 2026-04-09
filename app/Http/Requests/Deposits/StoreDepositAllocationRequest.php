@@ -7,7 +7,6 @@ use App\Enums\MemberStatus;
 use App\Models\DepositAllocation;
 use App\Models\DepositSubmission;
 use App\Models\Member;
-use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\Validator;
@@ -32,21 +31,15 @@ class StoreDepositAllocationRequest extends FormRequest
     public function withValidator(Validator $validator): void
     {
         $validator->after(function (Validator $validator): void {
-            /** @var DepositSubmission|null $depositSubmission */
-            $depositSubmission = $this->route('depositSubmission');
+            $user = $this->user();
 
-            if (! $depositSubmission instanceof DepositSubmission) {
-                return;
-            }
+            $verifiedDeposits = DepositSubmission::query()
+                ->where('user_id', $user?->id)
+                ->where('status', DepositSubmissionStatus::Verified->value)
+                ->get();
 
-            if ($depositSubmission->user_id !== $this->user()?->id) {
-                $validator->errors()->add('rows', 'You can only allocate your own verified deposits.');
-
-                return;
-            }
-
-            if ($depositSubmission->status !== DepositSubmissionStatus::Verified) {
-                $validator->errors()->add('rows', 'Only verified deposits can be allocated.');
+            if ($verifiedDeposits->isEmpty()) {
+                $validator->errors()->add('rows', 'No verified deposits are available for allocation.');
 
                 return;
             }
@@ -73,7 +66,7 @@ class StoreDepositAllocationRequest extends FormRequest
                 }
 
                 try {
-                    CarbonImmutable::createFromFormat('Y-m', $row['allocation_month'])->startOfMonth();
+                    \Carbon\CarbonImmutable::createFromFormat('Y-m', $row['allocation_month'])->startOfMonth();
                 } catch (\Throwable) {
                     $validator->errors()->add("rows.{$index}.allocation_month", 'Select a valid month.');
                 }
@@ -81,8 +74,14 @@ class StoreDepositAllocationRequest extends FormRequest
                 $totalAllocatedAmount += (int) $row['units'] * DepositAllocation::DEFAULT_UNIT_AMOUNT;
             }
 
-            if ($totalAllocatedAmount > $depositSubmission->remainingAmount()) {
-                $validator->errors()->add('rows', 'Allocated amount cannot exceed the remaining verified deposit amount.');
+            $existingAllocatedAmount = DepositAllocation::query()
+                ->whereHas('member', fn($query) => $query->where('managed_by_user_id', $user?->id))
+                ->sum('allocated_amount');
+
+            $totalAllocatableAmount = max(0, (int) $verifiedDeposits->sum('amount') - (int) $existingAllocatedAmount);
+
+            if ($totalAllocatedAmount > $totalAllocatableAmount) {
+                $validator->errors()->add('rows', 'Allocated amount cannot exceed the total allocatable verified deposit amount.');
             }
         });
     }

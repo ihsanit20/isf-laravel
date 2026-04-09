@@ -18,15 +18,13 @@ class DepositListController extends Controller
     {
         return Inertia::render('admin/Deposits', [
             'deposits' => DepositSubmission::query()
-                ->with(['user:id,name,email', 'verifier:id,name', 'allocations'])
+                ->with(['user:id,name,email', 'verifier:id,name'])
                 ->latest('deposit_date')
                 ->latest('id')
                 ->get()
                 ->map(fn(DepositSubmission $depositSubmission): array => [
                     'id' => $depositSubmission->id,
                     'amount' => $depositSubmission->amount,
-                    'allocated_amount' => $depositSubmission->allocatedAmount(),
-                    'remaining_amount' => $depositSubmission->remainingAmount(),
                     'payment_method' => $depositSubmission->payment_method,
                     'payment_method_label' => DepositSubmission::paymentMethodLabel($depositSubmission->payment_method),
                     'reference_no' => $depositSubmission->reference_no,

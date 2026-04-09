@@ -13,6 +13,7 @@ use App\Models\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
@@ -26,13 +27,25 @@ class DepositController extends Controller
         /** @var User $user */
         $user = $request->user();
 
+        $deposits = $user->depositSubmissions()
+            ->latest('deposit_date')
+            ->latest('id')
+            ->get();
+
+        $allocations = $this->managedAllocationsQuery($user)
+            ->with('member:id,full_name')
+            ->newestFirst()
+            ->get();
+
+        $summary = $this->buildDepositSummary($deposits, $allocations, $user->managedMembers()->where('status', MemberStatus::Approved)->exists());
+
         return Inertia::render('Deposits', [
-            'deposits' => $user->depositSubmissions()
-                ->with(['allocations.member:id,full_name'])
-                ->latest('deposit_date')
-                ->latest('id')
-                ->get()
+            'summary' => $summary,
+            'deposits' => $deposits
                 ->map(fn(DepositSubmission $depositSubmission): array => $this->transformDeposit($depositSubmission))
+                ->values(),
+            'allocations' => $allocations
+                ->map(fn(DepositAllocation $allocation): array => $this->transformAllocation($allocation))
                 ->values(),
         ]);
     }
@@ -60,18 +73,18 @@ class DepositController extends Controller
         return to_route('deposits.index');
     }
 
-    public function allocate(Request $request, DepositSubmission $depositSubmission): Response
+    public function allocate(Request $request): Response
     {
-        abort_unless($depositSubmission->user_id === $request->user()?->id, 403);
+        /** @var User $user */
+        $user = $request->user();
 
-        $depositSubmission->load('allocations.member:id,full_name');
-
-        abort_unless($depositSubmission->status === DepositSubmissionStatus::Verified, 403);
+        $deposits = $user->depositSubmissions()->get();
+        $allocations = $this->managedAllocationsQuery($user)->get();
 
         return Inertia::render('deposits/Allocate', [
-            'deposit' => $this->transformDeposit($depositSubmission),
+            'summary' => $this->buildDepositSummary($deposits, $allocations, true),
             'members' => Member::query()
-                ->where('managed_by_user_id', $request->user()?->id)
+                ->where('managed_by_user_id', $user->id)
                 ->where('status', MemberStatus::Approved)
                 ->latest('approved_at')
                 ->latest('id')
@@ -86,19 +99,25 @@ class DepositController extends Controller
         ]);
     }
 
-    public function storeAllocations(StoreDepositAllocationRequest $request, DepositSubmission $depositSubmission): RedirectResponse
+    public function storeAllocations(StoreDepositAllocationRequest $request): RedirectResponse
     {
-        abort_unless($depositSubmission->user_id === $request->user()?->id, 403);
+        /** @var User $user */
+        $user = $request->user();
 
-        DB::transaction(function () use ($request, $depositSubmission): void {
-            /** @var DepositSubmission $lockedDeposit */
-            $lockedDeposit = DepositSubmission::query()
+        DB::transaction(function () use ($request, $user): void {
+            $verifiedDeposits = DepositSubmission::query()
+                ->where('user_id', $user->id)
+                ->where('status', DepositSubmissionStatus::Verified)
                 ->lockForUpdate()
-                ->findOrFail($depositSubmission->id);
+                ->get();
 
-            if ($lockedDeposit->status !== DepositSubmissionStatus::Verified) {
+            $existingAllocations = $this->managedAllocationsQuery($user)
+                ->lockForUpdate()
+                ->get();
+
+            if ($verifiedDeposits->isEmpty()) {
                 throw ValidationException::withMessages([
-                    'rows' => 'Only verified deposits can be allocated.',
+                    'rows' => 'No verified deposits are available for allocation.',
                 ]);
             }
 
@@ -107,14 +126,19 @@ class DepositController extends Controller
                 fn(array $row): int => (int) $row['units'] * DepositAllocation::DEFAULT_UNIT_AMOUNT,
             );
 
-            if ($totalAllocatedAmount > $lockedDeposit->remainingAmount()) {
+            $totalAllocatableAmount = $this->allocatableAmountFromTotals(
+                (int) $verifiedDeposits->sum('amount'),
+                (int) $existingAllocations->sum('allocated_amount'),
+            );
+
+            if ($totalAllocatedAmount > $totalAllocatableAmount) {
                 throw ValidationException::withMessages([
-                    'rows' => 'Allocated amount cannot exceed the remaining verified deposit amount.',
+                    'rows' => 'Allocated amount cannot exceed the total allocatable verified deposit amount.',
                 ]);
             }
 
-            $lockedDeposit->allocations()->createMany(
-                $rows->map(fn(array $row): array => [
+            foreach ($rows as $row) {
+                DepositAllocation::query()->create([
                     'member_id' => (int) $row['member_id'],
                     'allocation_month' => CarbonImmutable::createFromFormat('Y-m', $row['allocation_month'])
                         ->startOfMonth()
@@ -123,23 +147,42 @@ class DepositController extends Controller
                     'unit_amount' => DepositAllocation::DEFAULT_UNIT_AMOUNT,
                     'allocated_amount' => (int) $row['units'] * DepositAllocation::DEFAULT_UNIT_AMOUNT,
                     'confirmed_at' => now(),
-                ])->all(),
-            );
+                ]);
+            }
         });
 
         return to_route('deposits.index');
     }
 
+    private function buildDepositSummary(Collection $deposits, Collection $allocations, bool $hasApprovedMembers): array
+    {
+        $totalDepositAmount = (int) $deposits->sum('amount');
+        $totalVerifiedAmount = (int) $deposits
+            ->filter(fn(DepositSubmission $depositSubmission): bool => $depositSubmission->status === DepositSubmissionStatus::Verified)
+            ->sum('amount');
+        $totalAllocatedAmount = (int) $allocations->sum('allocated_amount');
+        $totalAllocatableAmount = $this->allocatableAmountFromTotals($totalVerifiedAmount, $totalAllocatedAmount);
+
+        return [
+            'total_deposit_amount' => $totalDepositAmount,
+            'total_verified_amount' => $totalVerifiedAmount,
+            'total_allocated_amount' => $totalAllocatedAmount,
+            'total_allocatable_amount' => $totalAllocatableAmount,
+            'total_deposit_count' => $deposits->count(),
+            'can_allocate' => $totalAllocatableAmount >= DepositAllocation::DEFAULT_UNIT_AMOUNT && $hasApprovedMembers,
+        ];
+    }
+
+    private function allocatableAmountFromTotals(int $totalVerifiedAmount, int $totalAllocatedAmount): int
+    {
+        return max(0, $totalVerifiedAmount - $totalAllocatedAmount);
+    }
+
     private function transformDeposit(DepositSubmission $depositSubmission): array
     {
-        $allocatedAmount = $depositSubmission->allocatedAmount();
-        $remainingAmount = max(0, $depositSubmission->amount - $allocatedAmount);
-
         return [
             'id' => $depositSubmission->id,
             'amount' => $depositSubmission->amount,
-            'allocated_amount' => $allocatedAmount,
-            'remaining_amount' => $remainingAmount,
             'payment_method' => $depositSubmission->payment_method,
             'payment_method_label' => DepositSubmission::paymentMethodLabel($depositSubmission->payment_method),
             'reference_no' => $depositSubmission->reference_no,
@@ -151,17 +194,26 @@ class DepositController extends Controller
             'status' => $depositSubmission->status->value,
             'verified_at' => $depositSubmission->verified_at?->format('d M Y, h:i A'),
             'rejection_reason' => $depositSubmission->rejection_reason,
-            'can_allocate' => $depositSubmission->status === DepositSubmissionStatus::Verified && $remainingAmount > 0,
-            'allocations' => $depositSubmission->allocations
-                ->map(fn(DepositAllocation $allocation): array => [
-                    'id' => $allocation->id,
-                    'member_name' => $allocation->member?->full_name,
-                    'allocation_month' => $allocation->allocation_month?->format('M Y'),
-                    'units' => $allocation->units,
-                    'allocated_amount' => $allocation->allocated_amount,
-                    'confirmed_at' => $allocation->confirmed_at?->format('d M Y, h:i A'),
-                ])
-                ->values(),
         ];
+    }
+
+    private function transformAllocation(DepositAllocation $allocation): array
+    {
+        return [
+            'id' => $allocation->id,
+            'member_name' => $allocation->member?->full_name,
+            'allocation_month' => $allocation->allocation_month?->format('M Y'),
+            'units' => $allocation->units,
+            'allocated_amount' => $allocation->allocated_amount,
+            'confirmed_at' => $allocation->confirmed_at?->format('d M Y, h:i A'),
+        ];
+    }
+
+    private function managedAllocationsQuery(User $user)
+    {
+        return DepositAllocation::query()->whereHas(
+            'member',
+            fn($query) => $query->where('managed_by_user_id', $user->id),
+        );
     }
 }

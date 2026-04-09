@@ -11,8 +11,6 @@ type DepositStatus = 'pending' | 'verified' | 'rejected';
 type AdminDeposit = {
     id: number;
     amount: number;
-    allocated_amount: number;
-    remaining_amount: number;
     payment_method_label: string;
     reference_no: string | null;
     deposit_date: string | null;
@@ -144,10 +142,6 @@ const openRejectDialog = (deposit: AdminDeposit) => {
                                     <span v-if="deposit.deposit_date">
                                         • {{ deposit.deposit_date }}
                                     </span>
-                                </div>
-                                <div class="text-xs">
-                                    Allocated:
-                                    {{ money(deposit.allocated_amount) }}
                                 </div>
                             </td>
                             <td class="px-4 py-3 text-muted-foreground">

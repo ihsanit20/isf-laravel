@@ -6,7 +6,6 @@ use App\Enums\DepositSubmissionStatus;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable([
     'user_id',
@@ -67,24 +66,5 @@ class DepositSubmission extends Model
     public function verifier(): BelongsTo
     {
         return $this->belongsTo(User::class, 'verified_by_user_id');
-    }
-
-    public function allocations(): HasMany
-    {
-        return $this->hasMany(DepositAllocation::class);
-    }
-
-    public function allocatedAmount(): int
-    {
-        if ($this->relationLoaded('allocations')) {
-            return (int) $this->allocations->sum('allocated_amount');
-        }
-
-        return (int) $this->allocations()->sum('allocated_amount');
-    }
-
-    public function remainingAmount(): int
-    {
-        return max(0, $this->amount - $this->allocatedAmount());
     }
 }

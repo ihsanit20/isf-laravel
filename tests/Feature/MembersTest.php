@@ -121,7 +121,7 @@ test('users can view the annual unit calendar for their managed member', functio
         'approved_at' => now()->subMonths(3),
     ]);
 
-    $depositSubmission = DepositSubmission::query()->create([
+    DepositSubmission::query()->create([
         'user_id' => $user->id,
         'amount' => 4000,
         'payment_method' => DepositSubmission::PAYMENT_METHOD_BANK_TRANSFER,
@@ -133,7 +133,6 @@ test('users can view the annual unit calendar for their managed member', functio
     ]);
 
     DepositAllocation::query()->create([
-        'deposit_submission_id' => $depositSubmission->id,
         'member_id' => $member->id,
         'allocation_month' => '2026-01-01',
         'units' => 2,
@@ -193,7 +192,7 @@ test('admins can view a members annual unit calendar', function () {
         'approved_at' => now()->subMonths(4),
     ]);
 
-    $depositSubmission = DepositSubmission::query()->create([
+    DepositSubmission::query()->create([
         'user_id' => $user->id,
         'amount' => 5000,
         'payment_method' => DepositSubmission::PAYMENT_METHOD_BANK_TRANSFER,
@@ -205,7 +204,6 @@ test('admins can view a members annual unit calendar', function () {
     ]);
 
     DepositAllocation::query()->create([
-        'deposit_submission_id' => $depositSubmission->id,
         'member_id' => $member->id,
         'allocation_month' => '2025-12-01',
         'units' => 1,

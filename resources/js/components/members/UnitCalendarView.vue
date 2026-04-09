@@ -3,7 +3,6 @@ import { Link } from '@inertiajs/vue3';
 import {
     ArrowLeft,
     CalendarDays,
-    CreditCard,
     ReceiptText,
     UserRound,
     WalletCards,
@@ -30,8 +29,6 @@ type CalendarEntry = {
     units: number;
     amount: number;
     confirmed_at: string | null;
-    reference_no: string | null;
-    deposit_date: string | null;
 };
 
 type CalendarMonth = {
@@ -346,16 +343,6 @@ const statusVariant = computed<
                                 <div
                                     class="mt-2 space-y-1 text-xs text-muted-foreground"
                                 >
-                                    <div class="flex items-center gap-2">
-                                        <CreditCard class="size-3.5" />
-                                        {{
-                                            entry.reference_no || 'No reference'
-                                        }}
-                                    </div>
-                                    <p>
-                                        Deposit date:
-                                        {{ entry.deposit_date || '-' }}
-                                    </p>
                                     <p>
                                         Confirmed at:
                                         {{ entry.confirmed_at || '-' }}

@@ -11,7 +11,7 @@ trait BuildsMemberUnitCalendar
     protected function buildMemberUnitCalendar(Member $member, ?int $requestedYear = null): array
     {
         $member->load([
-            'depositAllocations.depositSubmission:id,reference_no,deposit_date',
+            'depositAllocations',
             'manager:id,name,email',
         ]);
 
@@ -86,8 +86,6 @@ trait BuildsMemberUnitCalendar
                             'units' => $allocation->units,
                             'amount' => $allocation->allocated_amount,
                             'confirmed_at' => $allocation->confirmed_at?->format('d M Y, h:i A'),
-                            'reference_no' => $allocation->depositSubmission?->reference_no,
-                            'deposit_date' => $allocation->depositSubmission?->deposit_date?->format('d M Y'),
                         ])
                         ->all(),
                 ];

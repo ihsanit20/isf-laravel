@@ -49,8 +49,6 @@ defineProps<{
             units: number;
             amount: number;
             confirmed_at: string | null;
-            reference_no: string | null;
-            deposit_date: string | null;
         }>;
     }>;
     backUrl: string;

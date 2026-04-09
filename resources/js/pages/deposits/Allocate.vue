@@ -15,13 +15,12 @@ import {
 } from '@/components/ui/select';
 
 type DepositItem = {
-    id: number;
-    amount: number;
-    allocated_amount: number;
-    remaining_amount: number;
-    payment_method_label: string;
-    reference_no: string | null;
-    deposit_date: string | null;
+    total_deposit_amount: number;
+    total_verified_amount: number;
+    total_allocated_amount: number;
+    total_allocatable_amount: number;
+    total_deposit_count: number;
+    can_allocate: boolean;
 };
 
 type MemberItem = {
@@ -32,7 +31,7 @@ type MemberItem = {
 };
 
 type Props = {
-    deposit: DepositItem;
+    summary: DepositItem;
     members: MemberItem[];
 };
 
@@ -50,7 +49,7 @@ defineOptions({
                 href: '/my-deposits',
             },
             {
-                title: 'Allocate Deposit',
+                title: 'Allocate Units',
                 href: '#',
             },
         ],
@@ -80,7 +79,9 @@ const totalAllocatedDraftAmount = computed(() =>
 );
 
 const remainingAfterDraft = computed(
-    () => props.deposit.remaining_amount - totalAllocatedDraftAmount.value,
+    () =>
+        props.summary.total_allocatable_amount -
+        totalAllocatedDraftAmount.value,
 );
 
 const addRow = () => {
@@ -90,6 +91,7 @@ const addRow = () => {
 const removeRow = (index: number) => {
     if (form.rows.length === 1) {
         form.rows[0] = newRow();
+
         return;
     }
 
@@ -110,7 +112,7 @@ const submit = () => {
             ...row,
             member_id: Number(row.member_id),
         })),
-    })).post(`/my-deposits/${props.deposit.id}/allocate`, {
+    })).post('/my-deposits/allocate', {
         preserveScroll: true,
     });
 };
@@ -119,7 +121,7 @@ const money = (amount: number): string => `${amount.toLocaleString()} BDT`;
 </script>
 
 <template>
-    <Head title="Allocate Deposit" />
+    <Head title="Allocate Units" />
 
     <div class="flex h-full flex-1 flex-col gap-4 rounded-xl p-4">
         <section
@@ -130,12 +132,12 @@ const money = (amount: number): string => `${amount.toLocaleString()} BDT`;
             >
                 <div class="max-w-2xl">
                     <h1 class="text-3xl font-semibold tracking-tight">
-                        Allocate Deposit
+                        Allocate Units
                     </h1>
                     <p class="mt-3 text-sm leading-6 text-muted-foreground">
-                        Split this verified deposit across your approved members
-                        by month. Each row becomes part of the final member
-                        savings history.
+                        Allocate units from your total verified deposit pool.
+                        Individual deposit submissions are not allocated one by
+                        one.
                     </p>
                 </div>
 
@@ -267,23 +269,45 @@ const money = (amount: number): string => `${amount.toLocaleString()} BDT`;
                     class="rounded-[28px] border border-sidebar-border/70 bg-background p-6 shadow-sm"
                 >
                     <h2 class="text-lg font-semibold tracking-tight">
-                        Deposit Summary
+                        Allocation Pool Summary
                     </h2>
                     <div class="mt-4 grid gap-3 text-sm">
                         <div class="rounded-2xl bg-muted/30 px-4 py-4">
                             <p class="text-xs text-muted-foreground">
-                                Total amount
+                                Total deposited
                             </p>
                             <p class="mt-2 font-semibold text-foreground">
-                                {{ money(props.deposit.amount) }}
+                                {{ money(props.summary.total_deposit_amount) }}
                             </p>
                         </div>
                         <div class="rounded-2xl bg-muted/30 px-4 py-4">
                             <p class="text-xs text-muted-foreground">
-                                Still available
+                                Verified deposits
                             </p>
                             <p class="mt-2 font-semibold text-foreground">
-                                {{ money(props.deposit.remaining_amount) }}
+                                {{ money(props.summary.total_verified_amount) }}
+                            </p>
+                        </div>
+                        <div class="rounded-2xl bg-muted/30 px-4 py-4">
+                            <p class="text-xs text-muted-foreground">
+                                Already allocated
+                            </p>
+                            <p class="mt-2 font-semibold text-foreground">
+                                {{
+                                    money(props.summary.total_allocated_amount)
+                                }}
+                            </p>
+                        </div>
+                        <div class="rounded-2xl bg-muted/30 px-4 py-4">
+                            <p class="text-xs text-muted-foreground">
+                                Available balance
+                            </p>
+                            <p class="mt-2 font-semibold text-foreground">
+                                {{
+                                    money(
+                                        props.summary.total_allocatable_amount,
+                                    )
+                                }}
                             </p>
                         </div>
                         <div class="rounded-2xl bg-muted/30 px-4 py-4">
@@ -310,16 +334,6 @@ const money = (amount: number): string => `${amount.toLocaleString()} BDT`;
                             </p>
                         </div>
                     </div>
-
-                    <p class="mt-4 text-sm leading-6 text-muted-foreground">
-                        {{ props.deposit.payment_method_label }}
-                        <span v-if="props.deposit.deposit_date">
-                            • {{ props.deposit.deposit_date }}
-                        </span>
-                        <span v-if="props.deposit.reference_no">
-                            • Ref: {{ props.deposit.reference_no }}
-                        </span>
-                    </p>
                 </section>
 
                 <section

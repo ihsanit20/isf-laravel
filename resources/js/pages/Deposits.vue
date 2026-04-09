@@ -1,12 +1,6 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
-import {
-    ArrowRight,
-    CalendarDays,
-    FileBadge2,
-    Plus,
-    ReceiptText,
-} from 'lucide-vue-next';
+import { CalendarDays, Plus } from 'lucide-vue-next';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 
@@ -24,8 +18,6 @@ type DepositAllocation = {
 type DepositItem = {
     id: number;
     amount: number;
-    allocated_amount: number;
-    remaining_amount: number;
     payment_method: string;
     payment_method_label: string;
     reference_no: string | null;
@@ -35,12 +27,21 @@ type DepositItem = {
     status: DepositStatus;
     verified_at: string | null;
     rejection_reason: string | null;
+};
+
+type DepositSummary = {
+    total_deposit_amount: number;
+    total_verified_amount: number;
+    total_allocated_amount: number;
+    total_allocatable_amount: number;
+    total_deposit_count: number;
     can_allocate: boolean;
-    allocations: DepositAllocation[];
 };
 
 type Props = {
+    summary: DepositSummary;
     deposits: DepositItem[];
+    allocations: DepositAllocation[];
 };
 
 defineOptions({
@@ -87,170 +88,195 @@ const statusVariant = (
                 class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between"
             >
                 <div class="max-w-2xl">
-                    <h1 class="text-3xl font-semibold tracking-tight">
-                        My Deposits
+                    <p
+                        class="text-xs font-medium tracking-[0.2em] text-muted-foreground uppercase"
+                    >
+                        Total Deposited
+                    </p>
+                    <h1 class="mt-2 text-3xl font-semibold tracking-tight">
+                        {{ money(summary.total_deposit_amount) }}
                     </h1>
                     <p class="mt-3 text-sm leading-6 text-muted-foreground">
-                        Submit a single bank deposit, wait for admin
-                        verification, then allocate the verified amount across
-                        your approved members.
+                        Deposits and allocation history are tracked separately.
+                        Submit deposits independently, then allocate from your
+                        verified deposit pool when needed.
                     </p>
                 </div>
 
-                <Button as-child class="shrink-0">
-                    <Link href="/my-deposits/create">
-                        <Plus class="size-4" />
-                        Submit Deposit
-                    </Link>
-                </Button>
+                <div class="flex flex-wrap gap-3">
+                    <Button
+                        v-if="summary.can_allocate"
+                        as-child
+                        variant="outline"
+                        class="shrink-0"
+                    >
+                        <Link href="/my-deposits/allocate">
+                            Allocate Units
+                        </Link>
+                    </Button>
+                    <Button as-child class="shrink-0">
+                        <Link href="/my-deposits/create">
+                            <Plus class="size-4" />
+                            Submit Deposit
+                        </Link>
+                    </Button>
+                </div>
             </div>
         </section>
 
-        <section v-if="deposits.length > 0" class="grid gap-4 xl:grid-cols-2">
-            <article
-                v-for="deposit in deposits"
-                :key="deposit.id"
-                class="rounded-[28px] border border-sidebar-border/70 bg-background p-6 shadow-sm"
+        <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <div
+                class="rounded-3xl border border-sidebar-border/70 bg-background px-5 py-5 shadow-sm"
             >
-                <div class="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                        <p
-                            class="text-xs font-medium tracking-[0.2em] text-muted-foreground uppercase"
-                        >
-                            Deposit #{{ deposit.id }}
-                        </p>
-                        <h2 class="mt-2 text-2xl font-semibold tracking-tight">
-                            {{ money(deposit.amount) }}
-                        </h2>
-                        <p class="mt-1 text-sm text-muted-foreground">
-                            {{ deposit.payment_method_label }}
-                            <span v-if="deposit.deposit_date">
-                                • {{ deposit.deposit_date }}
-                            </span>
-                        </p>
-                    </div>
-
-                    <Badge :variant="statusVariant(deposit.status)">
-                        {{ statusLabel(deposit.status) }}
-                    </Badge>
-                </div>
-
-                <div class="mt-5 grid gap-3 md:grid-cols-2">
-                    <div class="rounded-2xl bg-muted/40 px-4 py-4">
-                        <p class="text-xs text-muted-foreground">
-                            Allocated Amount
-                        </p>
-                        <p class="mt-2 text-lg font-semibold text-foreground">
-                            {{ money(deposit.allocated_amount) }}
-                        </p>
-                    </div>
-                    <div class="rounded-2xl bg-muted/40 px-4 py-4">
-                        <p class="text-xs text-muted-foreground">
-                            Remaining Amount
-                        </p>
-                        <p class="mt-2 text-lg font-semibold text-foreground">
-                            {{ money(deposit.remaining_amount) }}
-                        </p>
-                    </div>
-                </div>
-
-                <div class="mt-5 grid gap-3 text-sm text-muted-foreground">
-                    <div class="flex items-center gap-2">
-                        <ReceiptText class="size-4" />
-                        <span>
-                            Reference:
-                            {{ deposit.reference_no || 'Not provided' }}
-                        </span>
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <CalendarDays class="size-4" />
-                        <span>
-                            Verified At:
-                            {{ deposit.verified_at || 'Pending review' }}
-                        </span>
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <FileBadge2 class="size-4" />
-                        <a
-                            v-if="deposit.proof_url"
-                            :href="deposit.proof_url"
-                            class="font-medium text-foreground underline underline-offset-4"
-                            target="_blank"
-                            rel="noreferrer"
-                        >
-                            View uploaded proof
-                        </a>
-                        <span v-else>No proof uploaded</span>
-                    </div>
-                </div>
-
-                <p
-                    v-if="deposit.notes"
-                    class="mt-4 text-sm leading-6 text-muted-foreground"
-                >
-                    {{ deposit.notes }}
+                <p class="text-xs text-muted-foreground">Verified Deposits</p>
+                <p class="mt-2 text-xl font-semibold text-foreground">
+                    {{ money(summary.total_verified_amount) }}
                 </p>
-
-                <p
-                    v-if="deposit.rejection_reason"
-                    class="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"
-                >
-                    {{ deposit.rejection_reason }}
+            </div>
+            <div
+                class="rounded-3xl border border-sidebar-border/70 bg-background px-5 py-5 shadow-sm"
+            >
+                <p class="text-xs text-muted-foreground">Allocated Total</p>
+                <p class="mt-2 text-xl font-semibold text-foreground">
+                    {{ money(summary.total_allocated_amount) }}
                 </p>
+            </div>
+            <div
+                class="rounded-3xl border border-sidebar-border/70 bg-background px-5 py-5 shadow-sm"
+            >
+                <p class="text-xs text-muted-foreground">
+                    Available To Allocate
+                </p>
+                <p class="mt-2 text-xl font-semibold text-foreground">
+                    {{ money(summary.total_allocatable_amount) }}
+                </p>
+            </div>
+            <div
+                class="rounded-3xl border border-sidebar-border/70 bg-background px-5 py-5 shadow-sm"
+            >
+                <p class="text-xs text-muted-foreground">Deposit Count</p>
+                <p class="mt-2 text-xl font-semibold text-foreground">
+                    {{ summary.total_deposit_count }}
+                </p>
+            </div>
+        </section>
 
-                <div class="mt-5 flex flex-wrap gap-3">
-                    <Button v-if="deposit.can_allocate" as-child>
-                        <Link :href="`/my-deposits/${deposit.id}/allocate`">
-                            <ArrowRight class="size-4" />
-                            Allocate Deposit
-                        </Link>
-                    </Button>
-                    <Button
-                        v-else-if="deposit.status === 'verified'"
-                        variant="outline"
-                        disabled
+        <section v-if="deposits.length > 0" class="space-y-4">
+            <div>
+                <h2
+                    class="text-lg font-semibold tracking-tight text-foreground"
+                >
+                    Deposit History
+                </h2>
+                <p class="mt-1 text-sm text-muted-foreground">
+                    Deposits stay independent from allocation history.
+                </p>
+            </div>
+
+            <div
+                class="overflow-hidden rounded-[28px] border border-sidebar-border/70 bg-background shadow-sm"
+            >
+                <div class="overflow-x-auto">
+                    <table
+                        class="min-w-full divide-y divide-sidebar-border/70 text-sm"
                     >
-                        Fully Allocated
-                    </Button>
+                        <thead class="bg-muted/40 text-left">
+                            <tr>
+                                <th class="px-4 py-3 font-medium">Deposit</th>
+                                <th class="px-4 py-3 font-medium">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-sidebar-border/70">
+                            <tr
+                                v-for="deposit in deposits"
+                                :key="deposit.id"
+                                class="align-top"
+                            >
+                                <td class="px-4 py-4">
+                                    <div class="font-medium text-foreground">
+                                        Deposit #{{ deposit.id }}
+                                    </div>
+                                    <div
+                                        class="mt-1 text-xs text-muted-foreground"
+                                    >
+                                        {{ money(deposit.amount) }}
+                                    </div>
+                                    <div
+                                        v-if="deposit.rejection_reason"
+                                        class="mt-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700"
+                                    >
+                                        {{ deposit.rejection_reason }}
+                                    </div>
+                                </td>
+                                <td class="px-4 py-4">
+                                    <Badge
+                                        :variant="statusVariant(deposit.status)"
+                                    >
+                                        {{ statusLabel(deposit.status) }}
+                                    </Badge>
+                                    <div
+                                        class="mt-2 flex items-start gap-2 text-sm text-muted-foreground"
+                                    >
+                                        <CalendarDays
+                                            class="mt-0.5 size-4 shrink-0"
+                                        />
+                                        <span>{{
+                                            deposit.verified_at ||
+                                            'Pending review'
+                                        }}</span>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
+            </div>
+        </section>
 
-                <div v-if="deposit.allocations.length > 0" class="mt-6">
-                    <h3 class="text-sm font-semibold text-foreground">
-                        Allocation History
-                    </h3>
-                    <div class="mt-3 space-y-2">
-                        <div
-                            v-for="allocation in deposit.allocations"
-                            :key="allocation.id"
-                            class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border/70 bg-muted/20 px-4 py-3"
-                        >
-                            <div>
-                                <p class="font-medium text-foreground">
-                                    {{
-                                        allocation.member_name ||
-                                        'Unknown member'
-                                    }}
-                                </p>
-                                <p class="text-xs text-muted-foreground">
-                                    {{ allocation.allocation_month || '-' }} •
-                                    {{ allocation.units }} unit{{
-                                        allocation.units > 1 ? 's' : ''
-                                    }}
-                                </p>
-                            </div>
+        <section v-if="allocations.length > 0" class="space-y-4">
+            <div>
+                <h2
+                    class="text-lg font-semibold tracking-tight text-foreground"
+                >
+                    Allocation History
+                </h2>
+                <p class="mt-1 text-sm text-muted-foreground">
+                    All confirmed unit allocations appear here independently of
+                    the original deposit cards.
+                </p>
+            </div>
 
-                            <div class="text-right">
-                                <p class="font-medium text-foreground">
-                                    {{ money(allocation.allocated_amount) }}
-                                </p>
-                                <p class="text-xs text-muted-foreground">
-                                    {{ allocation.confirmed_at || 'Confirmed' }}
-                                </p>
-                            </div>
-                        </div>
+            <div class="space-y-3">
+                <div
+                    v-for="allocation in allocations"
+                    :key="allocation.id"
+                    class="flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-sidebar-border/70 bg-background px-5 py-4 shadow-sm"
+                >
+                    <div>
+                        <p class="font-medium text-foreground">
+                            {{ allocation.member_name || 'Unknown member' }}
+                        </p>
+                        <p class="mt-1 text-xs text-muted-foreground">
+                            {{ allocation.allocation_month || '-' }} •
+                            {{ allocation.units }} unit{{
+                                allocation.units > 1 ? 's' : ''
+                            }}
+                        </p>
+                        <p class="mt-1 text-xs text-muted-foreground">
+                            Independent from individual deposit entries.
+                        </p>
+                    </div>
+
+                    <div class="text-right">
+                        <p class="font-medium text-foreground">
+                            {{ money(allocation.allocated_amount) }}
+                        </p>
+                        <p class="text-xs text-muted-foreground">
+                            {{ allocation.confirmed_at || 'Confirmed' }}
+                        </p>
                     </div>
                 </div>
-            </article>
+            </div>
         </section>
 
         <section
@@ -276,6 +302,21 @@ const statusVariant = (
                         Submit Deposit
                     </Link>
                 </Button>
+            </div>
+        </section>
+
+        <section
+            v-if="deposits.length > 0 && allocations.length === 0"
+            class="rounded-[28px] border border-dashed border-sidebar-border/80 bg-background p-8 text-center shadow-sm"
+        >
+            <div class="mx-auto max-w-2xl">
+                <h2 class="text-xl font-semibold tracking-tight">
+                    No allocation history yet
+                </h2>
+                <p class="mt-2 text-sm leading-6 text-muted-foreground">
+                    Confirmed unit allocations will appear here after you
+                    allocate from the verified deposit pool.
+                </p>
             </div>
         </section>
     </div>
