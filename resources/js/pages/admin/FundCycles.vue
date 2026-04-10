@@ -18,6 +18,14 @@ type FundCycleItem = {
     notes: string | null;
     created_by: string | null;
     created_at: string | null;
+    allocated_amount: number;
+    allocations: Array<{
+        id: number;
+        member_name: string | null;
+        amount: number;
+        allocated_at: string | null;
+        notes: string | null;
+    }>;
 };
 
 type Props = {
@@ -43,6 +51,8 @@ const isEditDialogOpen = ref(false);
 const selectedFundCycle = ref<FundCycleItem | null>(null);
 
 const editableFundCycle = computed(() => selectedFundCycle.value);
+
+const money = (amount: number): string => `${amount.toLocaleString()} BDT`;
 
 const openEditDialog = (fundCycle: FundCycleItem) => {
     selectedFundCycle.value = fundCycle;
@@ -70,10 +80,12 @@ const openEditDialog = (fundCycle: FundCycleItem) => {
                     </p>
                 </div>
 
-                <Button class="shrink-0" @click="isCreateDialogOpen = true">
-                    <Plus class="size-4" />
-                    Add Fund Cycle
-                </Button>
+                <div class="flex flex-col gap-3 md:items-end">
+                    <Button class="shrink-0" @click="isCreateDialogOpen = true">
+                        <Plus class="size-4" />
+                        Add Fund Cycle
+                    </Button>
+                </div>
             </div>
         </section>
 
@@ -89,6 +101,7 @@ const openEditDialog = (fundCycle: FundCycleItem) => {
                             <th class="px-4 py-3 font-medium">Name</th>
                             <th class="px-4 py-3 font-medium">Status</th>
                             <th class="px-4 py-3 font-medium">Timeline</th>
+                            <th class="px-4 py-3 font-medium">Allocations</th>
                             <th class="px-4 py-3 font-medium">Created By</th>
                             <th class="px-4 py-3 font-medium">Created At</th>
                             <th class="px-4 py-3 font-medium">Action</th>
@@ -127,6 +140,29 @@ const openEditDialog = (fundCycle: FundCycleItem) => {
                                 </div>
                             </td>
                             <td class="px-4 py-3 text-muted-foreground">
+                                <div class="font-medium text-foreground">
+                                    {{ money(fundCycle.allocated_amount) }}
+                                </div>
+                                <div
+                                    v-if="fundCycle.allocations.length > 0"
+                                    class="mt-1 space-y-1 text-xs"
+                                >
+                                    <div
+                                        v-for="allocation in fundCycle.allocations"
+                                        :key="allocation.id"
+                                    >
+                                        {{
+                                            allocation.member_name ||
+                                            'Unknown member'
+                                        }}:
+                                        {{ money(allocation.amount) }}
+                                    </div>
+                                </div>
+                                <div v-else class="mt-1 text-xs">
+                                    No allocations yet
+                                </div>
+                            </td>
+                            <td class="px-4 py-3 text-muted-foreground">
                                 {{ fundCycle.created_by || '-' }}
                             </td>
                             <td class="px-4 py-3 text-muted-foreground">
@@ -145,7 +181,7 @@ const openEditDialog = (fundCycle: FundCycleItem) => {
                         </tr>
                         <tr v-if="fundCycles.length === 0">
                             <td
-                                colspan="6"
+                                colspan="7"
                                 class="px-4 py-8 text-center text-muted-foreground"
                             >
                                 No fund cycles found.
