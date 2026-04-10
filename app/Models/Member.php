@@ -9,7 +9,6 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 #[Fillable([
     'managed_by_user_id',
@@ -74,8 +73,8 @@ class Member extends Model
         return $this->hasMany(DepositAllocation::class);
     }
 
-    public function charges(): MorphMany
+    public function charges(): HasMany
     {
-        return $this->morphMany(Charge::class, 'chargeable');
+        return $this->hasMany(Charge::class);
     }
 }

@@ -5,10 +5,10 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 #[Fillable([
-    'title',
+    'charge_category_id',
+    'member_id',
     'amount',
     'status',
     'effective_at',
@@ -44,9 +44,14 @@ class Charge extends Model
         ];
     }
 
-    public function chargeable(): MorphTo
+    public function category(): BelongsTo
     {
-        return $this->morphTo();
+        return $this->belongsTo(ChargeCategory::class, 'charge_category_id');
+    }
+
+    public function member(): BelongsTo
+    {
+        return $this->belongsTo(Member::class);
     }
 
     public function settledBy(): BelongsTo

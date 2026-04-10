@@ -5,8 +5,11 @@ namespace App\Http\Controllers\Admin;
 use App\Enums\MemberStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\ReviewMemberRequest;
+use App\Models\Charge;
+use App\Models\ChargeCategory;
 use App\Models\Member;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -63,7 +66,28 @@ class MemberListController extends Controller
             $data['approved_by_user_id'] = null;
         }
 
-        $member->update($data);
+        DB::transaction(function () use ($member, $data, $status, $wasApproved): void {
+            $member->update($data);
+
+            if ($status === MemberStatus::Approved && ! $wasApproved) {
+                $category = ChargeCategory::query()
+                    ->where('code', ChargeCategory::CODE_REGISTRATION_FEE)
+                    ->where('is_active', true)
+                    ->firstOrFail();
+
+                Charge::query()->firstOrCreate(
+                    [
+                        'charge_category_id' => $category->id,
+                        'member_id' => $member->id,
+                        'status' => Charge::STATUS_PENDING,
+                    ],
+                    [
+                        'amount' => $category->default_amount,
+                        'effective_at' => now(),
+                    ],
+                );
+            }
+        });
 
         return to_route('admin.members.index');
     }

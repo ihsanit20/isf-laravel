@@ -10,8 +10,8 @@ return new class extends Migration
     {
         Schema::create('charges', function (Blueprint $table) {
             $table->id();
-            $table->morphs('chargeable');
-            $table->string('title');
+            $table->foreignId('charge_category_id')->constrained('charge_categories')->cascadeOnDelete();
+            $table->foreignId('member_id')->constrained('members')->cascadeOnDelete();
             $table->unsignedInteger('amount');
             $table->enum('status', ['pending', 'posted', 'waived', 'cancelled'])->default('pending');
             $table->timestamp('effective_at')->nullable();
@@ -20,6 +20,7 @@ return new class extends Migration
             $table->timestamps();
 
             $table->index('status');
+            $table->index(['charge_category_id', 'member_id']);
         });
     }
 

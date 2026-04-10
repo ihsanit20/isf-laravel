@@ -2,6 +2,8 @@
 
 use App\Enums\MemberStatus;
 use App\Enums\DepositSubmissionStatus;
+use App\Models\Charge;
+use App\Models\ChargeCategory;
 use App\Models\DepositAllocation;
 use App\Models\DepositSubmission;
 use App\Models\Member;
@@ -233,6 +235,35 @@ test('admins can approve a member application', function () {
     expect($member->refresh()->status)->toBe(MemberStatus::Approved);
     expect($member->approved_by_user_id)->toBe($admin->id);
     expect($member->approved_at)->not->toBeNull();
+    expect($member->charges()->count())->toBe(1);
+
+    $registrationCharge = $member->charges()->first();
+    $category = ChargeCategory::query()->where('code', ChargeCategory::CODE_REGISTRATION_FEE)->first();
+
+    expect($registrationCharge?->charge_category_id)->toBe($category?->id)
+        ->and($registrationCharge?->amount)->toBe($category?->default_amount)
+        ->and($registrationCharge?->status)->toBe(Charge::STATUS_PENDING);
+});
+
+test('approving an already approved member does not duplicate registration fee charges', function () {
+    $admin = User::factory()->create([
+        'role' => 'admin',
+    ]);
+    $member = Member::factory()->create();
+
+    actingAs($admin);
+
+    patch(route('admin.members.review', $member), [
+        'status' => MemberStatus::Approved->value,
+        'rejection_note' => '',
+    ])->assertRedirect(route('admin.members.index'));
+
+    patch(route('admin.members.review', $member->refresh()), [
+        'status' => MemberStatus::Approved->value,
+        'rejection_note' => '',
+    ])->assertRedirect(route('admin.members.index'));
+
+    expect($member->refresh()->charges()->count())->toBe(1);
 });
 
 test('admins can reject a member application with note', function () {
