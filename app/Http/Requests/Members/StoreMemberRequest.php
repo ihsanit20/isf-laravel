@@ -16,9 +16,6 @@ class StoreMemberRequest extends FormRequest
 
     public function rules(): array
     {
-        return [
-            ...$this->memberRules(),
-            'registration_fee_proof' => ['required', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
-        ];
+        return $this->memberRules();
     }
 }

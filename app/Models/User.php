@@ -89,4 +89,9 @@ class User extends Authenticatable
     {
         return $this->hasMany(DepositSubmission::class, 'verified_by_user_id');
     }
+
+    public function settledCharges(): HasMany
+    {
+        return $this->hasMany(Charge::class, 'settled_by_user_id');
+    }
 }

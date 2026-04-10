@@ -14,16 +14,9 @@ import {
 } from '@/components/ui/select';
 
 type RelationshipOption = 'self' | 'spouse' | 'child' | 'parent' | 'other';
-type PaymentMethod =
-    | 'bank_transfer'
-    | 'cash_deposit'
-    | 'mobile_banking'
-    | 'other';
 
 type Props = {
     relationshipOptions: RelationshipOption[];
-    paymentMethods: PaymentMethod[];
-    registrationFeeAmount: number;
 };
 
 defineOptions({
@@ -48,29 +41,15 @@ const form = useForm<{
     phone: string;
     relationship_to_user: RelationshipOption;
     units: number;
-    registration_fee_payment_method: PaymentMethod;
-    registration_fee_reference_no: string;
-    registration_fee_proof: File | null;
 }>({
     full_name: '',
     phone: '',
     relationship_to_user: 'self',
     units: 1,
-    registration_fee_payment_method: 'bank_transfer',
-    registration_fee_reference_no: '',
-    registration_fee_proof: null,
 });
 
 const relationshipLabel = (value: RelationshipOption): string =>
     value.replace('_', ' ').replace(/\b\w/g, (char) => char.toUpperCase());
-
-const paymentMethodLabel = (value: PaymentMethod): string =>
-    value.replace('_', ' ').replace(/\b\w/g, (char) => char.toUpperCase());
-
-const handleFeeProofChange = (event: Event) => {
-    const target = event.target as HTMLInputElement;
-    form.registration_fee_proof = target.files?.[0] ?? null;
-};
 
 const submit = () => {
     form.post('/my-membership', {
@@ -96,9 +75,8 @@ const submit = () => {
                     </h1>
                     <p class="mt-3 text-sm leading-6 text-muted-foreground">
                         Submit the required membership details for yourself or a
-                        family member. The one-time registration fee proof is
-                        submitted with this application and reviewed together by
-                        the admin.
+                        family member. Registration fee settlement will be
+                        handled separately from the membership record.
                     </p>
                 </div>
 
@@ -181,89 +159,6 @@ const submit = () => {
                             <InputError :message="form.errors.units" />
                         </div>
 
-                        <div
-                            class="rounded-2xl border border-border/70 bg-muted/20 p-4"
-                        >
-                            <p class="text-sm font-medium text-foreground">
-                                Registration Fee
-                            </p>
-                            <p class="mt-1 text-sm text-muted-foreground">
-                                A one-time registration fee of
-                                {{
-                                    props.registrationFeeAmount.toLocaleString()
-                                }}
-                                BDT must be paid with this membership
-                                application.
-                            </p>
-                        </div>
-
-                        <div class="grid gap-2">
-                            <Label for="registration-fee-method"
-                                >Registration Fee Payment Method</Label
-                            >
-                            <Select
-                                v-model="form.registration_fee_payment_method"
-                            >
-                                <SelectTrigger
-                                    id="registration-fee-method"
-                                    class="w-full"
-                                >
-                                    <SelectValue
-                                        placeholder="Select payment method"
-                                    />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem
-                                        v-for="paymentMethod in props.paymentMethods"
-                                        :key="paymentMethod"
-                                        :value="paymentMethod"
-                                    >
-                                        {{ paymentMethodLabel(paymentMethod) }}
-                                    </SelectItem>
-                                </SelectContent>
-                            </Select>
-                            <InputError
-                                :message="
-                                    form.errors.registration_fee_payment_method
-                                "
-                            />
-                        </div>
-
-                        <div class="grid gap-2">
-                            <Label for="registration-fee-reference-no"
-                                >Registration Fee Reference No</Label
-                            >
-                            <Input
-                                id="registration-fee-reference-no"
-                                v-model="form.registration_fee_reference_no"
-                                placeholder="Bank reference or transaction ID"
-                            />
-                            <InputError
-                                :message="
-                                    form.errors.registration_fee_reference_no
-                                "
-                            />
-                        </div>
-
-                        <div class="grid gap-2">
-                            <Label for="registration-fee-proof"
-                                >Registration Fee Proof</Label
-                            >
-                            <Input
-                                id="registration-fee-proof"
-                                type="file"
-                                accept=".jpg,.jpeg,.png,.pdf"
-                                @input="handleFeeProofChange"
-                            />
-                            <p class="text-xs text-muted-foreground">
-                                Upload the payment proof for the one-time 100
-                                BDT registration fee.
-                            </p>
-                            <InputError
-                                :message="form.errors.registration_fee_proof"
-                            />
-                        </div>
-
                         <div class="pt-2">
                             <Button type="submit" :disabled="form.processing">
                                 Submit Membership Application
@@ -286,8 +181,8 @@ const submit = () => {
                         >
                             <p class="font-medium">1. Submission</p>
                             <p class="mt-1 leading-6 text-muted-foreground">
-                                Membership details and registration fee proof
-                                are submitted together in one application.
+                                Membership details are submitted first for
+                                review.
                             </p>
                         </div>
                         <div
@@ -296,7 +191,7 @@ const submit = () => {
                             <p class="font-medium">2. Review</p>
                             <p class="mt-1 leading-6 text-muted-foreground">
                                 An administrator reviews the member details and
-                                fee proof in a single step.
+                                updates the membership status.
                             </p>
                         </div>
                         <div

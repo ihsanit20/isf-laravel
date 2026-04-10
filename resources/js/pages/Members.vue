@@ -5,10 +5,8 @@ import {
     CalendarDays,
     CircleAlert,
     Clock3,
-    FileBadge2,
     Phone,
     Plus,
-    ReceiptText,
     UserRound,
     WalletCards,
 } from 'lucide-vue-next';
@@ -24,11 +22,6 @@ type MemberItem = {
     phone: string | null;
     relationship_to_user: RelationshipOption;
     units: number;
-    registration_fee_amount: number;
-    registration_fee_payment_method: string | null;
-    registration_fee_payment_method_label: string | null;
-    registration_fee_reference_no: string | null;
-    registration_fee_proof_url: string | null;
     status: MemberStatus;
     rejection_note: string | null;
     applied_at: string | null;
@@ -220,60 +213,6 @@ const statusSurfaceClass = (status: MemberStatus): string => {
                             </div>
                             <p class="mt-2 font-medium text-foreground">
                                 {{ member.approved_at || 'Pending review' }}
-                            </p>
-                        </div>
-                    </div>
-
-                    <div class="grid gap-3 md:grid-cols-2">
-                        <div class="rounded-2xl bg-background/75 px-3 py-3">
-                            <div
-                                class="flex items-center gap-2 text-xs text-muted-foreground"
-                            >
-                                <ReceiptText class="size-4" />
-                                Registration Fee
-                            </div>
-                            <p class="mt-2 font-medium text-foreground">
-                                {{
-                                    member.registration_fee_amount.toLocaleString()
-                                }}
-                                BDT
-                            </p>
-                            <p class="mt-1 text-xs text-muted-foreground">
-                                {{
-                                    member.registration_fee_payment_method_label ||
-                                    'Payment method not set'
-                                }}
-                            </p>
-                            <p class="mt-1 text-xs text-muted-foreground">
-                                Reference:
-                                {{
-                                    member.registration_fee_reference_no ||
-                                    'Not provided'
-                                }}
-                            </p>
-                        </div>
-
-                        <div class="rounded-2xl bg-background/75 px-3 py-3">
-                            <div
-                                class="flex items-center gap-2 text-xs text-muted-foreground"
-                            >
-                                <FileBadge2 class="size-4" />
-                                Fee Proof
-                            </div>
-                            <a
-                                v-if="member.registration_fee_proof_url"
-                                :href="member.registration_fee_proof_url"
-                                class="mt-2 inline-flex font-medium text-foreground underline underline-offset-4"
-                                target="_blank"
-                                rel="noreferrer"
-                            >
-                                View uploaded proof
-                            </a>
-                            <p
-                                v-else
-                                class="mt-2 text-sm text-muted-foreground"
-                            >
-                                No proof uploaded
                             </p>
                         </div>
                     </div>

@@ -12,8 +12,7 @@ ISF will run on a fund-cycle-based savings allocation and investment lifecycle.
 - Members are created under a user.
 - A user can deposit any amount at any time.
 - Deposited funds first remain as the user's unallocated balance.
-- Member registration fees may also be fulfilled from the same unallocated balance.
-- Special collections may also be fulfilled from the same unallocated balance when an eligible campaign is open.
+- Member-oriented charges may also be fulfilled from the same unallocated balance.
 - Allocations are made from the user's unallocated balance.
 - Allocations are recorded against members, not against users.
 - Allocations are tied to a Fund Cycle slot.
@@ -50,35 +49,19 @@ The investment entry created for a locked fund cycle. It captures the investment
 
 The final member-wise outcome of a matured fund cycle. It records the current value, profit, entitlement, or payable amount for each participating member.
 
-### Member Registration Fee Charge
+### Charge
 
-The payable registration amount attached to a member record. It should support balance-funded payment from the user's unallocated deposit balance and keep a traceable record of charge amount, settlement status, settlement time, and the operator or rule that created it.
-
-### Special Collection Campaign
-
-A named extra-fund collection request created for a defined purpose outside the normal fund-cycle investment flow.
-
-Examples:
-
-- Eid program contribution
-- Emergency support collection
-- Annual picnic collection
-
-Each campaign should define whether participation is mandatory or optional, the contribution rule, the active period, and whether it is member-based or user-based.
-
-### Special Collection Contribution
-
-The record of how much a user or member contributed to a specific special collection campaign, including whether the contribution was fulfilled from unallocated balance, entered manually by admin, or adjusted later.
+A member-oriented payable item outside the fund-cycle investment flow. The initial source model is `Member` through a morph relation. It can represent registration fee, tour fee, restaurant fee, picnic fee, or other extra charges. A posted charge may be settled from the user's unallocated deposit balance and counted as a minus item in deposit summaries.
 
 ### Extra Fund Expense
 
-The record of how special-collection or registration-fee money was spent. It must preserve category, amount, purpose, payee or recipient, supporting reference, approver identity, and timestamps.
+The record of how charge-collected money was spent. It must preserve category, amount, purpose, payee or recipient, supporting reference, approver identity, and timestamps.
 
 ## Financial Flow
 
 1. A user deposits funds at any time.
 2. The system stores those funds as user-level unallocated balance.
-3. The same unallocated balance may also be used to settle member registration fees or approved special collection contributions.
+3. The same unallocated balance may also be used to settle posted member-oriented charges.
 4. The user allocates part of the remaining balance to one or more members.
 5. Each allocation is tied to a specific fund cycle slot.
 6. When the fund cycle period ends, its slots become locked.
@@ -88,25 +71,18 @@ The record of how special-collection or registration-fee money was spent. It mus
 
 ## Non-Investment Fund Flow
 
-### 1. Member Registration Fee
+### 1. Charges
 
-- Each member may carry a registration fee charge.
-- The registration fee should be payable from the managing user's unallocated balance.
-- Payment should create a dedicated ledger entry instead of only storing a paid flag on the member.
-- The system should preserve whether the fee is pending, partially settled, settled, waived, or adjusted.
+- A member may carry one or more charges outside the fund-cycle allocation flow.
+- A charge can represent registration fee, tour fee, restaurant fee, picnic fee, or another approved extra charge.
+- A charge stays attached to the member record through a morph source, initially using `Member`.
+- Only posted charges should reduce the available deposit balance.
+- The system should preserve whether a charge is pending, posted, waived, or cancelled.
 
-### 2. Special Collection Campaigns
+### 2. Extra Fund Expenses
 
-- Admin can create extra-fund campaigns for special occasions or operational needs.
-- A campaign can target users or members.
-- A campaign can define a fixed amount, per-unit amount, per-member amount, or manually assigned amount.
-- Contributions should be payable from unallocated balance when the campaign is open.
-- Campaign collections must stay separate from fund-cycle investment money.
-
-### 3. Extra Fund Expenses
-
-- Registration-fee money and special-collection money should be spendable only through explicit expense records.
-- Every expense should be linked to a funding source such as registration fee pool or a specific special collection campaign.
+- Charge-collected money should be spendable only through explicit expense records.
+- Every expense should be linked to a funding source such as a charge category or other approved extra-fund source.
 - Expenses should support reimbursement, vendor payment, event spending, and operational cost use cases.
 - Expense records should never overwrite historical collection entries.
 
@@ -137,14 +113,14 @@ After investment maturity, the system calculates member-wise current value, prof
 - User and member are separate entities.
 - Deposits belong to the user.
 - Unallocated balance is maintained at the user level.
-- The unallocated balance is the source for fund-cycle allocations, member registration fee settlement, and approved special collection contributions.
+- The unallocated balance is the source for fund-cycle allocations and posted member-oriented charges.
 - Slot participation belongs to the member inside a specific fund cycle.
 - Fund cycle allocations must not exceed the user's available unallocated balance.
 - Locked fund cycle slots cannot be edited.
-- Registration fee charges and special collection contributions must remain separate from fund-cycle allocations in reporting.
-- Extra-fund collections must be tracked by source and purpose.
+- Charges must remain separate from fund-cycle allocations in reporting.
+- Extra-fund collections must be tracked by member source and purpose.
 - Extra-fund expenses must be linked to a source pool and must not be mixed into fund-cycle investment returns.
-- If balance is insufficient, registration fee or special collection payment should remain pending instead of creating a negative balance.
+- If balance is insufficient, a charge should remain pending instead of creating a negative balance.
 - Financial history should remain auditable and append-only where practical.
 - Multiple fund cycles can run in parallel.
 - Investment and settlement must remain traceable at the fund-cycle level.
@@ -155,17 +131,15 @@ Use ledger-style records rather than derived booleans.
 
 - Keep deposit submissions as the source of incoming cash to the user balance.
 - Add a balance ledger that records every increase and decrease against the user's unallocated balance.
-- Represent registration fee settlement as its own transaction type in the balance ledger.
-- Represent special collection contribution as its own transaction type in the balance ledger.
-- Keep separate aggregate reporting for fund-cycle allocations, registration fees, and special collections.
+- Represent posted charge settlement as its own transaction type in the balance ledger.
+- Keep separate aggregate reporting for fund-cycle allocations and charges.
 - For expenses, create explicit expense records plus, when needed, expense allocation rows so a single expense can be split across multiple funding sources.
 
 Suggested transaction categories:
 
 - deposit_verified_credit
 - fund_cycle_allocation_debit
-- registration_fee_debit
-- special_collection_debit
+- charge_debit
 - manual_adjustment_credit
 - manual_adjustment_debit
 
@@ -180,16 +154,14 @@ Suggested expense categories:
 
 Suggested source pools for expense tracking:
 
-- registration_fee_pool
-- special_collection_campaign
+- charge_pool
 
 ## MVP Scope Guidance
 
 Initial implementation should prioritize:
 
 - user deposits and user unallocated balance tracking
-- balance-ledger-backed registration fee settlement
-- special collection campaign setup and contribution tracking
+- minimal member-oriented charges setup and settlement tracking
 - extra-fund expense recording and reporting
 - member creation and member-wise allocations
 - fund cycle and slot setup
@@ -203,8 +175,7 @@ When implementation starts, break the work into these areas:
 
 - database design
 - balance ledger design
-- registration fee charge and settlement workflow
-- special collection campaign management
+- charges workflow and settlement rules
 - extra-fund expense management and reporting
 - admin fund cycle management
 - deposit ledger and balance calculation

@@ -7,7 +7,6 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\ReviewMemberRequest;
 use App\Models\Member;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -27,13 +26,6 @@ class MemberListController extends Controller
                     'phone' => $member->phone,
                     'relationship_to_user' => $member->relationship_to_user,
                     'units' => $member->units,
-                    'registration_fee_amount' => $member->registration_fee_amount,
-                    'registration_fee_payment_method' => $member->registration_fee_payment_method,
-                    'registration_fee_payment_method_label' => Member::paymentMethodLabel($member->registration_fee_payment_method),
-                    'registration_fee_reference_no' => $member->registration_fee_reference_no,
-                    'registration_fee_proof_url' => $member->registration_fee_proof_path
-                        ? Storage::url($member->registration_fee_proof_path)
-                        : null,
                     'status' => $member->status->value,
                     'rejection_note' => $member->rejection_note,
                     'applied_at' => $member->applied_at?->format('d M Y, h:i A'),
