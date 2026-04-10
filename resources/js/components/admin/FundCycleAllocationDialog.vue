@@ -24,6 +24,7 @@ import {
 type FundCycleItem = {
     id: number;
     name: string;
+    slots: string[];
 };
 
 type EligibleMember = {
@@ -42,10 +43,12 @@ const isOpen = defineModel<boolean>('isOpen', { default: false });
 
 const form = useForm<{
     member_id: string;
+    slot_key: string;
     amount: string;
     notes: string;
 }>({
     member_id: '',
+    slot_key: '',
     amount: '',
     notes: '',
 });
@@ -62,6 +65,7 @@ const memberLabel = computed<Record<string, string>>(() =>
 const resetFormState = () => {
     form.defaults({
         member_id: '',
+        slot_key: '',
         amount: '',
         notes: '',
     });
@@ -81,6 +85,7 @@ const submit = () => {
 
     form.transform(() => ({
         member_id: Number(form.member_id),
+        slot_key: form.slot_key,
         amount: Number(form.amount),
         notes: form.notes || null,
     })).post(`/admin/fund-cycles/${props.fundCycle.id}/allocations`, {
@@ -132,6 +137,25 @@ watch(
                 </div>
 
                 <div class="grid gap-2">
+                    <Label for="allocation-slot">Slot</Label>
+                    <Select v-model="form.slot_key">
+                        <SelectTrigger id="allocation-slot" class="w-full">
+                            <SelectValue placeholder="Select slot" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem
+                                v-for="slot in fundCycle?.slots ?? []"
+                                :key="slot"
+                                :value="slot"
+                            >
+                                {{ slot }}
+                            </SelectItem>
+                        </SelectContent>
+                    </Select>
+                    <InputError :message="form.errors.slot_key" />
+                </div>
+
+                <div class="grid gap-2">
                     <Label for="allocation-amount">Amount</Label>
                     <Input
                         id="allocation-amount"
@@ -163,7 +187,11 @@ watch(
                     </Button>
                     <Button
                         type="submit"
-                        :disabled="form.processing || !fundCycle"
+                        :disabled="
+                            form.processing ||
+                            !fundCycle ||
+                            fundCycle.slots.length === 0
+                        "
                     >
                         Save Allocation
                     </Button>

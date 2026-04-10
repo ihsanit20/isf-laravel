@@ -2,7 +2,6 @@
 import { Head, Link } from '@inertiajs/vue3';
 import {
     CalendarDays,
-    CircleAlert,
     Clock3,
     Phone,
     Plus,
@@ -93,13 +92,34 @@ const statusSurfaceClass = (status: MemberStatus): string => {
 const chargeStatusLabel = (value: ChargeStatus): string =>
     value.replace('_', ' ').replace(/\b\w/g, (char) => char.toUpperCase());
 
+const membershipActivityLabel = (member: MemberItem): 'Active' | 'Inactive' =>
+    member.registration_charge?.status === 'posted' ? 'Active' : 'Inactive';
+
+const membershipActivityVariant = (
+    member: MemberItem,
+): 'default' | 'secondary' =>
+    member.registration_charge?.status === 'posted' ? 'default' : 'secondary';
+
+const shouldShowAllocateButton = (member: MemberItem): boolean =>
+    !member.registration_charge ||
+    member.registration_charge.status === 'pending' ||
+    member.registration_charge.status === 'cancelled';
+
 const activationNote = (member: MemberItem): string => {
     if (member.activated_at) {
         return `Active since ${member.activated_at}.`;
     }
 
+    if (!member.registration_charge) {
+        return 'Registration fee is not assigned yet. Allocate it from your verified deposit balance to continue activation.';
+    }
+
     if (member.registration_charge?.status === 'pending') {
         return 'Membership will activate after you allocate the registration fee from your verified deposit balance.';
+    }
+
+    if (member.registration_charge.status === 'cancelled') {
+        return 'Registration fee allocation was cancelled. Allocate it again from your verified deposit balance.';
     }
 
     if (member.status === 'approved') {
@@ -232,10 +252,20 @@ const money = (amount: number): string => `${amount.toLocaleString()} BDT`;
 
                         <div class="rounded-2xl bg-background/75 px-3 py-3">
                             <div
-                                class="flex items-center gap-2 text-xs text-muted-foreground"
+                                class="flex items-center justify-between gap-2"
                             >
-                                <Clock3 class="size-4" />
-                                Approval
+                                <div
+                                    class="flex items-center gap-2 text-xs text-muted-foreground"
+                                >
+                                    <Clock3 class="size-4" />
+                                    Approval
+                                </div>
+
+                                <Badge
+                                    :variant="membershipActivityVariant(member)"
+                                >
+                                    {{ membershipActivityLabel(member) }}
+                                </Badge>
                             </div>
                             <p class="mt-2 font-medium text-foreground">
                                 {{ member.approved_at || 'Pending review' }}
@@ -244,7 +274,6 @@ const money = (amount: number): string => `${amount.toLocaleString()} BDT`;
                     </div>
 
                     <div
-                        v-if="member.registration_charge"
                         class="rounded-2xl border border-dashed border-border/80 bg-background/70 px-3 py-3"
                     >
                         <div class="flex items-center justify-between gap-3">
@@ -257,23 +286,30 @@ const money = (amount: number): string => `${amount.toLocaleString()} BDT`;
                                 </div>
                                 <p class="mt-2 font-medium text-foreground">
                                     {{
-                                        money(member.registration_charge.amount)
+                                        member.registration_charge
+                                            ? money(
+                                                  member.registration_charge
+                                                      .amount,
+                                              )
+                                            : 'Not assigned yet'
                                     }}
                                 </p>
                             </div>
 
                             <Badge
                                 :variant="
-                                    member.registration_charge.status ===
+                                    member.registration_charge?.status ===
                                     'posted'
                                         ? 'default'
                                         : 'secondary'
                                 "
                             >
                                 {{
-                                    chargeStatusLabel(
-                                        member.registration_charge.status,
-                                    )
+                                    member.registration_charge
+                                        ? chargeStatusLabel(
+                                              member.registration_charge.status,
+                                          )
+                                        : 'Pending'
                                 }}
                             </Badge>
                         </div>
@@ -281,9 +317,7 @@ const money = (amount: number): string => `${amount.toLocaleString()} BDT`;
                             {{ activationNote(member) }}
                         </p>
                         <Button
-                            v-if="
-                                member.registration_charge.status === 'pending'
-                            "
+                            v-if="shouldShowAllocateButton(member)"
                             as-child
                             variant="outline"
                             class="mt-3"
@@ -292,25 +326,6 @@ const money = (amount: number): string => `${amount.toLocaleString()} BDT`;
                                 >Allocate from Deposits</Link
                             >
                         </Button>
-                    </div>
-
-                    <div
-                        class="rounded-2xl border border-dashed border-border/80 bg-background/70 px-3 py-3"
-                    >
-                        <div
-                            class="flex items-center gap-2 text-xs text-muted-foreground"
-                        >
-                            <CircleAlert class="size-4" />
-                            Review Note
-                        </div>
-                        <p class="mt-2 text-sm leading-6 text-foreground">
-                            {{
-                                member.rejection_note ||
-                                (member.approved_at
-                                    ? 'Approved by an administrator.'
-                                    : 'No review note available.')
-                            }}
-                        </p>
                     </div>
                 </div>
             </article>

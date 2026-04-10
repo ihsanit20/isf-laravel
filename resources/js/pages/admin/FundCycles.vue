@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { Head } from '@inertiajs/vue3';
-import { Plus, SquarePen } from 'lucide-vue-next';
+import { CircleDollarSign, Plus, SquarePen } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
+import FundCycleAllocationDialog from '@/components/admin/FundCycleAllocationDialog.vue';
 import FundCycleFormDialog from '@/components/admin/FundCycleFormDialog.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -15,6 +16,7 @@ type FundCycleItem = {
     lock_date: string | null;
     maturity_date: string | null;
     settlement_date: string | null;
+    slots: string[];
     notes: string | null;
     created_by: string | null;
     created_at: string | null;
@@ -22,15 +24,31 @@ type FundCycleItem = {
     allocations: Array<{
         id: number;
         member_name: string | null;
+        slot_key: string | null;
         amount: number;
         allocated_at: string | null;
         notes: string | null;
     }>;
 };
 
+type EligibleMember = {
+    id: number;
+    full_name: string;
+    units: number;
+};
+
+type PoolSummary = {
+    total_verified_deposits: number;
+    total_charge_allocations: number;
+    total_cycle_allocations: number;
+    remaining_pool: number;
+};
+
 type Props = {
     fundCycles: FundCycleItem[];
     statuses: string[];
+    eligibleMembers: EligibleMember[];
+    poolSummary: PoolSummary;
 };
 
 defineOptions({
@@ -48,15 +66,32 @@ const props = defineProps<Props>();
 
 const isCreateDialogOpen = ref(false);
 const isEditDialogOpen = ref(false);
+const isAllocationDialogOpen = ref(false);
 const selectedFundCycle = ref<FundCycleItem | null>(null);
 
 const editableFundCycle = computed(() => selectedFundCycle.value);
+const allocationTargetFundCycle = computed(() => {
+    if (!selectedFundCycle.value) {
+        return null;
+    }
+
+    return {
+        id: selectedFundCycle.value.id,
+        name: selectedFundCycle.value.name,
+        slots: selectedFundCycle.value.slots,
+    };
+});
 
 const money = (amount: number): string => `${amount.toLocaleString()} BDT`;
 
 const openEditDialog = (fundCycle: FundCycleItem) => {
     selectedFundCycle.value = fundCycle;
     isEditDialogOpen.value = true;
+};
+
+const openAllocationDialog = (fundCycle: FundCycleItem) => {
+    selectedFundCycle.value = fundCycle;
+    isAllocationDialogOpen.value = true;
 };
 </script>
 
@@ -81,6 +116,37 @@ const openEditDialog = (fundCycle: FundCycleItem) => {
                 </div>
 
                 <div class="flex flex-col gap-3 md:items-end">
+                    <div
+                        class="rounded-lg border border-sidebar-border/70 bg-muted/30 px-4 py-3 text-sm"
+                    >
+                        <div>
+                            Verified deposits:
+                            <span class="font-medium">{{
+                                money(props.poolSummary.total_verified_deposits)
+                            }}</span>
+                        </div>
+                        <div>
+                            Charge allocations:
+                            <span class="font-medium">{{
+                                money(
+                                    props.poolSummary.total_charge_allocations,
+                                )
+                            }}</span>
+                        </div>
+                        <div>
+                            Cycle allocations:
+                            <span class="font-medium">{{
+                                money(props.poolSummary.total_cycle_allocations)
+                            }}</span>
+                        </div>
+                        <div class="mt-1 text-base">
+                            Remaining pool:
+                            <span class="font-semibold">{{
+                                money(props.poolSummary.remaining_pool)
+                            }}</span>
+                        </div>
+                    </div>
+
                     <Button class="shrink-0" @click="isCreateDialogOpen = true">
                         <Plus class="size-4" />
                         Add Fund Cycle
@@ -101,6 +167,7 @@ const openEditDialog = (fundCycle: FundCycleItem) => {
                             <th class="px-4 py-3 font-medium">Name</th>
                             <th class="px-4 py-3 font-medium">Status</th>
                             <th class="px-4 py-3 font-medium">Timeline</th>
+                            <th class="px-4 py-3 font-medium">Slots</th>
                             <th class="px-4 py-3 font-medium">Allocations</th>
                             <th class="px-4 py-3 font-medium">Created By</th>
                             <th class="px-4 py-3 font-medium">Created At</th>
@@ -140,6 +207,22 @@ const openEditDialog = (fundCycle: FundCycleItem) => {
                                 </div>
                             </td>
                             <td class="px-4 py-3 text-muted-foreground">
+                                <div
+                                    v-if="fundCycle.slots.length > 0"
+                                    class="space-y-1 text-xs"
+                                >
+                                    <div
+                                        v-for="slot in fundCycle.slots"
+                                        :key="slot"
+                                    >
+                                        {{ slot }}
+                                    </div>
+                                </div>
+                                <div v-else class="text-xs">
+                                    No slots configured
+                                </div>
+                            </td>
+                            <td class="px-4 py-3 text-muted-foreground">
                                 <div class="font-medium text-foreground">
                                     {{ money(fundCycle.allocated_amount) }}
                                 </div>
@@ -151,6 +234,7 @@ const openEditDialog = (fundCycle: FundCycleItem) => {
                                         v-for="allocation in fundCycle.allocations"
                                         :key="allocation.id"
                                     >
+                                        {{ allocation.slot_key || 'No slot' }} -
                                         {{
                                             allocation.member_name ||
                                             'Unknown member'
@@ -177,11 +261,21 @@ const openEditDialog = (fundCycle: FundCycleItem) => {
                                     <SquarePen class="size-4" />
                                     Edit
                                 </Button>
+                                <Button
+                                    variant="secondary"
+                                    size="sm"
+                                    class="ml-2"
+                                    :disabled="fundCycle.slots.length === 0"
+                                    @click="openAllocationDialog(fundCycle)"
+                                >
+                                    <CircleDollarSign class="size-4" />
+                                    Allocate
+                                </Button>
                             </td>
                         </tr>
                         <tr v-if="fundCycles.length === 0">
                             <td
-                                colspan="7"
+                                colspan="8"
                                 class="px-4 py-8 text-center text-muted-foreground"
                             >
                                 No fund cycles found.
@@ -203,6 +297,12 @@ const openEditDialog = (fundCycle: FundCycleItem) => {
             mode="edit"
             :fund-cycle="editableFundCycle"
             :statuses="props.statuses"
+        />
+
+        <FundCycleAllocationDialog
+            v-model:isOpen="isAllocationDialogOpen"
+            :fund-cycle="allocationTargetFundCycle"
+            :eligible-members="props.eligibleMembers"
         />
     </div>
 </template>

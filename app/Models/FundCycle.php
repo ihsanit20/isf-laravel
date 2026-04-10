@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'lock_date',
     'maturity_date',
     'settlement_date',
+    'slots',
     'notes',
     'created_by_user_id',
 ])]
@@ -55,6 +56,7 @@ class FundCycle extends Model
             'lock_date' => 'date',
             'maturity_date' => 'date',
             'settlement_date' => 'date',
+            'slots' => 'array',
         ];
     }
 

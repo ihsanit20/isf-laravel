@@ -45,6 +45,7 @@ class FundCycleController extends Controller
                     'lock_date' => $fundCycle->lock_date?->format('Y-m-d'),
                     'maturity_date' => $fundCycle->maturity_date?->format('Y-m-d'),
                     'settlement_date' => $fundCycle->settlement_date?->format('Y-m-d'),
+                    'slots' => collect($fundCycle->slots ?? [])->values(),
                     'notes' => $fundCycle->notes,
                     'created_by' => $fundCycle->creator?->name,
                     'created_at' => $fundCycle->created_at?->format('d M Y, h:i A'),
@@ -55,6 +56,7 @@ class FundCycleController extends Controller
                         ->map(fn(FundCycleAllocation $allocation): array => [
                             'id' => $allocation->id,
                             'member_name' => $allocation->member?->full_name,
+                            'slot_key' => $allocation->slot_key,
                             'amount' => $allocation->amount,
                             'allocated_at' => $allocation->allocated_at?->format('d M Y, h:i A'),
                             'notes' => $allocation->notes,

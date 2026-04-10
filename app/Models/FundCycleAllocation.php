@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 #[Fillable([
     'fund_cycle_id',
     'member_id',
+    'slot_key',
     'amount',
     'allocated_at',
     'notes',

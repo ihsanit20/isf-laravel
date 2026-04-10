@@ -23,6 +23,7 @@ class StoreFundCycleAllocationRequest extends FormRequest
     {
         return [
             'member_id' => ['required', 'integer'],
+            'slot_key' => ['required', 'string', 'max:100'],
             'amount' => ['required', 'integer', 'min:1'],
             'notes' => ['nullable', 'string', 'max:255'],
         ];
@@ -38,6 +39,19 @@ class StoreFundCycleAllocationRequest extends FormRequest
 
             if (! $member instanceof Member || $member->status !== MemberStatus::Approved) {
                 $validator->errors()->add('member_id', 'Select an approved member.');
+
+                return;
+            }
+
+            $slotKey = $this->string('slot_key')->toString();
+
+            $availableSlots = collect($fundCycle->slots ?? [])
+                ->map(fn($slot) => is_string($slot) ? trim($slot) : '')
+                ->filter()
+                ->values();
+
+            if ($slotKey === '' || ! $availableSlots->contains($slotKey)) {
+                $validator->errors()->add('slot_key', 'Select one of the configured cycle slots.');
 
                 return;
             }
@@ -65,10 +79,11 @@ class StoreFundCycleAllocationRequest extends FormRequest
             $existingMemberAllocation = FundCycleAllocation::query()
                 ->where('fund_cycle_id', $fundCycle->id)
                 ->where('member_id', $member->id)
+                ->where('slot_key', $slotKey)
                 ->exists();
 
             if ($existingMemberAllocation) {
-                $validator->errors()->add('member_id', 'This member is already allocated in the selected fund cycle.');
+                $validator->errors()->add('slot_key', 'This member is already allocated for the selected slot in this fund cycle.');
             }
         });
     }

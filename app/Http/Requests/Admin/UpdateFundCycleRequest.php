@@ -22,6 +22,8 @@ class UpdateFundCycleRequest extends FormRequest
             'lock_date' => ['nullable', 'date', 'after_or_equal:start_date'],
             'maturity_date' => ['nullable', 'date', 'after_or_equal:start_date'],
             'settlement_date' => ['nullable', 'date', 'after_or_equal:maturity_date'],
+            'slots' => ['required', 'array', 'min:1'],
+            'slots.*' => ['required', 'string', 'max:100', 'distinct'],
             'notes' => ['nullable', 'string', 'max:255'],
         ];
     }

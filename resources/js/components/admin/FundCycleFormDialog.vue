@@ -29,6 +29,7 @@ type EditableFundCycle = {
     lock_date: string | null;
     maturity_date: string | null;
     settlement_date: string | null;
+    slots: string[];
     notes: string | null;
 };
 
@@ -50,6 +51,7 @@ const form = useForm<{
     lock_date: string;
     maturity_date: string;
     settlement_date: string;
+    slots_text: string;
     notes: string;
 }>({
     name: '',
@@ -58,6 +60,7 @@ const form = useForm<{
     lock_date: '',
     maturity_date: '',
     settlement_date: '',
+    slots_text: '',
     notes: '',
 });
 
@@ -74,6 +77,7 @@ const resetFormState = () => {
                   lock_date: props.fundCycle.lock_date ?? '',
                   maturity_date: props.fundCycle.maturity_date ?? '',
                   settlement_date: props.fundCycle.settlement_date ?? '',
+                  slots_text: props.fundCycle.slots.join('\n'),
                   notes: props.fundCycle.notes ?? '',
               }
             : {
@@ -83,6 +87,7 @@ const resetFormState = () => {
                   lock_date: '',
                   maturity_date: '',
                   settlement_date: '',
+                  slots_text: '',
                   notes: '',
               };
 
@@ -97,11 +102,20 @@ const closeDialog = () => {
 };
 
 const submit = () => {
+    const slots = form.slots_text
+        .split(/\r?\n|,/)
+        .map((slot) => slot.trim())
+        .filter(
+            (slot, index, allSlots) =>
+                slot !== '' && allSlots.indexOf(slot) === index,
+        );
+
     const payload = {
         ...form.data(),
         lock_date: form.lock_date || null,
         maturity_date: form.maturity_date || null,
         settlement_date: form.settlement_date || null,
+        slots,
         notes: form.notes || null,
     };
 
@@ -231,6 +245,24 @@ watch(
                         />
                         <InputError :message="form.errors.settlement_date" />
                     </div>
+                </div>
+
+                <div class="grid gap-2">
+                    <Label for="fund-cycle-slots">Slots</Label>
+                    <textarea
+                        id="fund-cycle-slots"
+                        v-model="form.slots_text"
+                        rows="4"
+                        class="flex min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-xs transition-[color,box-shadow] outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                        placeholder="January 2026&#10;February 2026&#10;March 2026"
+                    />
+                    <p class="text-xs text-muted-foreground">
+                        Add one slot per line. These values will be stored in
+                        the cycle JSON field and used during member allocation.
+                    </p>
+                    <InputError
+                        :message="form.errors.slots || form.errors['slots.0']"
+                    />
                 </div>
 
                 <div class="grid gap-2">
