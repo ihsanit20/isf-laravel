@@ -1,8 +1,6 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
 import {
-    ArrowRight,
-    CalendarDays,
     CircleAlert,
     Clock3,
     Phone,
@@ -235,16 +233,6 @@ const statusSurfaceClass = (status: MemberStatus): string => {
                             }}
                         </p>
                     </div>
-
-                    <Button as-child variant="outline" class="w-full">
-                        <Link
-                            :href="`/my-membership/${member.id}/unit-calendar`"
-                        >
-                            <CalendarDays class="size-4" />
-                            View Unit Calendar
-                            <ArrowRight class="ml-auto size-4" />
-                        </Link>
-                    </Button>
                 </div>
             </article>
         </section>

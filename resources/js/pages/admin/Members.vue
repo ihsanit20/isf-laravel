@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
-import { CalendarDays, Check, LogOut, X } from 'lucide-vue-next';
+import { Check, LogOut, X } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 import MemberReviewDialog from '@/components/admin/MemberReviewDialog.vue';
 import { Badge } from '@/components/ui/badge';
@@ -181,19 +181,6 @@ const openExitDialog = (member: AdminMember) => {
                             </td>
                             <td class="px-4 py-3">
                                 <div class="flex flex-wrap gap-2">
-                                    <Button
-                                        as-child
-                                        variant="outline"
-                                        size="sm"
-                                    >
-                                        <Link
-                                            :href="`/admin/members/${member.id}/unit-calendar`"
-                                        >
-                                            <CalendarDays class="size-4" />
-                                            Units
-                                        </Link>
-                                    </Button>
-
                                     <Button
                                         v-if="member.status === 'pending'"
                                         variant="outline"
