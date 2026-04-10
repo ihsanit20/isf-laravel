@@ -70,11 +70,6 @@ class Member extends Model
         return $this->belongsTo(User::class, 'approved_by_user_id');
     }
 
-    public function depositAllocations(): HasMany
-    {
-        return $this->hasMany(DepositAllocation::class);
-    }
-
     public function charges(): HasMany
     {
         return $this->hasMany(Charge::class);

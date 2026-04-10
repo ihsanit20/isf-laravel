@@ -6,15 +6,6 @@ import { Button } from '@/components/ui/button';
 
 type DepositStatus = 'pending' | 'verified' | 'rejected';
 
-type DepositAllocation = {
-    id: number;
-    member_name: string | null;
-    allocation_month: string | null;
-    units: number;
-    allocated_amount: number;
-    confirmed_at: string | null;
-};
-
 type ChargeAllocation = {
     id: number;
     member_name: string | null;
@@ -41,7 +32,6 @@ type DepositItem = {
 type DepositSummary = {
     total_deposit_amount: number;
     total_verified_amount: number;
-    total_unit_allocated_amount: number;
     total_charge_allocated_amount: number;
     total_allocated_amount: number;
     total_allocatable_amount: number;
@@ -52,7 +42,6 @@ type DepositSummary = {
 type Props = {
     summary: DepositSummary;
     deposits: DepositItem[];
-    allocations: DepositAllocation[];
     chargeAllocations: ChargeAllocation[];
 };
 
@@ -109,8 +98,8 @@ const statusVariant = (
                         {{ money(summary.total_deposit_amount) }}
                     </h1>
                     <p class="mt-3 text-sm leading-6 text-muted-foreground">
-                        Deposits and allocation history are tracked separately.
-                        Submit deposits independently, then allocate from your
+                        Deposits stay independent from charge settlement. Submit
+                        deposits first, then settle any pending charges from the
                         verified deposit pool when needed.
                     </p>
                 </div>
@@ -123,7 +112,7 @@ const statusVariant = (
                         class="shrink-0"
                     >
                         <Link href="/my-deposits/allocate">
-                            Allocate Units
+                            Settle Charges
                         </Link>
                     </Button>
                     <Button as-child class="shrink-0">
@@ -153,9 +142,7 @@ const statusVariant = (
                     {{ money(summary.total_allocated_amount) }}
                 </p>
                 <p class="mt-1 text-xs text-muted-foreground">
-                    Units {{ money(summary.total_unit_allocated_amount) }} •
-                    Charges
-                    {{ money(summary.total_charge_allocated_amount) }}
+                    Charges only from your verified deposit pool
                 </p>
             </div>
             <div
@@ -301,52 +288,6 @@ const statusVariant = (
             </div>
         </section>
 
-        <section v-if="allocations.length > 0" class="space-y-4">
-            <div>
-                <h2
-                    class="text-lg font-semibold tracking-tight text-foreground"
-                >
-                    Allocation History
-                </h2>
-                <p class="mt-1 text-sm text-muted-foreground">
-                    All confirmed unit allocations appear here independently of
-                    the original deposit cards.
-                </p>
-            </div>
-
-            <div class="space-y-3">
-                <div
-                    v-for="allocation in allocations"
-                    :key="allocation.id"
-                    class="flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-sidebar-border/70 bg-background px-5 py-4 shadow-sm"
-                >
-                    <div>
-                        <p class="font-medium text-foreground">
-                            {{ allocation.member_name || 'Unknown member' }}
-                        </p>
-                        <p class="mt-1 text-xs text-muted-foreground">
-                            {{ allocation.allocation_month || '-' }} •
-                            {{ allocation.units }} unit{{
-                                allocation.units > 1 ? 's' : ''
-                            }}
-                        </p>
-                        <p class="mt-1 text-xs text-muted-foreground">
-                            Independent from individual deposit entries.
-                        </p>
-                    </div>
-
-                    <div class="text-right">
-                        <p class="font-medium text-foreground">
-                            {{ money(allocation.allocated_amount) }}
-                        </p>
-                        <p class="text-xs text-muted-foreground">
-                            {{ allocation.confirmed_at || 'Confirmed' }}
-                        </p>
-                    </div>
-                </div>
-            </div>
-        </section>
-
         <section
             v-else
             class="rounded-[28px] border border-dashed border-sidebar-border/80 bg-background p-10 text-center shadow-sm"
@@ -361,8 +302,8 @@ const statusVariant = (
                     No deposit submissions found
                 </h2>
                 <p class="mt-3 text-sm leading-6 text-muted-foreground">
-                    Submit your first bank deposit with proof, then allocate the
-                    verified amount to your approved members.
+                    Submit your first bank deposit with proof, then use the
+                    verified balance to settle pending charges.
                 </p>
                 <Button as-child class="mt-6">
                     <Link href="/my-deposits/create">
@@ -374,20 +315,16 @@ const statusVariant = (
         </section>
 
         <section
-            v-if="
-                deposits.length > 0 &&
-                allocations.length === 0 &&
-                chargeAllocations.length === 0
-            "
+            v-if="deposits.length > 0 && chargeAllocations.length === 0"
             class="rounded-[28px] border border-dashed border-sidebar-border/80 bg-background p-8 text-center shadow-sm"
         >
             <div class="mx-auto max-w-2xl">
                 <h2 class="text-xl font-semibold tracking-tight">
-                    No allocation history yet
+                    No charge settlements yet
                 </h2>
                 <p class="mt-2 text-sm leading-6 text-muted-foreground">
-                    Confirmed unit allocations will appear here after you
-                    allocate from the verified deposit pool.
+                    Settled charges will appear here after you confirm them from
+                    the verified deposit pool.
                 </p>
             </div>
         </section>
