@@ -2,6 +2,8 @@
 
 use App\Http\Controllers\Admin\MemberListController;
 use App\Http\Controllers\Admin\MemberUnitCalendarController as AdminMemberUnitCalendarController;
+use App\Http\Controllers\Admin\ChargeCategoryController;
+use App\Http\Controllers\Admin\ChargeListController;
 use App\Http\Controllers\Admin\DepositListController;
 use App\Http\Controllers\Admin\UserListController;
 use App\Http\Controllers\DepositController;
@@ -33,9 +35,14 @@ Route::middleware(['auth', 'verified', 'admin'])->group(function () {
     Route::get('admin/users', [UserListController::class, 'index'])->name('admin.users.index');
     Route::post('admin/users', [UserListController::class, 'store'])->name('admin.users.store');
     Route::put('admin/users/{user}', [UserListController::class, 'update'])->name('admin.users.update');
+    Route::get('admin/charge-categories', [ChargeCategoryController::class, 'index'])->name('admin.charge-categories.index');
+    Route::post('admin/charge-categories', [ChargeCategoryController::class, 'store'])->name('admin.charge-categories.store');
+    Route::put('admin/charge-categories/{chargeCategory}', [ChargeCategoryController::class, 'update'])->name('admin.charge-categories.update');
     Route::get('admin/members', [MemberListController::class, 'index'])->name('admin.members.index');
     Route::patch('admin/members/{member}/review', [MemberListController::class, 'review'])->name('admin.members.review');
     Route::get('admin/members/{member}/unit-calendar', [AdminMemberUnitCalendarController::class, 'show'])->name('admin.members.unit-calendar');
+    Route::get('admin/charges', [ChargeListController::class, 'index'])->name('admin.charges.index');
+    Route::patch('admin/charges/{charge}/review', [ChargeListController::class, 'review'])->name('admin.charges.review');
     Route::get('admin/deposits', [DepositListController::class, 'index'])->name('admin.deposits.index');
     Route::patch('admin/deposits/{depositSubmission}/review', [DepositListController::class, 'review'])->name('admin.deposits.review');
 });

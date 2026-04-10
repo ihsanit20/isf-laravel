@@ -2,6 +2,8 @@
 import { Link } from '@inertiajs/vue3';
 import { usePage } from '@inertiajs/vue3';
 import {
+    BadgeDollarSign,
+    BookMarked,
     FileBadge2,
     Info,
     LayoutGrid,
@@ -62,6 +64,18 @@ const mainNavItems = computed<NavItem[]>(() => {
             title: 'User List',
             href: '/admin/users',
             icon: SquarePen,
+        });
+
+        items.push({
+            title: 'Charge Categories',
+            href: '/admin/charge-categories',
+            icon: BookMarked,
+        });
+
+        items.push({
+            title: 'Charge Reviews',
+            href: '/admin/charges',
+            icon: BadgeDollarSign,
         });
 
         items.push({
