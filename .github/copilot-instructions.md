@@ -5,9 +5,10 @@ This repository powers the backend, admin workflows, reporting, and APIs for Al-
 Product and domain priorities:
 
 - ISF starts as a voluntary monthly office group savings fund focused on disciplined savings, transparency, and member trust
-- Keep the MVP savings-first: savings collection, deposit verification, ledgers, reports, notifications, and member transparency
-- Treat the first phase as a 3-month savings-only trial period
-- Do not introduce investment, profit-sharing, dividend logic, or complex loan logic unless explicitly requested
+- Treat the fund-cycle model as the active product direction: deposit, unallocated balance, member allocation, cycle lock, investment, maturity, and settlement
+- Keep fund-cycle money, member-oriented charges, and extra-fund expenses clearly separated in workflow and reporting
+- Support member-wise participation and settlement traceability at the fund-cycle level
+- Do not introduce dividend logic, speculative abstractions, or complex loan logic unless explicitly requested
 - Qard-e-hasana is a possible later feature and must stay behind a separate policy and workflow
 
 Core rules:

@@ -156,9 +156,9 @@ Suggested source pools for expense tracking:
 
 - charge_pool
 
-## MVP Scope Guidance
+## Implementation Priorities
 
-Initial implementation should prioritize:
+Current implementation should prioritize:
 
 - user deposits and user unallocated balance tracking
 - minimal member-oriented charges setup and settlement tracking
@@ -182,3 +182,41 @@ When implementation starts, break the work into these areas:
 - member allocation workflow
 - lock and maturity rules
 - member-facing balance and allocation visibility
+
+## Suggested Delivery Plan
+
+### Phase 1: Foundation and Ledger
+
+- Finalize core schema for members, deposit submissions, balance ledger, charges, charge categories, and extra-fund expenses.
+- Make user unallocated balance ledger-driven instead of relying on mutable summary values.
+- Preserve verifier identity, timestamps, references, and notes for all approved money movements.
+
+### Phase 2: Fund Cycle Setup
+
+- Add fund cycles with explicit start period, end period, status, and notes.
+- Add fund cycle slots as month-based allocation windows under each fund cycle.
+- Support multiple concurrent fund cycles without mixing their pooled balances.
+
+### Phase 3: Allocation Workflow
+
+- Let admins or authorized users allocate available unallocated balance to specific members and cycle slots.
+- Enforce balance checks so allocations and posted charges cannot exceed available user balance.
+- Keep allocation records append-only or adjustment-based for auditability.
+
+### Phase 4: Lock and Investment
+
+- Lock slot allocation when the cycle period ends or an admin explicitly closes the cycle.
+- Create investment records from locked cycle totals with tenure, capital, reference, and notes.
+- Prevent edits to locked participation except through traceable adjustment flows.
+
+### Phase 5: Maturity and Settlement
+
+- Record matured value at the fund-cycle level.
+- Calculate member-wise entitlement from recorded slot participation.
+- Store settlement outcomes and payout state per member with clear audit history.
+
+### Phase 6: Reporting and Visibility
+
+- Show user deposit balance, posted charge deductions, and remaining unallocated balance clearly.
+- Show member-wise cycle participation, locked allocations, maturity value, and settlement status.
+- Keep charge and extra-fund reporting separate from fund-cycle investment reporting.
