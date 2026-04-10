@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Enums\MemberStatus;
 use App\Http\Requests\Members\StoreMemberRequest;
+use App\Models\ChargeCategory;
 use App\Models\Member;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
@@ -20,6 +21,7 @@ class MemberController extends Controller
 
         return Inertia::render('Members', [
             'members' => $user->managedMembers()
+                ->with(['charges.category'])
                 ->latest('applied_at')
                 ->latest('id')
                 ->get()
@@ -56,6 +58,10 @@ class MemberController extends Controller
 
     private function transformMember(Member $member): array
     {
+        $registrationCharge = $member->charges->first(
+            fn($charge) => $charge->category?->code === ChargeCategory::CODE_REGISTRATION_FEE,
+        );
+
         return [
             'id' => $member->id,
             'full_name' => $member->full_name,
@@ -66,6 +72,11 @@ class MemberController extends Controller
             'rejection_note' => $member->rejection_note,
             'applied_at' => $member->applied_at?->format('d M Y, h:i A'),
             'approved_at' => $member->approved_at?->format('d M Y, h:i A'),
+            'activated_at' => $member->activated_at?->format('d M Y, h:i A'),
+            'registration_charge' => $registrationCharge ? [
+                'amount' => $registrationCharge->amount,
+                'status' => $registrationCharge->status,
+            ] : null,
         ];
     }
 }

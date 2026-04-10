@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Charge;
+use App\Models\ChargeAllocation;
 use App\Models\ChargeCategory;
 use App\Models\Member;
 use App\Models\User;
@@ -9,7 +10,7 @@ use function Pest\Laravel\actingAs;
 use function Pest\Laravel\get;
 use function Pest\Laravel\patch;
 
-test('admins can visit the charge review page', function () {
+test('admins can visit the charge list page', function () {
     $admin = User::factory()->create([
         'role' => 'admin',
     ]);
@@ -32,7 +33,7 @@ test('admins can visit the charge review page', function () {
             ->has('charges', 1));
 });
 
-test('members cannot visit the charge review page', function () {
+test('members cannot visit the charge list page', function () {
     $user = User::factory()->create([
         'role' => 'member',
     ]);
@@ -42,7 +43,7 @@ test('members cannot visit the charge review page', function () {
         ->assertForbidden();
 });
 
-test('admins can post a pending charge', function () {
+test('admins can cancel a pending charge', function () {
     $admin = User::factory()->create([
         'role' => 'admin',
     ]);
@@ -58,48 +59,20 @@ test('admins can post a pending charge', function () {
 
     actingAs($admin);
 
-    patch(route('admin.charges.review', $charge), [
-        'status' => Charge::STATUS_POSTED,
-    ])->assertRedirect(route('admin.charges.index'));
+    patch(route('admin.charges.cancel', $charge))->assertRedirect(route('admin.charges.index'));
 
-    expect($charge->refresh()->status)->toBe(Charge::STATUS_POSTED)
-        ->and($charge->settled_by_user_id)->toBe($admin->id)
-        ->and($charge->settled_at)->not->toBeNull();
+    expect($charge->refresh()->status)->toBe(Charge::STATUS_CANCELLED);
 });
 
-test('admins can waive or cancel a pending charge without settlement markers', function (string $status) {
+test('cancelling a posted charge reverses its allocation and deactivates the member when required', function () {
     $admin = User::factory()->create([
         'role' => 'admin',
     ]);
-    $member = Member::factory()->create();
-    $category = ChargeCategory::query()->where('code', ChargeCategory::CODE_REGISTRATION_FEE)->firstOrFail();
-    $charge = Charge::query()->create([
-        'charge_category_id' => $category->id,
-        'member_id' => $member->id,
-        'amount' => 100,
-        'status' => Charge::STATUS_PENDING,
-        'effective_at' => now(),
+    $member = Member::factory()->create([
+        'status' => \App\Enums\MemberStatus::Approved,
+        'approved_at' => now(),
+        'activated_at' => now(),
     ]);
-
-    actingAs($admin);
-
-    patch(route('admin.charges.review', $charge), [
-        'status' => $status,
-    ])->assertRedirect(route('admin.charges.index'));
-
-    expect($charge->refresh()->status)->toBe($status)
-        ->and($charge->settled_by_user_id)->toBeNull()
-        ->and($charge->settled_at)->toBeNull();
-})->with([
-    Charge::STATUS_WAIVED,
-    Charge::STATUS_CANCELLED,
-]);
-
-test('reviewing a non-pending charge is rejected', function () {
-    $admin = User::factory()->create([
-        'role' => 'admin',
-    ]);
-    $member = Member::factory()->create();
     $category = ChargeCategory::query()->where('code', ChargeCategory::CODE_REGISTRATION_FEE)->firstOrFail();
     $charge = Charge::query()->create([
         'charge_category_id' => $category->id,
@@ -107,15 +80,40 @@ test('reviewing a non-pending charge is rejected', function () {
         'amount' => 100,
         'status' => Charge::STATUS_POSTED,
         'effective_at' => now(),
-        'settled_at' => now(),
-        'settled_by_user_id' => $admin->id,
+    ]);
+    $allocation = ChargeAllocation::query()->create([
+        'charge_id' => $charge->id,
+        'amount' => 100,
+        'confirmed_at' => now(),
     ]);
 
     actingAs($admin);
 
-    patch(route('admin.charges.review', $charge), [
-        'status' => Charge::STATUS_CANCELLED,
-    ])->assertSessionHasErrors('status');
+    patch(route('admin.charges.cancel', $charge))->assertRedirect(route('admin.charges.index'));
 
-    expect($charge->refresh()->status)->toBe(Charge::STATUS_POSTED);
+    expect($charge->refresh()->status)->toBe(Charge::STATUS_CANCELLED)
+        ->and($allocation->refresh()->reversed_at)->not->toBeNull()
+        ->and($allocation->reversed_by_user_id)->toBe($admin->id)
+        ->and($member->refresh()->activated_at)->toBeNull();
+});
+
+test('cancelling an already cancelled charge is rejected', function () {
+    $admin = User::factory()->create([
+        'role' => 'admin',
+    ]);
+    $member = Member::factory()->create();
+    $category = ChargeCategory::query()->where('code', ChargeCategory::CODE_REGISTRATION_FEE)->firstOrFail();
+    $charge = Charge::query()->create([
+        'charge_category_id' => $category->id,
+        'member_id' => $member->id,
+        'amount' => 100,
+        'status' => Charge::STATUS_CANCELLED,
+        'effective_at' => now(),
+    ]);
+
+    actingAs($admin);
+
+    patch(route('admin.charges.cancel', $charge))->assertSessionHasErrors('charge');
+
+    expect($charge->refresh()->status)->toBe(Charge::STATUS_CANCELLED);
 });

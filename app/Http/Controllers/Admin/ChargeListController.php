@@ -3,10 +3,12 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Admin\ReviewChargeRequest;
+use App\Http\Requests\Admin\CancelChargeRequest;
 use App\Models\Charge;
-use App\Models\User;
+use App\Models\ChargeAllocation;
+use App\Models\ChargeCategory;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -20,7 +22,7 @@ class ChargeListController extends Controller
                     'category:id,code,title',
                     'member:id,full_name,managed_by_user_id',
                     'member.manager:id,name,email',
-                    'settledBy:id,name',
+                    'allocations',
                 ])
                 ->latest('effective_at')
                 ->latest('id')
@@ -30,7 +32,6 @@ class ChargeListController extends Controller
                     'amount' => $charge->amount,
                     'status' => $charge->status,
                     'effective_at' => $charge->effective_at?->format('d M Y, h:i A'),
-                    'settled_at' => $charge->settled_at?->format('d M Y, h:i A'),
                     'category' => [
                         'code' => $charge->category?->code,
                         'title' => $charge->category?->title,
@@ -41,29 +42,52 @@ class ChargeListController extends Controller
                         'manager_name' => $charge->member?->manager?->name,
                         'manager_email' => $charge->member?->manager?->email,
                     ],
-                    'settled_by' => $charge->settledBy?->name,
+                    'allocated_amount' => (int) $charge->allocations->whereNull('reversed_at')->sum('amount'),
                 ])
                 ->values(),
         ]);
     }
 
-    public function review(ReviewChargeRequest $request, Charge $charge): RedirectResponse
+    public function cancel(CancelChargeRequest $request, Charge $charge): RedirectResponse
     {
-        if ($charge->status !== Charge::STATUS_PENDING) {
+        if ($charge->status === Charge::STATUS_CANCELLED) {
             return back()->withErrors([
-                'status' => 'Only pending charges can be reviewed.',
+                'charge' => 'This charge has already been cancelled.',
             ]);
         }
 
-        /** @var User|null $user */
-        $user = $request->user();
-        $status = $request->string('status')->toString();
+        DB::transaction(function () use ($request, $charge): void {
+            $charge->loadMissing(['category', 'member', 'allocations']);
 
-        $charge->update([
-            'status' => $status,
-            'settled_at' => $status === Charge::STATUS_POSTED ? now() : null,
-            'settled_by_user_id' => $status === Charge::STATUS_POSTED ? $user?->id : null,
-        ]);
+            if ($charge->status === Charge::STATUS_POSTED) {
+                ChargeAllocation::query()
+                    ->where('charge_id', $charge->id)
+                    ->whereNull('reversed_at')
+                    ->update([
+                        'reversed_at' => now(),
+                        'reversed_by_user_id' => $request->user()?->id,
+                    ]);
+            }
+
+            $charge->update([
+                'status' => Charge::STATUS_CANCELLED,
+            ]);
+
+            if ($charge->category?->code === ChargeCategory::CODE_REGISTRATION_FEE) {
+                $hasSettledRegistrationCharge = Charge::query()
+                    ->where('member_id', $charge->member_id)
+                    ->where('charge_category_id', $charge->charge_category_id)
+                    ->where('id', '!=', $charge->id)
+                    ->whereIn('status', [Charge::STATUS_POSTED, Charge::STATUS_WAIVED])
+                    ->exists();
+
+                if (! $hasSettledRegistrationCharge) {
+                    $charge->member?->update([
+                        'activated_at' => null,
+                    ]);
+                }
+            }
+        });
 
         return to_route('admin.charges.index');
     }

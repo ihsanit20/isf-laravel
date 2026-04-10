@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable([
     'charge_category_id',
@@ -12,8 +13,6 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'amount',
     'status',
     'effective_at',
-    'settled_at',
-    'settled_by_user_id',
 ])]
 class Charge extends Model
 {
@@ -30,7 +29,6 @@ class Charge extends Model
         return [
             'amount' => 'integer',
             'effective_at' => 'datetime',
-            'settled_at' => 'datetime',
         ];
     }
 
@@ -54,8 +52,8 @@ class Charge extends Model
         return $this->belongsTo(Member::class);
     }
 
-    public function settledBy(): BelongsTo
+    public function allocations(): HasMany
     {
-        return $this->belongsTo(User::class, 'settled_by_user_id');
+        return $this->hasMany(ChargeAllocation::class);
     }
 }

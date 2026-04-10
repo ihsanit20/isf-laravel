@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
 import {
+    CalendarDays,
     CircleAlert,
     Clock3,
     Phone,
@@ -13,6 +14,7 @@ import { Button } from '@/components/ui/button';
 
 type MemberStatus = 'pending' | 'approved' | 'rejected' | 'exited';
 type RelationshipOption = 'self' | 'spouse' | 'child' | 'parent' | 'other';
+type ChargeStatus = 'pending' | 'posted' | 'waived' | 'cancelled';
 
 type MemberItem = {
     id: number;
@@ -24,6 +26,11 @@ type MemberItem = {
     rejection_note: string | null;
     applied_at: string | null;
     approved_at: string | null;
+    activated_at: string | null;
+    registration_charge: {
+        amount: number;
+        status: ChargeStatus;
+    } | null;
 };
 
 type Props = {
@@ -82,6 +89,27 @@ const statusSurfaceClass = (status: MemberStatus): string => {
 
     return 'border-amber-200/80 bg-linear-to-br from-amber-50 via-background to-background';
 };
+
+const chargeStatusLabel = (value: ChargeStatus): string =>
+    value.replace('_', ' ').replace(/\b\w/g, (char) => char.toUpperCase());
+
+const activationNote = (member: MemberItem): string => {
+    if (member.activated_at) {
+        return `Active since ${member.activated_at}.`;
+    }
+
+    if (member.registration_charge?.status === 'pending') {
+        return 'Membership will activate after you allocate the registration fee from your verified deposit balance.';
+    }
+
+    if (member.status === 'approved') {
+        return 'Approved and waiting for activation.';
+    }
+
+    return 'Membership is not active yet.';
+};
+
+const money = (amount: number): string => `${amount.toLocaleString()} BDT`;
 </script>
 
 <template>
@@ -213,6 +241,57 @@ const statusSurfaceClass = (status: MemberStatus): string => {
                                 {{ member.approved_at || 'Pending review' }}
                             </p>
                         </div>
+                    </div>
+
+                    <div
+                        v-if="member.registration_charge"
+                        class="rounded-2xl border border-dashed border-border/80 bg-background/70 px-3 py-3"
+                    >
+                        <div class="flex items-center justify-between gap-3">
+                            <div>
+                                <div
+                                    class="flex items-center gap-2 text-xs text-muted-foreground"
+                                >
+                                    <WalletCards class="size-4" />
+                                    Registration Fee
+                                </div>
+                                <p class="mt-2 font-medium text-foreground">
+                                    {{
+                                        money(member.registration_charge.amount)
+                                    }}
+                                </p>
+                            </div>
+
+                            <Badge
+                                :variant="
+                                    member.registration_charge.status ===
+                                    'posted'
+                                        ? 'default'
+                                        : 'secondary'
+                                "
+                            >
+                                {{
+                                    chargeStatusLabel(
+                                        member.registration_charge.status,
+                                    )
+                                }}
+                            </Badge>
+                        </div>
+                        <p class="mt-2 text-sm leading-6 text-muted-foreground">
+                            {{ activationNote(member) }}
+                        </p>
+                        <Button
+                            v-if="
+                                member.registration_charge.status === 'pending'
+                            "
+                            as-child
+                            variant="outline"
+                            class="mt-3"
+                        >
+                            <Link href="/my-deposits/allocate"
+                                >Allocate from Deposits</Link
+                            >
+                        </Button>
                     </div>
 
                     <div

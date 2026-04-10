@@ -136,6 +136,7 @@ test('admins can approve a member application', function () {
     expect($member->refresh()->status)->toBe(MemberStatus::Approved);
     expect($member->approved_by_user_id)->toBe($admin->id);
     expect($member->approved_at)->not->toBeNull();
+    expect($member->activated_at)->toBeNull();
     expect($member->charges()->count())->toBe(1);
 
     $registrationCharge = $member->charges()->first();

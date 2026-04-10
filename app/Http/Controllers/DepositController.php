@@ -6,6 +6,9 @@ use App\Enums\DepositSubmissionStatus;
 use App\Enums\MemberStatus;
 use App\Http\Requests\Deposits\StoreDepositAllocationRequest;
 use App\Http\Requests\Deposits\StoreDepositSubmissionRequest;
+use App\Models\Charge;
+use App\Models\ChargeAllocation;
+use App\Models\ChargeCategory;
 use App\Models\DepositAllocation;
 use App\Models\DepositSubmission;
 use App\Models\Member;
@@ -37,7 +40,19 @@ class DepositController extends Controller
             ->newestFirst()
             ->get();
 
-        $summary = $this->buildDepositSummary($deposits, $allocations, $user->managedMembers()->where('status', MemberStatus::Approved)->exists());
+        $chargeAllocations = $this->managedChargeAllocationsQuery($user)
+            ->with(['charge.category:id,title,code', 'charge.member:id,full_name'])
+            ->latest('confirmed_at')
+            ->latest('id')
+            ->get();
+
+        $summary = $this->buildDepositSummary(
+            $deposits,
+            $allocations,
+            $chargeAllocations,
+            $user->managedMembers()->where('status', MemberStatus::Approved)->whereNotNull('activated_at')->exists(),
+            $this->pendingChargesQuery($user)->exists(),
+        );
 
         return Inertia::render('Deposits', [
             'summary' => $summary,
@@ -46,6 +61,9 @@ class DepositController extends Controller
                 ->values(),
             'allocations' => $allocations
                 ->map(fn(DepositAllocation $allocation): array => $this->transformAllocation($allocation))
+                ->values(),
+            'chargeAllocations' => $chargeAllocations
+                ->map(fn(ChargeAllocation $allocation): array => $this->transformChargeAllocation($allocation))
                 ->values(),
         ]);
     }
@@ -80,12 +98,25 @@ class DepositController extends Controller
 
         $deposits = $user->depositSubmissions()->get();
         $allocations = $this->managedAllocationsQuery($user)->get();
+        $chargeAllocations = $this->managedChargeAllocationsQuery($user)->get();
+        $pendingCharges = $this->pendingChargesQuery($user)
+            ->with(['category:id,title,code', 'member:id,full_name,activated_at'])
+            ->orderBy('effective_at')
+            ->orderBy('id')
+            ->get();
 
         return Inertia::render('deposits/Allocate', [
-            'summary' => $this->buildDepositSummary($deposits, $allocations, true),
+            'summary' => $this->buildDepositSummary(
+                $deposits,
+                $allocations,
+                $chargeAllocations,
+                true,
+                $pendingCharges->isNotEmpty(),
+            ),
             'members' => Member::query()
                 ->where('managed_by_user_id', $user->id)
                 ->where('status', MemberStatus::Approved)
+                ->whereNotNull('activated_at')
                 ->latest('approved_at')
                 ->latest('id')
                 ->get()
@@ -94,6 +125,16 @@ class DepositController extends Controller
                     'full_name' => $member->full_name,
                     'units' => $member->units,
                     'monthly_due_amount' => $member->units * DepositAllocation::DEFAULT_UNIT_AMOUNT,
+                ])
+                ->values(),
+            'charges' => $pendingCharges
+                ->map(fn(Charge $charge): array => [
+                    'id' => $charge->id,
+                    'amount' => $charge->amount,
+                    'category_title' => $charge->category?->title,
+                    'category_code' => $charge->category?->code,
+                    'member_name' => $charge->member?->full_name,
+                    'effective_at' => $charge->effective_at?->format('d M Y, h:i A'),
                 ])
                 ->values(),
         ]);
@@ -115,29 +156,47 @@ class DepositController extends Controller
                 ->lockForUpdate()
                 ->get();
 
+            $existingChargeAllocations = $this->managedChargeAllocationsQuery($user)
+                ->whereNull('reversed_at')
+                ->lockForUpdate()
+                ->get();
+
             if ($verifiedDeposits->isEmpty()) {
                 throw ValidationException::withMessages([
-                    'rows' => 'No verified deposits are available for allocation.',
+                    'unit_rows' => 'No verified deposits are available for allocation.',
                 ]);
             }
 
-            $rows = collect($request->validated('rows'));
-            $totalAllocatedAmount = $rows->sum(
+            $unitRows = collect($request->validated('unit_rows', []));
+            $chargeIds = collect($request->validated('charge_ids', []))->map(fn($id) => (int) $id)->all();
+
+            $charges = Charge::query()
+                ->with(['category', 'member'])
+                ->where('status', Charge::STATUS_PENDING)
+                ->whereIn('id', $chargeIds)
+                ->whereHas('member', fn($query) => $query
+                    ->where('managed_by_user_id', $user->id)
+                    ->where('status', MemberStatus::Approved))
+                ->lockForUpdate()
+                ->get();
+
+            $totalAllocatedAmount = $unitRows->sum(
                 fn(array $row): int => (int) $row['units'] * DepositAllocation::DEFAULT_UNIT_AMOUNT,
-            );
+            ) + (int) $charges->sum('amount');
 
             $totalAllocatableAmount = $this->allocatableAmountFromTotals(
                 (int) $verifiedDeposits->sum('amount'),
                 (int) $existingAllocations->sum('allocated_amount'),
+                (int) $existingChargeAllocations->sum('amount'),
             );
 
             if ($totalAllocatedAmount > $totalAllocatableAmount) {
                 throw ValidationException::withMessages([
-                    'rows' => 'Allocated amount cannot exceed the total allocatable verified deposit amount.',
+                    'unit_rows' => 'Allocated amount cannot exceed the total allocatable verified deposit amount.',
                 ]);
             }
 
-            foreach ($rows as $row) {
+            foreach ($unitRows as $row) {
                 DepositAllocation::query()->create([
                     'member_id' => (int) $row['member_id'],
                     'allocation_month' => CarbonImmutable::createFromFormat('Y-m', $row['allocation_month'])
@@ -149,33 +208,57 @@ class DepositController extends Controller
                     'confirmed_at' => now(),
                 ]);
             }
+
+            foreach ($charges as $charge) {
+                ChargeAllocation::query()->create([
+                    'charge_id' => $charge->id,
+                    'amount' => $charge->amount,
+                    'confirmed_at' => now(),
+                ]);
+
+                $charge->update([
+                    'status' => Charge::STATUS_POSTED,
+                ]);
+
+                if ($charge->category?->code === ChargeCategory::CODE_REGISTRATION_FEE && $charge->member?->activated_at === null) {
+                    $charge->member?->update([
+                        'activated_at' => now(),
+                    ]);
+                }
+            }
         });
 
         return to_route('deposits.index');
     }
 
-    private function buildDepositSummary(Collection $deposits, Collection $allocations, bool $hasApprovedMembers): array
+    private function buildDepositSummary(Collection $deposits, Collection $allocations, Collection $chargeAllocations, bool $hasActiveMembers, bool $hasPendingCharges): array
     {
         $totalDepositAmount = (int) $deposits->sum('amount');
         $totalVerifiedAmount = (int) $deposits
             ->filter(fn(DepositSubmission $depositSubmission): bool => $depositSubmission->status === DepositSubmissionStatus::Verified)
             ->sum('amount');
-        $totalAllocatedAmount = (int) $allocations->sum('allocated_amount');
-        $totalAllocatableAmount = $this->allocatableAmountFromTotals($totalVerifiedAmount, $totalAllocatedAmount);
+        $totalUnitAllocatedAmount = (int) $allocations->sum('allocated_amount');
+        $totalChargeAllocatedAmount = (int) $chargeAllocations
+            ->filter(fn(ChargeAllocation $allocation): bool => $allocation->reversed_at === null)
+            ->sum('amount');
+        $totalAllocatedAmount = $totalUnitAllocatedAmount + $totalChargeAllocatedAmount;
+        $totalAllocatableAmount = $this->allocatableAmountFromTotals($totalVerifiedAmount, $totalUnitAllocatedAmount, $totalChargeAllocatedAmount);
 
         return [
             'total_deposit_amount' => $totalDepositAmount,
             'total_verified_amount' => $totalVerifiedAmount,
+            'total_unit_allocated_amount' => $totalUnitAllocatedAmount,
+            'total_charge_allocated_amount' => $totalChargeAllocatedAmount,
             'total_allocated_amount' => $totalAllocatedAmount,
             'total_allocatable_amount' => $totalAllocatableAmount,
             'total_deposit_count' => $deposits->count(),
-            'can_allocate' => $totalAllocatableAmount >= DepositAllocation::DEFAULT_UNIT_AMOUNT && $hasApprovedMembers,
+            'can_allocate' => $totalAllocatableAmount > 0 && ($hasActiveMembers || $hasPendingCharges),
         ];
     }
 
-    private function allocatableAmountFromTotals(int $totalVerifiedAmount, int $totalAllocatedAmount): int
+    private function allocatableAmountFromTotals(int $totalVerifiedAmount, int $totalUnitAllocatedAmount, int $totalChargeAllocatedAmount): int
     {
-        return max(0, $totalVerifiedAmount - $totalAllocatedAmount);
+        return max(0, $totalVerifiedAmount - $totalUnitAllocatedAmount - $totalChargeAllocatedAmount);
     }
 
     private function transformDeposit(DepositSubmission $depositSubmission): array
@@ -209,11 +292,40 @@ class DepositController extends Controller
         ];
     }
 
+    private function transformChargeAllocation(ChargeAllocation $allocation): array
+    {
+        return [
+            'id' => $allocation->id,
+            'member_name' => $allocation->charge?->member?->full_name,
+            'charge_title' => $allocation->charge?->category?->title,
+            'amount' => $allocation->amount,
+            'confirmed_at' => $allocation->confirmed_at?->format('d M Y, h:i A'),
+            'reversed_at' => $allocation->reversed_at?->format('d M Y, h:i A'),
+        ];
+    }
+
     private function managedAllocationsQuery(User $user)
     {
         return DepositAllocation::query()->whereHas(
             'member',
             fn($query) => $query->where('managed_by_user_id', $user->id),
         );
+    }
+
+    private function managedChargeAllocationsQuery(User $user)
+    {
+        return ChargeAllocation::query()->whereHas(
+            'charge.member',
+            fn($query) => $query->where('managed_by_user_id', $user->id),
+        );
+    }
+
+    private function pendingChargesQuery(User $user)
+    {
+        return Charge::query()
+            ->where('status', Charge::STATUS_PENDING)
+            ->whereHas('member', fn($query) => $query
+                ->where('managed_by_user_id', $user->id)
+                ->where('status', MemberStatus::Approved));
     }
 }

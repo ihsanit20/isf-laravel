@@ -19,6 +19,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'status',
     'applied_at',
     'approved_at',
+    'activated_at',
     'approved_by_user_id',
     'rejection_note',
 ])]
@@ -43,6 +44,7 @@ class Member extends Model
             'status' => MemberStatus::class,
             'applied_at' => 'datetime',
             'approved_at' => 'datetime',
+            'activated_at' => 'datetime',
             'units' => 'integer',
         ];
     }
@@ -76,5 +78,10 @@ class Member extends Model
     public function charges(): HasMany
     {
         return $this->hasMany(Charge::class);
+    }
+
+    public function isActive(): bool
+    {
+        return $this->status === MemberStatus::Approved && $this->activated_at !== null;
     }
 }

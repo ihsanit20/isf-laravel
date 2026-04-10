@@ -2,6 +2,9 @@
 
 use App\Enums\DepositSubmissionStatus;
 use App\Enums\MemberStatus;
+use App\Models\Charge;
+use App\Models\ChargeAllocation;
+use App\Models\ChargeCategory;
 use App\Models\DepositAllocation;
 use App\Models\DepositSubmission;
 use App\Models\Member;
@@ -31,6 +34,7 @@ test('authenticated users can view their deposit list page', function () {
         'member_id' => Member::factory()->for($user, 'manager')->create([
             'status' => MemberStatus::Approved,
             'approved_at' => now(),
+            'activated_at' => now(),
         ])->id,
         'allocation_month' => now()->startOfMonth()->toDateString(),
         'units' => 1,
@@ -83,6 +87,7 @@ test('verified deposits can be allocated globally to approved managed members', 
         'status' => MemberStatus::Approved,
         'units' => 2,
         'approved_at' => now(),
+        'activated_at' => now(),
     ]);
 
     DepositSubmission::query()->create([
@@ -99,13 +104,14 @@ test('verified deposits can be allocated globally to approved managed members', 
     actingAs($user);
 
     post(route('deposits.allocations.store'), [
-        'rows' => [
+        'unit_rows' => [
             [
                 'member_id' => $member->id,
                 'allocation_month' => now()->format('Y-m'),
                 'units' => 2,
             ],
         ],
+        'charge_ids' => [],
     ])->assertRedirect(route('deposits.index'));
 
     $allocation = DepositAllocation::query()->where('member_id', $member->id)->first();
@@ -124,6 +130,7 @@ test('allocation cannot exceed the total allocatable verified deposit amount', f
         'status' => MemberStatus::Approved,
         'units' => 3,
         'approved_at' => now(),
+        'activated_at' => now(),
     ]);
 
     DepositSubmission::query()->create([
@@ -140,14 +147,15 @@ test('allocation cannot exceed the total allocatable verified deposit amount', f
     actingAs($user);
 
     post(route('deposits.allocations.store'), [
-        'rows' => [
+        'unit_rows' => [
             [
                 'member_id' => $member->id,
                 'allocation_month' => now()->format('Y-m'),
                 'units' => 2,
             ],
         ],
-    ])->assertSessionHasErrors('rows');
+        'charge_ids' => [],
+    ])->assertSessionHasErrors('unit_rows');
 
     expect(DepositAllocation::query()->where('member_id', $member->id)->exists())->toBeFalse();
 });
@@ -158,7 +166,23 @@ test('users can open the global allocation page', function () {
     Member::factory()->for($user, 'manager')->create([
         'status' => MemberStatus::Approved,
         'approved_at' => now(),
+        'activated_at' => now(),
         'units' => 2,
+    ]);
+
+    $registrationMember = Member::factory()->for($user, 'manager')->create([
+        'status' => MemberStatus::Approved,
+        'approved_at' => now(),
+        'activated_at' => null,
+        'units' => 1,
+    ]);
+    $registrationCategory = ChargeCategory::query()->where('code', ChargeCategory::CODE_REGISTRATION_FEE)->firstOrFail();
+    Charge::query()->create([
+        'charge_category_id' => $registrationCategory->id,
+        'member_id' => $registrationMember->id,
+        'amount' => 100,
+        'status' => Charge::STATUS_PENDING,
+        'effective_at' => now(),
     ]);
 
     DepositSubmission::query()->create([
@@ -180,7 +204,8 @@ test('users can open the global allocation page', function () {
             ->where('summary.total_deposit_amount', 3000)
             ->where('summary.total_verified_amount', 3000)
             ->where('summary.total_allocatable_amount', 3000)
-            ->has('members', 1));
+            ->has('members', 1)
+            ->has('charges', 1));
 });
 
 test('available to allocate shows exact verified balance after allocations', function () {
@@ -189,6 +214,7 @@ test('available to allocate shows exact verified balance after allocations', fun
     $member = Member::factory()->for($user, 'manager')->create([
         'status' => MemberStatus::Approved,
         'approved_at' => now(),
+        'activated_at' => now(),
         'units' => 3,
     ]);
 
@@ -220,6 +246,92 @@ test('available to allocate shows exact verified balance after allocations', fun
             ->where('summary.total_verified_amount', 5500)
             ->where('summary.total_allocated_amount', 2000)
             ->where('summary.total_allocatable_amount', 3500));
+});
+
+test('verified deposits can settle a pending registration charge and activate the member', function () {
+    $user = User::factory()->create();
+
+    $member = Member::factory()->for($user, 'manager')->create([
+        'status' => MemberStatus::Approved,
+        'approved_at' => now(),
+        'activated_at' => null,
+        'units' => 1,
+    ]);
+
+    $category = ChargeCategory::query()->where('code', ChargeCategory::CODE_REGISTRATION_FEE)->firstOrFail();
+    $charge = Charge::query()->create([
+        'charge_category_id' => $category->id,
+        'member_id' => $member->id,
+        'amount' => 100,
+        'status' => Charge::STATUS_PENDING,
+        'effective_at' => now(),
+    ]);
+
+    DepositSubmission::query()->create([
+        'user_id' => $user->id,
+        'amount' => 1000,
+        'payment_method' => DepositSubmission::PAYMENT_METHOD_BANK_TRANSFER,
+        'reference_no' => 'REG-FEE-ALLOC',
+        'deposit_date' => now()->toDateString(),
+        'proof_path' => 'deposit-proofs/reg-fee-proof.jpg',
+        'status' => DepositSubmissionStatus::Verified,
+        'verified_at' => now(),
+    ]);
+
+    actingAs($user);
+
+    post(route('deposits.allocations.store'), [
+        'unit_rows' => [],
+        'charge_ids' => [$charge->id],
+    ])->assertRedirect(route('deposits.index'));
+
+    expect($charge->refresh()->status)->toBe(Charge::STATUS_POSTED);
+    expect($member->refresh()->activated_at)->not->toBeNull();
+    expect(ChargeAllocation::query()->where('charge_id', $charge->id)->exists())->toBeTrue();
+});
+
+test('charge allocations reduce the available deposit pool', function () {
+    $user = User::factory()->create();
+    $member = Member::factory()->for($user, 'manager')->create([
+        'status' => MemberStatus::Approved,
+        'approved_at' => now(),
+        'activated_at' => now(),
+        'units' => 1,
+    ]);
+    $category = ChargeCategory::query()->where('code', ChargeCategory::CODE_REGISTRATION_FEE)->firstOrFail();
+    $charge = Charge::query()->create([
+        'charge_category_id' => $category->id,
+        'member_id' => $member->id,
+        'amount' => 200,
+        'status' => Charge::STATUS_POSTED,
+        'effective_at' => now(),
+    ]);
+
+    DepositSubmission::query()->create([
+        'user_id' => $user->id,
+        'amount' => 1000,
+        'payment_method' => DepositSubmission::PAYMENT_METHOD_BANK_TRANSFER,
+        'reference_no' => 'POOL-CHARGE-01',
+        'deposit_date' => now()->toDateString(),
+        'proof_path' => 'deposit-proofs/pool-charge-proof.jpg',
+        'status' => DepositSubmissionStatus::Verified,
+        'verified_at' => now(),
+    ]);
+
+    ChargeAllocation::query()->create([
+        'charge_id' => $charge->id,
+        'amount' => 200,
+        'confirmed_at' => now(),
+    ]);
+
+    actingAs($user)
+        ->get(route('deposits.index'))
+        ->assertOk()
+        ->assertInertia(fn(Assert $page) => $page
+            ->component('Deposits')
+            ->where('summary.total_charge_allocated_amount', 200)
+            ->where('summary.total_allocatable_amount', 800)
+            ->has('chargeAllocations', 1));
 });
 
 test('admins can view the deposit review page', function () {

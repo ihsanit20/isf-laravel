@@ -38,7 +38,7 @@ Route::middleware(['auth', 'verified', 'admin'])->group(function () {
     Route::get('admin/members', [MemberListController::class, 'index'])->name('admin.members.index');
     Route::patch('admin/members/{member}/review', [MemberListController::class, 'review'])->name('admin.members.review');
     Route::get('admin/charges', [ChargeListController::class, 'index'])->name('admin.charges.index');
-    Route::patch('admin/charges/{charge}/review', [ChargeListController::class, 'review'])->name('admin.charges.review');
+    Route::patch('admin/charges/{charge}/cancel', [ChargeListController::class, 'cancel'])->name('admin.charges.cancel');
     Route::get('admin/deposits', [DepositListController::class, 'index'])->name('admin.deposits.index');
     Route::patch('admin/deposits/{depositSubmission}/review', [DepositListController::class, 'review'])->name('admin.deposits.review');
 });

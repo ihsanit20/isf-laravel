@@ -73,7 +73,7 @@ const mainNavItems = computed<NavItem[]>(() => {
         });
 
         items.push({
-            title: 'Charge Reviews',
+            title: 'Charge List',
             href: '/admin/charges',
             icon: BadgeDollarSign,
         });

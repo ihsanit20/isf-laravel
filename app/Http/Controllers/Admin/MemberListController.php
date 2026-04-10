@@ -33,6 +33,7 @@ class MemberListController extends Controller
                     'rejection_note' => $member->rejection_note,
                     'applied_at' => $member->applied_at?->format('d M Y, h:i A'),
                     'approved_at' => $member->approved_at?->format('d M Y, h:i A'),
+                    'activated_at' => $member->activated_at?->format('d M Y, h:i A'),
                     'manager' => [
                         'name' => $member->manager?->name,
                         'email' => $member->manager?->email,
@@ -58,11 +59,14 @@ class MemberListController extends Controller
         if ($status === MemberStatus::Approved) {
             $data['approved_at'] = now();
             $data['approved_by_user_id'] = $request->user()?->id;
+            $data['activated_at'] = $wasApproved ? $member->activated_at : null;
         } elseif ($status === MemberStatus::Exited && $wasApproved) {
             $data['approved_at'] = $member->approved_at;
             $data['approved_by_user_id'] = $member->approved_by_user_id;
+            $data['activated_at'] = null;
         } else {
             $data['approved_at'] = null;
+            $data['activated_at'] = null;
             $data['approved_by_user_id'] = null;
         }
 

@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { Head } from '@inertiajs/vue3';
-import { Ban, Check, HandCoins } from 'lucide-vue-next';
+import { Ban } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
-import ChargeReviewDialog from '@/components/admin/ChargeReviewDialog.vue';
+import ChargeCancelDialog from '@/components/admin/ChargeCancelDialog.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 
@@ -13,8 +13,7 @@ type AdminCharge = {
     amount: number;
     status: ChargeStatus;
     effective_at: string | null;
-    settled_at: string | null;
-    settled_by: string | null;
+    allocated_amount: number;
     category: {
         code: string | null;
         title: string | null;
@@ -35,7 +34,7 @@ defineOptions({
     layout: {
         breadcrumbs: [
             {
-                title: 'Charge Reviews',
+                title: 'Charge List',
                 href: '/admin/charges',
             },
         ],
@@ -45,11 +44,9 @@ defineOptions({
 defineProps<Props>();
 
 const selectedCharge = ref<AdminCharge | null>(null);
-const isPostDialogOpen = ref(false);
-const isWaiveDialogOpen = ref(false);
 const isCancelDialogOpen = ref(false);
 
-const reviewableCharge = computed(() => selectedCharge.value);
+const cancelableCharge = computed(() => selectedCharge.value);
 
 const money = (amount: number): string => `${amount.toLocaleString()} BDT`;
 
@@ -71,25 +68,15 @@ const statusVariant = (
     return 'secondary';
 };
 
-const openDialog = (charge: AdminCharge, mode: 'post' | 'waive' | 'cancel') => {
+const openCancelDialog = (charge: AdminCharge) => {
     selectedCharge.value = charge;
-
-    if (mode === 'post') {
-        isPostDialogOpen.value = true;
-        return;
-    }
-
-    if (mode === 'waive') {
-        isWaiveDialogOpen.value = true;
-        return;
-    }
 
     isCancelDialogOpen.value = true;
 };
 </script>
 
 <template>
-    <Head title="Charge Reviews" />
+    <Head title="Charge List" />
 
     <div class="flex h-full flex-1 flex-col gap-4 rounded-xl p-4">
         <section
@@ -97,11 +84,11 @@ const openDialog = (charge: AdminCharge, mode: 'post' | 'waive' | 'cancel') => {
         >
             <div class="max-w-2xl">
                 <h1 class="text-2xl font-semibold tracking-tight">
-                    Charge Reviews
+                    Charge List
                 </h1>
                 <p class="mt-2 text-sm text-muted-foreground">
-                    Review pending member charges and settle them as posted,
-                    waived, or cancelled without losing auditability.
+                    View member charges and cancel them when a fee needs to be
+                    reversed back into the pooled deposit balance.
                 </p>
             </div>
         </section>
@@ -119,7 +106,7 @@ const openDialog = (charge: AdminCharge, mode: 'post' | 'waive' | 'cancel') => {
                             <th class="px-4 py-3 font-medium">Charge</th>
                             <th class="px-4 py-3 font-medium">Status</th>
                             <th class="px-4 py-3 font-medium">Effective At</th>
-                            <th class="px-4 py-3 font-medium">Reviewed By</th>
+                            <th class="px-4 py-3 font-medium">Allocated</th>
                             <th class="px-4 py-3 font-medium">Action</th>
                         </tr>
                     </thead>
@@ -162,36 +149,17 @@ const openDialog = (charge: AdminCharge, mode: 'post' | 'waive' | 'cancel') => {
                                 {{ charge.effective_at || '-' }}
                             </td>
                             <td class="px-4 py-3 text-muted-foreground">
-                                <div>{{ charge.settled_by || '-' }}</div>
-                                <div class="text-xs">
-                                    {{ charge.settled_at || '-' }}
-                                </div>
+                                {{ money(charge.allocated_amount) }}
                             </td>
                             <td class="px-4 py-3">
                                 <div
-                                    v-if="charge.status === 'pending'"
+                                    v-if="charge.status !== 'cancelled'"
                                     class="flex flex-wrap gap-2"
                                 >
                                     <Button
                                         variant="outline"
                                         size="sm"
-                                        @click="openDialog(charge, 'post')"
-                                    >
-                                        <Check class="size-4" />
-                                        Post
-                                    </Button>
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        @click="openDialog(charge, 'waive')"
-                                    >
-                                        <HandCoins class="size-4" />
-                                        Waive
-                                    </Button>
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        @click="openDialog(charge, 'cancel')"
+                                        @click="openCancelDialog(charge)"
                                     >
                                         <Ban class="size-4" />
                                         Cancel
@@ -217,20 +185,9 @@ const openDialog = (charge: AdminCharge, mode: 'post' | 'waive' | 'cancel') => {
             </div>
         </section>
 
-        <ChargeReviewDialog
-            v-model:isOpen="isPostDialogOpen"
-            mode="post"
-            :charge="reviewableCharge"
-        />
-        <ChargeReviewDialog
-            v-model:isOpen="isWaiveDialogOpen"
-            mode="waive"
-            :charge="reviewableCharge"
-        />
-        <ChargeReviewDialog
+        <ChargeCancelDialog
             v-model:isOpen="isCancelDialogOpen"
-            mode="cancel"
-            :charge="reviewableCharge"
+            :charge="cancelableCharge"
         />
     </div>
 </template>

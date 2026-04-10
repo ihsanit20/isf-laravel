@@ -15,8 +15,6 @@ return new class extends Migration
             $table->unsignedInteger('amount');
             $table->enum('status', ['pending', 'posted', 'waived', 'cancelled'])->default('pending');
             $table->timestamp('effective_at')->nullable();
-            $table->timestamp('settled_at')->nullable();
-            $table->foreignId('settled_by_user_id')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamps();
 
             $table->index('status');

@@ -17,6 +17,8 @@ import {
 type DepositItem = {
     total_deposit_amount: number;
     total_verified_amount: number;
+    total_unit_allocated_amount: number;
+    total_charge_allocated_amount: number;
     total_allocated_amount: number;
     total_allocatable_amount: number;
     total_deposit_count: number;
@@ -33,6 +35,14 @@ type MemberItem = {
 type Props = {
     summary: DepositItem;
     members: MemberItem[];
+    charges: {
+        id: number;
+        amount: number;
+        category_title: string | null;
+        category_code: string | null;
+        member_name: string | null;
+        effective_at: string | null;
+    }[];
 };
 
 type AllocationRow = {
@@ -64,8 +74,9 @@ const newRow = (): AllocationRow => ({
     units: 1,
 });
 
-const form = useForm<{ rows: AllocationRow[] }>({
-    rows: [newRow()],
+const form = useForm<{ unit_rows: AllocationRow[]; charge_ids: string[] }>({
+    unit_rows: [newRow()],
+    charge_ids: [],
 });
 
 const membersById = computed(() =>
@@ -74,8 +85,15 @@ const membersById = computed(() =>
     ),
 );
 
-const totalAllocatedDraftAmount = computed(() =>
-    form.rows.reduce((sum, row) => sum + Math.max(row.units || 0, 0) * 1000, 0),
+const totalAllocatedDraftAmount = computed(
+    () =>
+        form.unit_rows.reduce(
+            (sum, row) => sum + Math.max(row.units || 0, 0) * 1000,
+            0,
+        ) +
+        props.charges
+            .filter((charge) => form.charge_ids.includes(String(charge.id)))
+            .reduce((sum, charge) => sum + charge.amount, 0),
 );
 
 const remainingAfterDraft = computed(
@@ -85,33 +103,34 @@ const remainingAfterDraft = computed(
 );
 
 const addRow = () => {
-    form.rows.push(newRow());
+    form.unit_rows.push(newRow());
 };
 
 const removeRow = (index: number) => {
-    if (form.rows.length === 1) {
-        form.rows[0] = newRow();
+    if (form.unit_rows.length === 1) {
+        form.unit_rows[0] = newRow();
 
         return;
     }
 
-    form.rows.splice(index, 1);
+    form.unit_rows.splice(index, 1);
 };
 
 const rowError = (
     index: number,
     field: keyof AllocationRow,
 ): string | undefined =>
-    form.errors[`rows.${index}.${field}` as keyof typeof form.errors] as
+    form.errors[`unit_rows.${index}.${field}` as keyof typeof form.errors] as
         | string
         | undefined;
 
 const submit = () => {
     form.transform((data) => ({
-        rows: data.rows.map((row) => ({
+        unit_rows: data.unit_rows.map((row) => ({
             ...row,
             member_id: Number(row.member_id),
         })),
+        charge_ids: data.charge_ids.map((id) => Number(id)),
     })).post('/my-deposits/allocate', {
         preserveScroll: true,
     });
@@ -156,7 +175,60 @@ const money = (amount: number): string => `${amount.toLocaleString()} BDT`;
             >
                 <form class="space-y-5" @submit.prevent="submit">
                     <div
-                        v-for="(row, index) in form.rows"
+                        v-if="props.charges.length > 0"
+                        class="rounded-3xl border border-border/70 bg-muted/20 p-4"
+                    >
+                        <div>
+                            <h2 class="text-lg font-semibold tracking-tight">
+                                Pending Charges
+                            </h2>
+                            <p class="mt-1 text-sm text-muted-foreground">
+                                Select any due charges you want to settle from
+                                the shared verified deposit pool.
+                            </p>
+                        </div>
+
+                        <div class="mt-4 space-y-3">
+                            <label
+                                v-for="charge in props.charges"
+                                :key="charge.id"
+                                class="flex cursor-pointer items-start gap-3 rounded-2xl border border-border/70 bg-background px-4 py-4"
+                            >
+                                <input
+                                    v-model="form.charge_ids"
+                                    :value="String(charge.id)"
+                                    type="checkbox"
+                                    class="mt-1"
+                                />
+                                <div class="min-w-0 flex-1">
+                                    <div class="font-medium text-foreground">
+                                        {{ charge.category_title || 'Charge' }}
+                                    </div>
+                                    <div
+                                        class="mt-1 text-xs text-muted-foreground"
+                                    >
+                                        {{
+                                            charge.member_name ||
+                                            'Unknown member'
+                                        }}
+                                        <span v-if="charge.effective_at"
+                                            >• {{ charge.effective_at }}</span
+                                        >
+                                    </div>
+                                </div>
+                                <div
+                                    class="text-right font-medium text-foreground"
+                                >
+                                    {{ money(charge.amount) }}
+                                </div>
+                            </label>
+                        </div>
+
+                        <InputError :message="form.errors.charge_ids" />
+                    </div>
+
+                    <div
+                        v-for="(row, index) in form.unit_rows"
                         :key="index"
                         class="rounded-3xl border border-border/70 bg-muted/20 p-4"
                     >
@@ -243,7 +315,7 @@ const money = (amount: number): string => `${amount.toLocaleString()} BDT`;
                         </div>
                     </div>
 
-                    <InputError :message="form.errors.rows" />
+                    <InputError :message="form.errors.unit_rows" />
 
                     <div class="flex flex-wrap items-center gap-3">
                         <Button type="button" variant="outline" @click="addRow">
@@ -255,7 +327,8 @@ const money = (amount: number): string => `${amount.toLocaleString()} BDT`;
                             :disabled="
                                 form.processing ||
                                 remainingAfterDraft < 0 ||
-                                props.members.length === 0
+                                (props.members.length === 0 &&
+                                    props.charges.length === 0)
                             "
                         >
                             Confirm Allocation
@@ -295,6 +368,22 @@ const money = (amount: number): string => `${amount.toLocaleString()} BDT`;
                             <p class="mt-2 font-semibold text-foreground">
                                 {{
                                     money(props.summary.total_allocated_amount)
+                                }}
+                            </p>
+                            <p class="mt-1 text-xs text-muted-foreground">
+                                Units
+                                {{
+                                    money(
+                                        props.summary
+                                            .total_unit_allocated_amount,
+                                    )
+                                }}
+                                • Charges
+                                {{
+                                    money(
+                                        props.summary
+                                            .total_charge_allocated_amount,
+                                    )
                                 }}
                             </p>
                         </div>
@@ -363,6 +452,30 @@ const money = (amount: number): string => `${amount.toLocaleString()} BDT`;
                     >
                         No approved members are available for allocation yet.
                     </p>
+                </section>
+
+                <section
+                    v-if="props.charges.length > 0"
+                    class="rounded-[28px] border border-sidebar-border/70 bg-background p-6 shadow-sm"
+                >
+                    <h2 class="text-lg font-semibold tracking-tight">
+                        Pending Charges
+                    </h2>
+                    <div class="mt-4 space-y-3">
+                        <div
+                            v-for="charge in props.charges"
+                            :key="charge.id"
+                            class="rounded-2xl border border-border/70 px-4 py-4"
+                        >
+                            <p class="font-medium text-foreground">
+                                {{ charge.category_title || 'Charge' }}
+                            </p>
+                            <p class="mt-1 text-sm text-muted-foreground">
+                                {{ charge.member_name || 'Unknown member' }} •
+                                {{ money(charge.amount) }}
+                            </p>
+                        </div>
+                    </div>
                 </section>
             </div>
         </section>
