@@ -4,6 +4,7 @@ use App\Http\Controllers\Admin\MemberListController;
 use App\Http\Controllers\Admin\ChargeCategoryController;
 use App\Http\Controllers\Admin\ChargeListController;
 use App\Http\Controllers\Admin\DepositListController;
+use App\Http\Controllers\Admin\FundCycleController;
 use App\Http\Controllers\Admin\UserListController;
 use App\Http\Controllers\DepositController;
 use App\Http\Controllers\MemberController;
@@ -32,6 +33,9 @@ Route::middleware(['auth', 'verified', 'admin'])->group(function () {
     Route::get('admin/users', [UserListController::class, 'index'])->name('admin.users.index');
     Route::post('admin/users', [UserListController::class, 'store'])->name('admin.users.store');
     Route::put('admin/users/{user}', [UserListController::class, 'update'])->name('admin.users.update');
+    Route::get('admin/fund-cycles', [FundCycleController::class, 'index'])->name('admin.fund-cycles.index');
+    Route::post('admin/fund-cycles', [FundCycleController::class, 'store'])->name('admin.fund-cycles.store');
+    Route::put('admin/fund-cycles/{fundCycle}', [FundCycleController::class, 'update'])->name('admin.fund-cycles.update');
     Route::get('admin/charge-categories', [ChargeCategoryController::class, 'index'])->name('admin.charge-categories.index');
     Route::post('admin/charge-categories', [ChargeCategoryController::class, 'store'])->name('admin.charge-categories.store');
     Route::put('admin/charge-categories/{chargeCategory}', [ChargeCategoryController::class, 'update'])->name('admin.charge-categories.update');

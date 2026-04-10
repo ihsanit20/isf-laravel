@@ -7,6 +7,7 @@ import {
     FileBadge2,
     Info,
     LayoutGrid,
+    Landmark,
     ScrollText,
     SquarePen,
     UserRound,
@@ -64,6 +65,12 @@ const mainNavItems = computed<NavItem[]>(() => {
             title: 'User List',
             href: '/admin/users',
             icon: SquarePen,
+        });
+
+        items.push({
+            title: 'Fund Cycles',
+            href: '/admin/fund-cycles',
+            icon: Landmark,
         });
 
         items.push({

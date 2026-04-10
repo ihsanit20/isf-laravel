@@ -30,6 +30,19 @@ Money handling and auditability:
 - Do not hard-delete financial records
 - Prefer append-only ledger history and adjustments over editing approved historical transactions
 
+Fund-cycle database baseline:
+
+- Keep the current minimal fund-cycle schema unless the user explicitly asks to revisit it
+- Use existing global `deposit_submissions` as the deposit source; do not introduce `fund_cycle_deposits` unless explicitly requested
+- Do not introduce `fund_cycle_members` while cycle participation can be derived from `fund_cycle_allocations`
+- Minimal fund-cycle tables are `fund_cycles`, `fund_cycle_allocations`, `fund_cycle_investments`, `fund_cycle_returns`, and `fund_cycle_settlements`
+
+Planning guardrails:
+
+- Do not give a new database or product plan from broad full-project analysis by default
+- Before proposing changes to an agreed plan, first anchor on the existing local implementation and previously agreed repository direction
+- Only revisit the saved fund-cycle plan when the user explicitly asks to change, review, or replace it
+
 Laravel implementation guidance:
 
 - Follow Laravel conventions for models, controllers, form requests, policies, migrations, factories, seeders, and tests
