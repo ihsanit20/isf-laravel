@@ -1,6 +1,14 @@
 <script setup lang="ts">
 import { Head, Link, useForm } from '@inertiajs/vue3';
-import { ArrowLeft, CalendarDays, Layers3, Lock } from 'lucide-vue-next';
+import {
+    ArrowLeft,
+    CalendarDays,
+    CheckCircle2,
+    Layers3,
+    Lock,
+    User,
+    WalletCards,
+} from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 import InputError from '@/components/InputError.vue';
 import { Badge } from '@/components/ui/badge';
@@ -129,16 +137,16 @@ const slotButtonClass = (fundCycle: FundCycleItem, slot: string): string => {
     return '';
 };
 
-const allocationStatusNote = (fundCycle: FundCycleItem): string => {
+const slotIcon = (fundCycle: FundCycleItem, slot: string) => {
+    if (fundCycle.allocated_slots.includes(slot)) {
+        return CheckCircle2;
+    }
+
     if (fundCycle.is_locked) {
-        return 'This cycle is locked. New slot allocations are disabled.';
+        return Lock;
     }
 
-    if (props.member.remaining_pool < fundCycle.allocation_amount) {
-        return 'Your verified deposit balance is not enough for another slot allocation.';
-    }
-
-    return 'Choose any available slot to allocate this member into the cycle.';
+    return WalletCards;
 };
 
 const selectedCycleName = computed(() => selectedFundCycle.value?.name ?? '');
@@ -309,9 +317,15 @@ const submitAllocation = () => {
                         :class="slotButtonClass(fundCycle, slot)"
                         @click="openAllocationDialog(fundCycle, slot)"
                     >
-                        <span class="w-full text-sm font-medium">{{
-                            slot
-                        }}</span>
+                        <span
+                            class="flex w-full items-center gap-2 text-sm font-medium"
+                        >
+                            <component
+                                :is="slotIcon(fundCycle, slot)"
+                                class="size-4 shrink-0"
+                            />
+                            <span>{{ slot }}</span>
+                        </span>
                         <span class="mt-1 w-full text-xs font-medium">
                             {{ slotAmountLabel(fundCycle, slot) }}
                         </span>
@@ -362,6 +376,9 @@ const submitAllocation = () => {
                             {{ selectedCycleName }}
                         </div>
                         <div class="mt-2 text-muted-foreground">
+                            Member: {{ props.member.full_name }}
+                        </div>
+                        <div class="mt-1 text-muted-foreground">
                             Slot: {{ selectedSlot || '-' }}
                         </div>
                         <div class="mt-1 text-muted-foreground">
@@ -390,15 +407,18 @@ const submitAllocation = () => {
                     </div>
 
                     <div
-                        class="rounded-2xl border border-dashed border-border/80 bg-background/70 px-4 py-4 text-sm text-muted-foreground"
+                        class="rounded-2xl border border-dashed border-border/80 bg-background/70 px-4 py-4"
                     >
-                        <div class="flex items-center gap-2">
-                            <Lock class="size-4" />
-                            {{
-                                selectedFundCycle
-                                    ? allocationStatusNote(selectedFundCycle)
-                                    : 'Allocation is blocked automatically once the cycle reaches its lock date.'
-                            }}
+                        <p
+                            class="text-xs font-medium tracking-[0.2em] text-muted-foreground uppercase"
+                        >
+                            Member
+                        </p>
+                        <div
+                            class="mt-2 flex items-center gap-2 text-lg font-semibold text-foreground"
+                        >
+                            <User class="size-4" />
+                            {{ props.member.full_name }}
                         </div>
                     </div>
 
@@ -407,7 +427,7 @@ const submitAllocation = () => {
                     >
                         <Checkbox
                             id="member-allocation-confirmation"
-                            v-model:checked="isAllocationConfirmed"
+                            v-model="isAllocationConfirmed"
                             class="mt-0.5"
                         />
                         <label
