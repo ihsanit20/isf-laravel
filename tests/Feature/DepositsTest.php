@@ -40,7 +40,8 @@ test('authenticated users can view their deposit list page', function () {
 });
 
 test('authenticated users can submit a deposit proof', function () {
-    Storage::fake('public');
+    config()->set('filesystems.deposit_proofs_disk', 'public');
+    Storage::fake(DepositSubmission::proofDisk());
 
     $user = User::factory()->create();
 
@@ -62,7 +63,7 @@ test('authenticated users can submit a deposit proof', function () {
     expect($depositSubmission?->amount)->toBe(5000);
     expect($depositSubmission?->proof_path)->not->toBeNull();
 
-    expect(Storage::disk('public')->exists((string) $depositSubmission?->proof_path))->toBeTrue();
+    expect(Storage::disk(DepositSubmission::proofDisk())->exists((string) $depositSubmission?->proof_path))->toBeTrue();
 });
 
 test('charge settlement cannot exceed the total allocatable verified deposit amount', function () {

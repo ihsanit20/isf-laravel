@@ -15,6 +15,8 @@ return [
 
     'default' => env('FILESYSTEM_DISK', 'local'),
 
+    'deposit_proofs_disk' => env('DEPOSIT_PROOFS_DISK', env('FILESYSTEM_DISK', 'local')),
+
     /*
     |--------------------------------------------------------------------------
     | Filesystem Disks
@@ -41,7 +43,7 @@ return [
         'public' => [
             'driver' => 'local',
             'root' => storage_path('app/public'),
-            'url' => rtrim(env('APP_URL', 'http://localhost'), '/').'/storage',
+            'url' => rtrim(env('APP_URL', 'http://localhost'), '/') . '/storage',
             'visibility' => 'public',
             'throw' => false,
             'report' => false,

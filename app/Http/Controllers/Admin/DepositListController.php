@@ -8,7 +8,6 @@ use App\Http\Requests\Admin\ReviewDepositSubmissionRequest;
 use App\Models\DepositSubmission;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -29,9 +28,7 @@ class DepositListController extends Controller
                     'payment_method_label' => DepositSubmission::paymentMethodLabel($depositSubmission->payment_method),
                     'reference_no' => $depositSubmission->reference_no,
                     'deposit_date' => $depositSubmission->deposit_date?->format('d M Y'),
-                    'proof_url' => $depositSubmission->proof_path
-                        ? Storage::url($depositSubmission->proof_path)
-                        : null,
+                    'proof_url' => $depositSubmission->proofUrl(),
                     'notes' => $depositSubmission->notes,
                     'status' => $depositSubmission->status->value,
                     'verified_at' => $depositSubmission->verified_at?->format('d M Y, h:i A'),

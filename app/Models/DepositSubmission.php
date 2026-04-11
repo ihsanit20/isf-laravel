@@ -6,6 +6,7 @@ use App\Enums\DepositSubmissionStatus;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Facades\Storage;
 
 #[Fillable([
     'user_id',
@@ -66,5 +67,19 @@ class DepositSubmission extends Model
     public function verifier(): BelongsTo
     {
         return $this->belongsTo(User::class, 'verified_by_user_id');
+    }
+
+    public static function proofDisk(): string
+    {
+        return (string) config('filesystems.deposit_proofs_disk', config('filesystems.default', 'local'));
+    }
+
+    public function proofUrl(): ?string
+    {
+        if ($this->proof_path === null) {
+            return null;
+        }
+
+        return Storage::disk(self::proofDisk())->url($this->proof_path);
     }
 }

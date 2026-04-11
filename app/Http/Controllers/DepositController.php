@@ -15,7 +15,6 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -67,7 +66,7 @@ class DepositController extends Controller
         /** @var User $user */
         $user = $request->user();
 
-        $proofPath = $request->file('proof')?->store('deposit-proofs', 'public');
+        $proofPath = $request->file('proof')?->store('deposit-proofs', DepositSubmission::proofDisk());
 
         $user->depositSubmissions()->create([
             ...$request->safe()->only(['amount', 'payment_method', 'reference_no', 'deposit_date', 'notes']),
@@ -185,9 +184,7 @@ class DepositController extends Controller
             'payment_method_label' => DepositSubmission::paymentMethodLabel($depositSubmission->payment_method),
             'reference_no' => $depositSubmission->reference_no,
             'deposit_date' => $depositSubmission->deposit_date?->format('d M Y'),
-            'proof_url' => $depositSubmission->proof_path
-                ? Storage::url($depositSubmission->proof_path)
-                : null,
+            'proof_url' => $depositSubmission->proofUrl(),
             'notes' => $depositSubmission->notes,
             'status' => $depositSubmission->status->value,
             'verified_at' => $depositSubmission->verified_at?->format('d M Y, h:i A'),
