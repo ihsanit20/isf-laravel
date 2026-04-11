@@ -39,6 +39,7 @@ class MemberFundCycleController extends Controller
             ],
             'fundCycles' => FundCycle::query()
                 ->withCount('allocations')
+                ->withSum('allocations', 'amount')
                 ->with([
                     'allocations' => fn($query) => $query
                         ->where('member_id', $member->id)
@@ -60,6 +61,7 @@ class MemberFundCycleController extends Controller
                     'unit_amount' => $fundCycle->unit_amount,
                     'slots' => collect($fundCycle->slots ?? [])->values(),
                     'allocation_amount' => $fundCycle->allocationAmountFor($member->units),
+                    'total_allocated_amount' => (int) ($fundCycle->allocations_sum_amount ?? 0),
                     'allocations_count' => $fundCycle->allocations_count,
                     'allocated_slots' => $fundCycle->allocations
                         ->pluck('slot_key')

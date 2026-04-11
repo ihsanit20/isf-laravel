@@ -45,6 +45,7 @@ type FundCycleItem = {
     settlement_date: string | null;
     slots: string[];
     allocation_amount: number;
+    total_allocated_amount: number;
     allocations_count: number;
     allocated_slots: string[];
     allocated_slot_amounts: Record<string, number>;
@@ -97,7 +98,7 @@ const canOpenAllocationDialog = (
 
 const slotButtonVariant = (fundCycle: FundCycleItem, slot: string) => {
     if (fundCycle.allocated_slots.includes(slot)) {
-        return 'default';
+        return 'outline';
     }
 
     return fundCycle.is_locked ? 'secondary' : 'outline';
@@ -127,7 +128,7 @@ const slotAmountLabel = (fundCycle: FundCycleItem, slot: string): string => {
 
 const slotButtonClass = (fundCycle: FundCycleItem, slot: string): string => {
     if (fundCycle.allocated_slots.includes(slot)) {
-        return 'border-emerald-500/60 bg-emerald-500 text-white hover:bg-emerald-500/90';
+        return 'border-emerald-500/60 text-emerald-700 hover:border-emerald-500 hover:bg-background';
     }
 
     if (fundCycle.is_locked) {
@@ -300,6 +301,10 @@ const submitAllocation = () => {
                         </p>
                         <p class="mt-2 text-sm text-muted-foreground">
                             Unit amount: {{ money(fundCycle.unit_amount) }}
+                        </p>
+                        <p class="mt-1 text-sm text-muted-foreground">
+                            Total allocated:
+                            {{ money(fundCycle.total_allocated_amount) }}
                         </p>
                         <p class="mt-1 text-sm text-muted-foreground">
                             Your slot amount:
