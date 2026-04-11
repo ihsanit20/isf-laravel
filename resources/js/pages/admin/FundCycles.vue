@@ -116,37 +116,6 @@ const openAllocationDialog = (fundCycle: FundCycleItem) => {
                 </div>
 
                 <div class="flex flex-col gap-3 md:items-end">
-                    <div
-                        class="rounded-lg border border-sidebar-border/70 bg-muted/30 px-4 py-3 text-sm"
-                    >
-                        <div>
-                            Verified deposits:
-                            <span class="font-medium">{{
-                                money(props.poolSummary.total_verified_deposits)
-                            }}</span>
-                        </div>
-                        <div>
-                            Charge allocations:
-                            <span class="font-medium">{{
-                                money(
-                                    props.poolSummary.total_charge_allocations,
-                                )
-                            }}</span>
-                        </div>
-                        <div>
-                            Cycle allocations:
-                            <span class="font-medium">{{
-                                money(props.poolSummary.total_cycle_allocations)
-                            }}</span>
-                        </div>
-                        <div class="mt-1 text-base">
-                            Remaining pool:
-                            <span class="font-semibold">{{
-                                money(props.poolSummary.remaining_pool)
-                            }}</span>
-                        </div>
-                    </div>
-
                     <Button class="shrink-0" @click="isCreateDialogOpen = true">
                         <Plus class="size-4" />
                         Add Fund Cycle

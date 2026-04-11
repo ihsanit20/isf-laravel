@@ -89,21 +89,35 @@ const statusSurfaceClass = (status: MemberStatus): string => {
     return 'border-amber-200/80 bg-linear-to-br from-amber-50 via-background to-background';
 };
 
-const chargeStatusLabel = (value: ChargeStatus): string =>
-    value.replace('_', ' ').replace(/\b\w/g, (char) => char.toUpperCase());
+const registrationFeeLabel = (member: MemberItem): 'Paid' | 'Unpaid' =>
+    member.registration_charge?.status === 'posted' ? 'Paid' : 'Unpaid';
 
-const membershipActivityLabel = (member: MemberItem): 'Active' | 'Inactive' =>
-    member.registration_charge?.status === 'posted' ? 'Active' : 'Inactive';
-
-const membershipActivityVariant = (
-    member: MemberItem,
-): 'default' | 'secondary' =>
+const registrationFeeVariant = (member: MemberItem): 'default' | 'secondary' =>
     member.registration_charge?.status === 'posted' ? 'default' : 'secondary';
 
-const shouldShowAllocateButton = (member: MemberItem): boolean =>
+const registrationFeeNote = (member: MemberItem): string => {
+    if (member.registration_charge?.status === 'posted') {
+        return 'Registration fee has been settled.';
+    }
+
+    if (!member.registration_charge) {
+        return 'Registration fee is not assigned yet.';
+    }
+
+    if (member.registration_charge.status === 'cancelled') {
+        return 'Registration fee allocation was cancelled.';
+    }
+
+    return 'Registration fee is still unpaid.';
+};
+
+const shouldShowRegistrationFeeButton = (member: MemberItem): boolean =>
     !member.registration_charge ||
     member.registration_charge.status === 'pending' ||
     member.registration_charge.status === 'cancelled';
+
+const shouldShowCycleAllocationButton = (member: MemberItem): boolean =>
+    member.registration_charge?.status === 'posted';
 
 const activationNote = (member: MemberItem): string => {
     if (member.activated_at) {
@@ -128,8 +142,6 @@ const activationNote = (member: MemberItem): string => {
 
     return 'Membership is not active yet.';
 };
-
-const money = (amount: number): string => `${amount.toLocaleString()} BDT`;
 </script>
 
 <template>
@@ -193,51 +205,52 @@ const money = (amount: number): string => `${amount.toLocaleString()} BDT`;
                 </div>
 
                 <div class="mt-5 grid gap-3 text-sm">
-                    <div
-                        class="flex items-center gap-3 rounded-2xl bg-background/75 px-3 py-3"
-                    >
-                        <UserRound class="size-4 text-muted-foreground" />
-                        <div>
-                            <p class="text-xs text-muted-foreground">
-                                Relationship
-                            </p>
-                            <p class="font-medium text-foreground">
-                                {{
-                                    relationshipLabel(
-                                        member.relationship_to_user,
-                                    )
-                                }}
-                            </p>
-                        </div>
-                    </div>
-
-                    <div
-                        class="flex items-center gap-3 rounded-2xl bg-background/75 px-3 py-3"
-                    >
-                        <WalletCards class="size-4 text-muted-foreground" />
-                        <div>
-                            <p class="text-xs text-muted-foreground">Units</p>
-                            <p class="font-medium text-foreground">
-                                {{ member.units }} unit{{
-                                    member.units > 1 ? 's' : ''
-                                }}
-                            </p>
-                        </div>
-                    </div>
-
-                    <div
-                        class="flex items-center gap-3 rounded-2xl bg-background/75 px-3 py-3"
-                    >
-                        <Phone class="size-4 text-muted-foreground" />
-                        <div>
-                            <p class="text-xs text-muted-foreground">Phone</p>
-                            <p class="font-medium text-foreground">
-                                {{ member.phone || 'Not set' }}
-                            </p>
-                        </div>
-                    </div>
-
                     <div class="grid gap-3 md:grid-cols-2">
+                        <div
+                            class="flex items-center gap-3 rounded-2xl bg-background/75 px-3 py-3"
+                        >
+                            <UserRound class="size-4 text-muted-foreground" />
+                            <div>
+                                <p class="text-xs text-muted-foreground">
+                                    Relationship
+                                </p>
+                                <p class="font-medium text-foreground">
+                                    {{
+                                        relationshipLabel(
+                                            member.relationship_to_user,
+                                        )
+                                    }}
+                                </p>
+                            </div>
+                        </div>
+                        <div
+                            class="flex items-center gap-3 rounded-2xl bg-background/75 px-3 py-3"
+                        >
+                            <WalletCards class="size-4 text-muted-foreground" />
+                            <div>
+                                <p class="text-xs text-muted-foreground">
+                                    Units
+                                </p>
+                                <p class="font-medium text-foreground">
+                                    {{ member.units }} unit{{
+                                        member.units > 1 ? 's' : ''
+                                    }}
+                                </p>
+                            </div>
+                        </div>
+                        <div
+                            class="flex items-center gap-3 rounded-2xl bg-background/75 px-3 py-3"
+                        >
+                            <Phone class="size-4 text-muted-foreground" />
+                            <div>
+                                <p class="text-xs text-muted-foreground">
+                                    Phone
+                                </p>
+                                <p class="font-medium text-foreground">
+                                    {{ member.phone || 'Not set' }}
+                                </p>
+                            </div>
+                        </div>
                         <div class="rounded-2xl bg-background/75 px-3 py-3">
                             <div
                                 class="flex items-center gap-2 text-xs text-muted-foreground"
@@ -252,78 +265,62 @@ const money = (amount: number): string => `${amount.toLocaleString()} BDT`;
 
                         <div class="rounded-2xl bg-background/75 px-3 py-3">
                             <div
-                                class="flex items-center justify-between gap-2"
+                                class="flex items-center gap-2 text-xs text-muted-foreground"
                             >
-                                <div
-                                    class="flex items-center gap-2 text-xs text-muted-foreground"
-                                >
-                                    <Clock3 class="size-4" />
-                                    Approval
-                                </div>
-
-                                <Badge
-                                    :variant="membershipActivityVariant(member)"
-                                >
-                                    {{ membershipActivityLabel(member) }}
-                                </Badge>
+                                <Clock3 class="size-4" />
+                                Approval
                             </div>
                             <p class="mt-2 font-medium text-foreground">
                                 {{ member.approved_at || 'Pending review' }}
                             </p>
                         </div>
-                    </div>
 
-                    <div
-                        class="rounded-2xl border border-dashed border-border/80 bg-background/70 px-3 py-3"
-                    >
-                        <div class="flex items-center justify-between gap-3">
-                            <div>
+                        <div class="rounded-2xl bg-background/75 px-3 py-3">
+                            <div
+                                class="flex items-center justify-between gap-2"
+                            >
                                 <div
                                     class="flex items-center gap-2 text-xs text-muted-foreground"
                                 >
                                     <WalletCards class="size-4" />
                                     Registration Fee
                                 </div>
-                                <p class="mt-2 font-medium text-foreground">
-                                    {{
-                                        member.registration_charge
-                                            ? money(
-                                                  member.registration_charge
-                                                      .amount,
-                                              )
-                                            : 'Not assigned yet'
-                                    }}
-                                </p>
-                            </div>
 
-                            <Badge
-                                :variant="
-                                    member.registration_charge?.status ===
-                                    'posted'
-                                        ? 'default'
-                                        : 'secondary'
-                                "
-                            >
-                                {{
-                                    member.registration_charge
-                                        ? chargeStatusLabel(
-                                              member.registration_charge.status,
-                                          )
-                                        : 'Pending'
-                                }}
-                            </Badge>
+                                <Badge
+                                    :variant="registrationFeeVariant(member)"
+                                >
+                                    {{ registrationFeeLabel(member) }}
+                                </Badge>
+                            </div>
+                            <p class="mt-2 font-medium text-foreground">
+                                {{ registrationFeeNote(member) }}
+                            </p>
                         </div>
-                        <p class="mt-2 text-sm leading-6 text-muted-foreground">
+                    </div>
+
+                    <div class="rounded-2xl bg-background/75 px-3 py-3">
+                        <p class="text-sm leading-6 text-muted-foreground">
                             {{ activationNote(member) }}
                         </p>
                         <Button
-                            v-if="shouldShowAllocateButton(member)"
+                            v-if="shouldShowRegistrationFeeButton(member)"
                             as-child
                             variant="outline"
                             class="mt-3"
                         >
                             <Link href="/my-deposits/allocate"
-                                >Allocate from Deposits</Link
+                                >Pay Registration Fee</Link
+                            >
+                        </Button>
+
+                        <Button
+                            v-if="shouldShowCycleAllocationButton(member)"
+                            as-child
+                            class="mt-3"
+                        >
+                            <Link
+                                :href="`/my-membership/${member.id}/fund-cycles`"
+                                >Allocate to Cycle</Link
                             >
                         </Button>
                     </div>

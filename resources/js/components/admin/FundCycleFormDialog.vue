@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useForm } from '@inertiajs/vue3';
+import { Plus, X } from 'lucide-vue-next';
 import { computed, watch } from 'vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
@@ -44,6 +45,51 @@ const isOpen = defineModel<boolean>('isOpen', { default: false });
 
 const isEditing = computed(() => props.mode === 'edit' && !!props.fundCycle);
 
+const formatSlotLabel = (dateValue: string): string => {
+    const [year, month] = dateValue.split('-').map(Number);
+
+    if (!year || !month) {
+        return '';
+    }
+
+    return new Intl.DateTimeFormat('en-US', {
+        month: 'long',
+        year: 'numeric',
+    }).format(new Date(year, month - 1, 1));
+};
+
+const buildAutoSlots = (startDate: string, lockDate: string): string[] => {
+    if (!startDate) {
+        return [];
+    }
+
+    const [startYear, startMonth] = startDate.split('-').map(Number);
+    const [lockYear, lockMonth] = (lockDate || startDate)
+        .split('-')
+        .map(Number);
+
+    if (!startYear || !startMonth || !lockYear || !lockMonth) {
+        return [];
+    }
+
+    const slots: string[] = [];
+    const cursor = new Date(startYear, startMonth - 1, 1);
+    const end = new Date(lockYear, lockMonth - 1, 1);
+
+    while (cursor <= end) {
+        slots.push(
+            new Intl.DateTimeFormat('en-US', {
+                month: 'long',
+                year: 'numeric',
+            }).format(cursor),
+        );
+
+        cursor.setMonth(cursor.getMonth() + 1);
+    }
+
+    return slots;
+};
+
 const form = useForm<{
     name: string;
     status: string;
@@ -51,7 +97,7 @@ const form = useForm<{
     lock_date: string;
     maturity_date: string;
     settlement_date: string;
-    slots_text: string;
+    slots: string[];
     notes: string;
 }>({
     name: '',
@@ -60,7 +106,7 @@ const form = useForm<{
     lock_date: '',
     maturity_date: '',
     settlement_date: '',
-    slots_text: '',
+    slots: [],
     notes: '',
 });
 
@@ -77,7 +123,7 @@ const resetFormState = () => {
                   lock_date: props.fundCycle.lock_date ?? '',
                   maturity_date: props.fundCycle.maturity_date ?? '',
                   settlement_date: props.fundCycle.settlement_date ?? '',
-                  slots_text: props.fundCycle.slots.join('\n'),
+                  slots: [...props.fundCycle.slots],
                   notes: props.fundCycle.notes ?? '',
               }
             : {
@@ -87,7 +133,7 @@ const resetFormState = () => {
                   lock_date: '',
                   maturity_date: '',
                   settlement_date: '',
-                  slots_text: '',
+                  slots: [],
                   notes: '',
               };
 
@@ -102,8 +148,7 @@ const closeDialog = () => {
 };
 
 const submit = () => {
-    const slots = form.slots_text
-        .split(/\r?\n|,/)
+    const slots = form.slots
         .map((slot) => slot.trim())
         .filter(
             (slot, index, allSlots) =>
@@ -136,6 +181,52 @@ const submit = () => {
         onSuccess: () => closeDialog(),
     });
 };
+
+const addSlot = () => {
+    form.slots = [...form.slots, ''];
+};
+
+const removeSlot = (index: number) => {
+    form.slots = form.slots.filter((_, slotIndex) => slotIndex !== index);
+};
+
+watch(
+    () => [form.start_date, form.lock_date],
+    ([startDate, lockDate], [previousStartDate, previousLockDate]) => {
+        const previousAutoSlots = buildAutoSlots(
+            previousStartDate ?? '',
+            previousLockDate ?? '',
+        );
+        const nextAutoSlots = buildAutoSlots(startDate ?? '', lockDate ?? '');
+
+        const currentSlots = [...form.slots];
+        const shouldReplaceSlots =
+            currentSlots.length === 0 ||
+            JSON.stringify(currentSlots) === JSON.stringify(previousAutoSlots);
+
+        if (shouldReplaceSlots) {
+            form.slots = nextAutoSlots;
+
+            return;
+        }
+
+        const manualSlots = currentSlots.filter(
+            (slot) => !previousAutoSlots.includes(slot),
+        );
+        const retainedRemovedSlots = currentSlots.filter(
+            (slot) =>
+                previousAutoSlots.includes(slot) &&
+                !nextAutoSlots.includes(slot),
+        );
+
+        form.slots = [...nextAutoSlots, ...manualSlots, ...retainedRemovedSlots]
+            .map((slot) => slot.trim())
+            .filter(
+                (slot, index, allSlots) =>
+                    slot !== '' && allSlots.indexOf(slot) === index,
+            );
+    },
+);
 
 watch(
     () => [
@@ -249,16 +340,48 @@ watch(
 
                 <div class="grid gap-2">
                     <Label for="fund-cycle-slots">Slots</Label>
-                    <textarea
-                        id="fund-cycle-slots"
-                        v-model="form.slots_text"
-                        rows="4"
-                        class="flex min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-xs transition-[color,box-shadow] outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
-                        placeholder="January 2026&#10;February 2026&#10;March 2026"
-                    />
+                    <div class="flex flex-wrap gap-2">
+                        <div
+                            v-for="(slot, index) in form.slots"
+                            :key="`${index}-${slot}`"
+                            class="flex items-center gap-2"
+                        >
+                            <Input
+                                :id="
+                                    index === 0 ? 'fund-cycle-slots' : undefined
+                                "
+                                v-model="form.slots[index]"
+                                :placeholder="
+                                    index === 0
+                                        ? formatSlotLabel(form.start_date) ||
+                                          'January 2026'
+                                        : 'Additional slot'
+                                "
+                            />
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                @click="removeSlot(index)"
+                            >
+                                <X class="size-4" />
+                            </Button>
+                        </div>
+
+                        <Button
+                            type="button"
+                            variant="outline"
+                            class="w-full"
+                            @click="addSlot"
+                        >
+                            <Plus class="size-4" />
+                            Add Slot
+                        </Button>
+                    </div>
                     <p class="text-xs text-muted-foreground">
-                        Add one slot per line. These values will be stored in
-                        the cycle JSON field and used during member allocation.
+                        Slots auto-fill from the start date through the lock
+                        date. You can add more slots with the plus button or
+                        remove any slot with the cross button.
                     </p>
                     <InputError
                         :message="form.errors.slots || form.errors['slots.0']"

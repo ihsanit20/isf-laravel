@@ -8,6 +8,7 @@ use App\Http\Controllers\Admin\FundCycleController;
 use App\Http\Controllers\Admin\UserListController;
 use App\Http\Controllers\DepositController;
 use App\Http\Controllers\MemberController;
+use App\Http\Controllers\MemberFundCycleController;
 use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Features;
 
@@ -22,6 +23,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('my-membership', [MemberController::class, 'index'])->name('members.index');
     Route::get('my-membership/create', [MemberController::class, 'create'])->name('members.create');
     Route::post('my-membership', [MemberController::class, 'store'])->name('members.store');
+    Route::get('my-membership/{member}/fund-cycles', [MemberFundCycleController::class, 'index'])->name('members.fund-cycles.index');
     Route::get('my-deposits', [DepositController::class, 'index'])->name('deposits.index');
     Route::get('my-deposits/create', [DepositController::class, 'create'])->name('deposits.create');
     Route::post('my-deposits', [DepositController::class, 'store'])->name('deposits.store');
