@@ -4,7 +4,9 @@ use App\Enums\MemberStatus;
 use App\Models\Charge;
 use App\Models\ChargeCategory;
 use App\Models\Member;
+use App\Models\SmsLog;
 use App\Models\User;
+use Illuminate\Support\Facades\Http;
 use Inertia\Testing\AssertableInertia as Assert;
 use function Pest\Laravel\actingAs;
 use function Pest\Laravel\get;
@@ -121,10 +123,25 @@ test('members cannot view the admin member list page', function () {
 });
 
 test('admins can approve a member application', function () {
+    config()->set('services.sms.url', 'http://bulksmsbd.net/api/smsapi');
+    config()->set('services.sms.api_key', 'test-api-key');
+    config()->set('services.sms.sender_id', '8809617621674');
+
+    Http::fake([
+        'http://bulksmsbd.net/api/smsapi' => Http::response('202', 200),
+    ]);
+
     $admin = User::factory()->create([
         'role' => 'admin',
     ]);
-    $member = Member::factory()->create();
+    $manager = User::factory()->create([
+        'phone' => '01912345678',
+    ]);
+    $member = Member::factory()->for($manager, 'manager')->create([
+        'phone' => null,
+        'full_name' => 'Approved Member',
+        'units' => 2,
+    ]);
 
     actingAs($admin);
 
@@ -145,6 +162,22 @@ test('admins can approve a member application', function () {
     expect($registrationCharge?->charge_category_id)->toBe($category?->id)
         ->and($registrationCharge?->amount)->toBe($category?->default_amount)
         ->and($registrationCharge?->status)->toBe(Charge::STATUS_PENDING);
+
+    expect(SmsLog::query()->count())->toBe(1);
+
+    $smsLog = SmsLog::query()->latest('id')->first();
+
+    expect($smsLog?->status)->toBe(SmsLog::STATUS_SENT)
+        ->and($smsLog?->normalized_phone)->toBe('8801912345678')
+        ->and($smsLog?->smsable_type)->toBe($member->getMorphClass())
+        ->and($smsLog?->smsable_id)->toBe($member->id);
+
+    Http::assertSent(function ($request): bool {
+        return $request->url() === 'http://bulksmsbd.net/api/smsapi'
+            && $request['number'] === '8801912345678'
+            && str_contains((string) $request['message'], 'Approved Member')
+            && str_contains((string) $request['message'], 'Units: 2');
+    });
 });
 
 test('approving an already approved member does not duplicate registration fee charges', function () {

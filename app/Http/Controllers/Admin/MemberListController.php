@@ -8,6 +8,7 @@ use App\Http\Requests\Admin\ReviewMemberRequest;
 use App\Models\Charge;
 use App\Models\ChargeCategory;
 use App\Models\Member;
+use App\Services\SmsService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -44,7 +45,7 @@ class MemberListController extends Controller
         ]);
     }
 
-    public function review(ReviewMemberRequest $request, Member $member): RedirectResponse
+    public function review(ReviewMemberRequest $request, Member $member, SmsService $smsService): RedirectResponse
     {
         $status = MemberStatus::from($request->string('status')->toString());
         $wasApproved = $member->status === MemberStatus::Approved;
@@ -92,6 +93,18 @@ class MemberListController extends Controller
                 );
             }
         });
+
+        if ($status === MemberStatus::Approved) {
+            $smsService->send(
+                (string) ($member->manager?->phone ?? $member->phone ?? ''),
+                sprintf(
+                    'ISF member approved. Member: %s. Units: %d.',
+                    $member->full_name,
+                    $member->units,
+                ),
+                $member,
+            );
+        }
 
         return to_route('admin.members.index');
     }

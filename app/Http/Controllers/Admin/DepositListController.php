@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\ReviewDepositSubmissionRequest;
 use App\Models\DepositSubmission;
 use App\Models\User;
+use App\Services\SmsService;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -43,8 +44,11 @@ class DepositListController extends Controller
         ]);
     }
 
-    public function review(ReviewDepositSubmissionRequest $request, DepositSubmission $depositSubmission): RedirectResponse
-    {
+    public function review(
+        ReviewDepositSubmissionRequest $request,
+        DepositSubmission $depositSubmission,
+        SmsService $smsService,
+    ): RedirectResponse {
         $status = DepositSubmissionStatus::from($request->string('status')->toString());
 
         $data = [
@@ -66,6 +70,18 @@ class DepositListController extends Controller
         }
 
         $depositSubmission->update($data);
+
+        if ($status === DepositSubmissionStatus::Verified) {
+            $smsService->send(
+                (string) ($depositSubmission->user?->phone ?? ''),
+                sprintf(
+                    'ISF deposit verified. Amount: BDT %d. Ref: %s.',
+                    $depositSubmission->amount,
+                    $depositSubmission->reference_no ?? 'N/A',
+                ),
+                $depositSubmission,
+            );
+        }
 
         return to_route('admin.deposits.index');
     }

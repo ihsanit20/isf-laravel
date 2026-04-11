@@ -7,8 +7,10 @@ use App\Models\ChargeAllocation;
 use App\Models\ChargeCategory;
 use App\Models\DepositSubmission;
 use App\Models\Member;
+use App\Models\SmsLog;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
 use function Pest\Laravel\actingAs;
@@ -306,12 +308,24 @@ test('members cannot view the admin deposit review page', function () {
 });
 
 test('admins can verify a pending deposit', function () {
+    config()->set('services.sms.url', 'http://bulksmsbd.net/api/smsapi');
+    config()->set('services.sms.api_key', 'test-api-key');
+    config()->set('services.sms.sender_id', '8809617621674');
+
+    Http::fake([
+        'http://bulksmsbd.net/api/smsapi' => Http::response('202', 200),
+    ]);
+
     $admin = User::factory()->create([
         'role' => 'admin',
     ]);
 
+    $memberUser = User::factory()->create([
+        'phone' => '01712345678',
+    ]);
+
     $depositSubmission = DepositSubmission::query()->create([
-        'user_id' => User::factory()->create()->id,
+        'user_id' => $memberUser->id,
         'amount' => 4500,
         'payment_method' => DepositSubmission::PAYMENT_METHOD_BANK_TRANSFER,
         'reference_no' => 'VERIFY-4500',
@@ -331,4 +345,66 @@ test('admins can verify a pending deposit', function () {
     expect($depositSubmission->verified_by_user_id)->toBe($admin->id);
     expect($depositSubmission->verified_at)->not->toBeNull();
     expect($depositSubmission->rejection_reason)->toBeNull();
+    expect(SmsLog::query()->count())->toBe(1);
+
+    $smsLog = SmsLog::query()->latest('id')->first();
+
+    expect($smsLog?->status)->toBe(SmsLog::STATUS_SENT)
+        ->and($smsLog?->normalized_phone)->toBe('8801712345678')
+        ->and($smsLog?->smsable_type)->toBe($depositSubmission->getMorphClass())
+        ->and($smsLog?->smsable_id)->toBe($depositSubmission->id);
+
+    Http::assertSent(function ($request): bool {
+        return $request->url() === 'http://bulksmsbd.net/api/smsapi'
+            && $request['api_key'] === 'test-api-key'
+            && $request['senderid'] === '8809617621674'
+            && $request['number'] === '8801712345678'
+            && str_contains((string) $request['message'], 'Amount: BDT 4500')
+            && str_contains((string) $request['message'], 'Ref: VERIFY-4500');
+    });
+});
+
+test('deposit verification is preserved when sms delivery fails', function () {
+    config()->set('services.sms.url', 'http://bulksmsbd.net/api/smsapi');
+    config()->set('services.sms.api_key', 'test-api-key');
+    config()->set('services.sms.sender_id', '8809617621674');
+
+    Http::fake([
+        'http://bulksmsbd.net/api/smsapi' => Http::response('1005', 500),
+    ]);
+
+    $admin = User::factory()->create([
+        'role' => 'admin',
+    ]);
+
+    $depositSubmission = DepositSubmission::query()->create([
+        'user_id' => User::factory()->create([
+            'phone' => '01812345678',
+        ])->id,
+        'amount' => 3200,
+        'payment_method' => DepositSubmission::PAYMENT_METHOD_BANK_TRANSFER,
+        'reference_no' => 'VERIFY-3200',
+        'deposit_date' => now()->toDateString(),
+        'proof_path' => 'deposit-proofs/verify-proof-2.jpg',
+        'status' => DepositSubmissionStatus::Pending,
+    ]);
+
+    actingAs($admin);
+
+    patch(route('admin.deposits.review', $depositSubmission), [
+        'status' => DepositSubmissionStatus::Verified->value,
+        'rejection_reason' => '',
+    ])->assertRedirect(route('admin.deposits.index'));
+
+    expect($depositSubmission->refresh()->status)->toBe(DepositSubmissionStatus::Verified);
+    expect($depositSubmission->verified_by_user_id)->toBe($admin->id);
+    expect(SmsLog::query()->count())->toBe(1);
+
+    $smsLog = SmsLog::query()->latest('id')->first();
+
+    expect($smsLog?->status)->toBe(SmsLog::STATUS_FAILED)
+        ->and($smsLog?->normalized_phone)->toBe('8801812345678')
+        ->and($smsLog?->provider_code)->toBe('1005');
+
+    Http::assertSentCount(1);
 });
