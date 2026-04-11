@@ -5,6 +5,7 @@ import { computed, ref } from 'vue';
 import InputError from '@/components/InputError.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
     Dialog,
     DialogContent,
@@ -21,7 +22,6 @@ type MemberItem = {
     units: number;
     approved_at: string | null;
     activated_at: string | null;
-    allocation_amount: number;
     remaining_pool: number;
 };
 
@@ -30,13 +30,16 @@ type FundCycleItem = {
     name: string;
     status: string;
     status_label: string;
+    unit_amount: number;
     start_date: string | null;
     lock_date: string | null;
     maturity_date: string | null;
     settlement_date: string | null;
     slots: string[];
+    allocation_amount: number;
     allocations_count: number;
     allocated_slots: string[];
+    allocated_slot_amounts: Record<string, number>;
     is_locked: boolean;
     can_allocate: boolean;
 };
@@ -66,26 +69,30 @@ const props = defineProps<Props>();
 const isAllocationDialogOpen = ref(false);
 const selectedFundCycle = ref<FundCycleItem | null>(null);
 const selectedSlot = ref('');
+const isAllocationConfirmed = ref(false);
 
 const form = useForm<{
     slot_key: string;
-    notes: string;
 }>({
     slot_key: '',
-    notes: '',
 });
 
 const money = (amount: number): string => `${amount.toLocaleString()} BDT`;
 
-const canAllocateSlot = (fundCycle: FundCycleItem, slot: string): boolean =>
-    fundCycle.can_allocate && !fundCycle.allocated_slots.includes(slot);
+const hasSufficientBalance = (fundCycle: FundCycleItem): boolean =>
+    props.member.remaining_pool >= fundCycle.allocation_amount;
+
+const canOpenAllocationDialog = (
+    fundCycle: FundCycleItem,
+    slot: string,
+): boolean => !fundCycle.is_locked && !fundCycle.allocated_slots.includes(slot);
 
 const slotButtonVariant = (fundCycle: FundCycleItem, slot: string) => {
     if (fundCycle.allocated_slots.includes(slot)) {
         return 'default';
     }
 
-    return fundCycle.can_allocate ? 'outline' : 'secondary';
+    return fundCycle.is_locked ? 'secondary' : 'outline';
 };
 
 const slotButtonLabel = (fundCycle: FundCycleItem, slot: string): string => {
@@ -97,11 +104,29 @@ const slotButtonLabel = (fundCycle: FundCycleItem, slot: string): string => {
         return 'Locked';
     }
 
-    if (!fundCycle.can_allocate) {
-        return 'Unavailable';
+    return 'Allocate';
+};
+
+const slotAmountLabel = (fundCycle: FundCycleItem, slot: string): string => {
+    const paidAmount = fundCycle.allocated_slot_amounts[slot];
+
+    if (paidAmount !== undefined) {
+        return `Paid ${money(paidAmount)}`;
     }
 
-    return 'Allocate';
+    return `Pay ${money(fundCycle.allocation_amount)}`;
+};
+
+const slotButtonClass = (fundCycle: FundCycleItem, slot: string): string => {
+    if (fundCycle.allocated_slots.includes(slot)) {
+        return 'border-emerald-500/60 bg-emerald-500 text-white hover:bg-emerald-500/90';
+    }
+
+    if (fundCycle.is_locked) {
+        return 'opacity-70';
+    }
+
+    return '';
 };
 
 const allocationStatusNote = (fundCycle: FundCycleItem): string => {
@@ -109,7 +134,7 @@ const allocationStatusNote = (fundCycle: FundCycleItem): string => {
         return 'This cycle is locked. New slot allocations are disabled.';
     }
 
-    if (props.member.remaining_pool < props.member.allocation_amount) {
+    if (props.member.remaining_pool < fundCycle.allocation_amount) {
         return 'Your verified deposit balance is not enough for another slot allocation.';
     }
 
@@ -117,9 +142,21 @@ const allocationStatusNote = (fundCycle: FundCycleItem): string => {
 };
 
 const selectedCycleName = computed(() => selectedFundCycle.value?.name ?? '');
+const selectedAllocationAmount = computed(
+    () => selectedFundCycle.value?.allocation_amount ?? 0,
+);
+const remainingAfterAllocation = computed(() =>
+    Math.max(0, props.member.remaining_pool - selectedAllocationAmount.value),
+);
+const canConfirmAllocation = computed(
+    () =>
+        !!selectedFundCycle.value &&
+        hasSufficientBalance(selectedFundCycle.value) &&
+        isAllocationConfirmed.value,
+);
 
 const openAllocationDialog = (fundCycle: FundCycleItem, slot: string) => {
-    if (!canAllocateSlot(fundCycle, slot)) {
+    if (!canOpenAllocationDialog(fundCycle, slot)) {
         return;
     }
 
@@ -127,10 +164,10 @@ const openAllocationDialog = (fundCycle: FundCycleItem, slot: string) => {
     selectedSlot.value = slot;
     form.defaults({
         slot_key: slot,
-        notes: '',
     });
     form.reset();
     form.clearErrors();
+    isAllocationConfirmed.value = false;
     isAllocationDialogOpen.value = true;
 };
 
@@ -138,6 +175,7 @@ const closeAllocationDialog = () => {
     isAllocationDialogOpen.value = false;
     selectedFundCycle.value = null;
     selectedSlot.value = '';
+    isAllocationConfirmed.value = false;
     form.reset();
     form.clearErrors();
 };
@@ -149,7 +187,6 @@ const submitAllocation = () => {
 
     form.transform((data) => ({
         slot_key: data.slot_key,
-        notes: data.notes || null,
     })).post(
         `/my-membership/${props.member.id}/fund-cycles/${selectedFundCycle.value.id}/allocations`,
         {
@@ -196,7 +233,7 @@ const submitAllocation = () => {
             </div>
         </section>
 
-        <section v-if="fundCycles.length > 0" class="grid gap-4 xl:grid-cols-2">
+        <section v-if="fundCycles.length > 0" class="grid gap-4">
             <article
                 v-for="fundCycle in fundCycles"
                 :key="fundCycle.id"
@@ -219,7 +256,7 @@ const submitAllocation = () => {
                     </Badge>
                 </div>
 
-                <div class="mt-5 grid gap-3 text-sm">
+                <div class="mt-5 grid gap-3 text-sm md:grid-cols-2">
                     <div class="rounded-2xl bg-background/75 px-3 py-3">
                         <div
                             class="flex items-center gap-2 text-xs text-muted-foreground"
@@ -253,30 +290,35 @@ const submitAllocation = () => {
                             {{ fundCycle.allocations_count }} /
                             {{ fundCycle.slots.length }} allocated
                         </p>
-                        <p class="mt-2 text-sm leading-6 text-muted-foreground">
-                            {{ allocationStatusNote(fundCycle) }}
+                        <p class="mt-2 text-sm text-muted-foreground">
+                            Unit amount: {{ money(fundCycle.unit_amount) }}
                         </p>
-                        <div class="mt-3 flex flex-wrap gap-2">
-                            <Button
-                                v-for="slot in fundCycle.slots"
-                                :key="slot"
-                                :variant="slotButtonVariant(fundCycle, slot)"
-                                size="sm"
-                                class="h-auto min-h-16 min-w-32 flex-col items-start rounded-2xl px-3 py-3 text-left"
-                                :disabled="!canAllocateSlot(fundCycle, slot)"
-                                @click="openAllocationDialog(fundCycle, slot)"
-                            >
-                                <span class="w-full text-sm font-medium">{{
-                                    slot
-                                }}</span>
-                                <span
-                                    class="w-full text-xs text-muted-foreground"
-                                >
-                                    {{ slotButtonLabel(fundCycle, slot) }}
-                                </span>
-                            </Button>
-                        </div>
+                        <p class="mt-1 text-sm text-muted-foreground">
+                            Your slot amount:
+                            {{ money(fundCycle.allocation_amount) }}
+                        </p>
                     </div>
+                </div>
+                <div class="mt-3 flex flex-wrap gap-2">
+                    <Button
+                        v-for="slot in fundCycle.slots"
+                        :key="slot"
+                        :variant="slotButtonVariant(fundCycle, slot)"
+                        size="sm"
+                        class="h-auto min-h-16 min-w-32 cursor-pointer flex-col items-start rounded-2xl px-3 py-3 text-left"
+                        :class="slotButtonClass(fundCycle, slot)"
+                        @click="openAllocationDialog(fundCycle, slot)"
+                    >
+                        <span class="w-full text-sm font-medium">{{
+                            slot
+                        }}</span>
+                        <span class="mt-1 w-full text-xs font-medium">
+                            {{ slotAmountLabel(fundCycle, slot) }}
+                        </span>
+                        <span class="w-full text-xs text-muted-foreground">
+                            {{ slotButtonLabel(fundCycle, slot) }}
+                        </span>
+                    </Button>
                 </div>
             </article>
         </section>
@@ -323,15 +365,27 @@ const submitAllocation = () => {
                             Slot: {{ selectedSlot || '-' }}
                         </div>
                         <div class="mt-1 text-muted-foreground">
+                            Available to allocate:
+                            {{ money(props.member.remaining_pool) }}
+                        </div>
+                        <div class="mt-1 text-muted-foreground">
+                            Cycle unit amount:
+                            {{
+                                selectedFundCycle
+                                    ? money(selectedFundCycle.unit_amount)
+                                    : '-'
+                            }}
+                        </div>
+                        <div class="mt-1 text-muted-foreground">
                             Member units: {{ props.member.units }}
                         </div>
                         <div class="mt-1 text-muted-foreground">
                             Allocation amount:
-                            {{ money(props.member.allocation_amount) }}
+                            {{ money(selectedAllocationAmount) }}
                         </div>
                         <div class="mt-1 text-muted-foreground">
-                            Available balance:
-                            {{ money(props.member.remaining_pool) }}
+                            Remaining after confirm:
+                            {{ money(remainingAfterAllocation) }}
                         </div>
                     </div>
 
@@ -340,26 +394,31 @@ const submitAllocation = () => {
                     >
                         <div class="flex items-center gap-2">
                             <Lock class="size-4" />
-                            Allocation is blocked automatically once the cycle
-                            reaches its lock date.
+                            {{
+                                selectedFundCycle
+                                    ? allocationStatusNote(selectedFundCycle)
+                                    : 'Allocation is blocked automatically once the cycle reaches its lock date.'
+                            }}
                         </div>
                     </div>
 
-                    <div class="grid gap-2">
-                        <label
-                            class="text-sm font-medium text-foreground"
-                            for="member-allocation-notes"
-                        >
-                            Notes
-                        </label>
-                        <textarea
-                            id="member-allocation-notes"
-                            v-model="form.notes"
-                            rows="3"
-                            class="flex min-h-20 w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-xs transition-[color,box-shadow] outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
-                            placeholder="Optional allocation note"
+                    <div
+                        class="flex items-start gap-3 rounded-2xl border border-dashed border-border/80 bg-background/70 px-4 py-4 text-sm"
+                    >
+                        <Checkbox
+                            id="member-allocation-confirmation"
+                            v-model:checked="isAllocationConfirmed"
+                            class="mt-0.5"
                         />
-                        <InputError :message="form.errors.notes" />
+                        <label
+                            for="member-allocation-confirmation"
+                            class="leading-6 text-muted-foreground"
+                        >
+                            I confirm that
+                            {{ money(selectedAllocationAmount) }} will be
+                            allocated from my available deposit balance to this
+                            fund cycle slot.
+                        </label>
                     </div>
 
                     <InputError :message="form.errors.slot_key" />
@@ -374,12 +433,7 @@ const submitAllocation = () => {
                         </Button>
                         <Button
                             type="submit"
-                            :disabled="
-                                form.processing ||
-                                !selectedFundCycle ||
-                                props.member.remaining_pool <
-                                    props.member.allocation_amount
-                            "
+                            :disabled="form.processing || !canConfirmAllocation"
                         >
                             Confirm Allocation
                         </Button>

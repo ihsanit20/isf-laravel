@@ -2,7 +2,6 @@
 import { Form, Head, Link, usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import ProfileController from '@/actions/App/Http/Controllers/Settings/ProfileController';
-import DeleteUser from '@/components/DeleteUser.vue';
 import Heading from '@/components/Heading.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
@@ -134,6 +133,4 @@ const user = computed(() => page.props.auth.user);
             </div>
         </Form>
     </div>
-
-    <DeleteUser />
 </template>

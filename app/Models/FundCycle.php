@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 #[Fillable([
     'name',
     'status',
+    'unit_amount',
     'start_date',
     'lock_date',
     'maturity_date',
@@ -52,12 +53,18 @@ class FundCycle extends Model
     protected function casts(): array
     {
         return [
+            'unit_amount' => 'integer',
             'start_date' => 'date',
             'lock_date' => 'date',
             'maturity_date' => 'date',
             'settlement_date' => 'date',
             'slots' => 'array',
         ];
+    }
+
+    public function allocationAmountFor(int $units): int
+    {
+        return $units * $this->unit_amount;
     }
 
     public function creator(): BelongsTo

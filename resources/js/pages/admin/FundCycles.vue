@@ -12,12 +12,14 @@ type FundCycleItem = {
     name: string;
     status: string;
     status_label: string;
+    unit_amount: number;
     start_date: string | null;
     lock_date: string | null;
     maturity_date: string | null;
     settlement_date: string | null;
     slots: string[];
     notes: string | null;
+    has_allocations: boolean;
     created_by: string | null;
     created_at: string | null;
     allocated_amount: number;
@@ -78,6 +80,7 @@ const allocationTargetFundCycle = computed(() => {
     return {
         id: selectedFundCycle.value.id,
         name: selectedFundCycle.value.name,
+        unit_amount: selectedFundCycle.value.unit_amount,
         slots: selectedFundCycle.value.slots,
     };
 });
@@ -135,6 +138,7 @@ const openAllocationDialog = (fundCycle: FundCycleItem) => {
                         <tr>
                             <th class="px-4 py-3 font-medium">Name</th>
                             <th class="px-4 py-3 font-medium">Status</th>
+                            <th class="px-4 py-3 font-medium">Unit Price</th>
                             <th class="px-4 py-3 font-medium">Timeline</th>
                             <th class="px-4 py-3 font-medium">Slots</th>
                             <th class="px-4 py-3 font-medium">Allocations</th>
@@ -158,6 +162,9 @@ const openAllocationDialog = (fundCycle: FundCycleItem) => {
                                 <Badge variant="outline">{{
                                     fundCycle.status_label
                                 }}</Badge>
+                            </td>
+                            <td class="px-4 py-3 text-muted-foreground">
+                                {{ money(fundCycle.unit_amount) }}
                             </td>
                             <td class="px-4 py-3 text-muted-foreground">
                                 <div>
@@ -244,7 +251,7 @@ const openAllocationDialog = (fundCycle: FundCycleItem) => {
                         </tr>
                         <tr v-if="fundCycles.length === 0">
                             <td
-                                colspan="8"
+                                colspan="9"
                                 class="px-4 py-8 text-center text-muted-foreground"
                             >
                                 No fund cycles found.

@@ -24,7 +24,6 @@ class StoreFundCycleAllocationRequest extends FormRequest
         return [
             'member_id' => ['required', 'integer'],
             'slot_key' => ['required', 'string', 'max:100'],
-            'amount' => ['required', 'integer', 'min:1'],
             'notes' => ['nullable', 'string', 'max:255'],
         ];
     }
@@ -56,7 +55,7 @@ class StoreFundCycleAllocationRequest extends FormRequest
                 return;
             }
 
-            $amount = (int) $this->input('amount');
+            $amount = $fundCycle->allocationAmountFor($member->units);
 
             $verifiedDepositAmount = (int) DepositSubmission::query()
                 ->where('status', DepositSubmissionStatus::Verified)
@@ -73,7 +72,7 @@ class StoreFundCycleAllocationRequest extends FormRequest
             $remainingPool = max(0, $verifiedDepositAmount - $chargeAllocatedAmount - $cycleAllocatedAmount);
 
             if ($amount > $remainingPool) {
-                $validator->errors()->add('amount', 'Allocation cannot exceed the remaining verified deposit pool.');
+                $validator->errors()->add('member_id', 'Allocation cannot exceed the remaining verified deposit pool.');
             }
 
             $existingMemberAllocation = FundCycleAllocation::query()

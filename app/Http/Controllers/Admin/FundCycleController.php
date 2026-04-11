@@ -32,6 +32,7 @@ class FundCycleController extends Controller
 
         return Inertia::render('admin/FundCycles', [
             'fundCycles' => FundCycle::query()
+                ->withCount('allocations')
                 ->with(['creator:id,name', 'allocations.member:id,full_name'])
                 ->latest('start_date')
                 ->latest('id')
@@ -41,12 +42,14 @@ class FundCycleController extends Controller
                     'name' => $fundCycle->name,
                     'status' => $fundCycle->status,
                     'status_label' => FundCycle::statusLabel($fundCycle->status),
+                    'unit_amount' => $fundCycle->unit_amount,
                     'start_date' => $fundCycle->start_date?->format('Y-m-d'),
                     'lock_date' => $fundCycle->lock_date?->format('Y-m-d'),
                     'maturity_date' => $fundCycle->maturity_date?->format('Y-m-d'),
                     'settlement_date' => $fundCycle->settlement_date?->format('Y-m-d'),
                     'slots' => collect($fundCycle->slots ?? [])->values(),
                     'notes' => $fundCycle->notes,
+                    'has_allocations' => $fundCycle->allocations_count > 0,
                     'created_by' => $fundCycle->creator?->name,
                     'created_at' => $fundCycle->created_at?->format('d M Y, h:i A'),
                     'allocated_amount' => (int) $fundCycle->allocations->sum('amount'),
@@ -102,9 +105,14 @@ class FundCycleController extends Controller
 
     public function storeAllocation(StoreFundCycleAllocationRequest $request, FundCycle $fundCycle): RedirectResponse
     {
-        DB::transaction(function () use ($request, $fundCycle): void {
+        $member = Member::query()->findOrFail((int) $request->integer('member_id'));
+
+        DB::transaction(function () use ($request, $fundCycle, $member): void {
             $fundCycle->allocations()->create([
-                ...$request->validated(),
+                'member_id' => $member->id,
+                'slot_key' => $request->string('slot_key')->trim()->toString(),
+                'amount' => $fundCycle->allocationAmountFor($member->units),
+                'notes' => $request->validated('notes'),
                 'allocated_at' => now(),
                 'created_by_user_id' => $request->user()?->id,
             ]);

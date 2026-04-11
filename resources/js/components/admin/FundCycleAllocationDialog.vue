@@ -24,6 +24,7 @@ import {
 type FundCycleItem = {
     id: number;
     name: string;
+    unit_amount: number;
     slots: string[];
 };
 
@@ -44,14 +45,34 @@ const isOpen = defineModel<boolean>('isOpen', { default: false });
 const form = useForm<{
     member_id: string;
     slot_key: string;
-    amount: string;
     notes: string;
 }>({
     member_id: '',
     slot_key: '',
-    amount: '',
     notes: '',
 });
+
+const selectedMember = computed<EligibleMember | null>(() => {
+    if (!form.member_id) {
+        return null;
+    }
+
+    return (
+        props.eligibleMembers.find(
+            (member) => String(member.id) === form.member_id,
+        ) ?? null
+    );
+});
+
+const allocationAmount = computed<number | null>(() => {
+    if (!props.fundCycle || !selectedMember.value) {
+        return null;
+    }
+
+    return selectedMember.value.units * props.fundCycle.unit_amount;
+});
+
+const money = (amount: number): string => `${amount.toLocaleString()} BDT`;
 
 const memberLabel = computed<Record<string, string>>(() =>
     Object.fromEntries(
@@ -66,7 +87,6 @@ const resetFormState = () => {
     form.defaults({
         member_id: '',
         slot_key: '',
-        amount: '',
         notes: '',
     });
     form.reset();
@@ -86,7 +106,6 @@ const submit = () => {
     form.transform(() => ({
         member_id: Number(form.member_id),
         slot_key: form.slot_key,
-        amount: Number(form.amount),
         notes: form.notes || null,
     })).post(`/admin/fund-cycles/${props.fundCycle.id}/allocations`, {
         preserveScroll: true,
@@ -155,16 +174,26 @@ watch(
                     <InputError :message="form.errors.slot_key" />
                 </div>
 
-                <div class="grid gap-2">
-                    <Label for="allocation-amount">Amount</Label>
-                    <Input
-                        id="allocation-amount"
-                        v-model="form.amount"
-                        type="number"
-                        min="1"
-                        placeholder="1000"
-                    />
-                    <InputError :message="form.errors.amount" />
+                <div class="rounded-2xl bg-muted/30 px-4 py-4 text-sm">
+                    <div class="font-medium text-foreground">
+                        Allocation preview
+                    </div>
+                    <div class="mt-2 text-muted-foreground">
+                        Cycle unit amount:
+                        {{ fundCycle ? money(fundCycle.unit_amount) : '-' }}
+                    </div>
+                    <div class="mt-1 text-muted-foreground">
+                        Member units:
+                        {{ selectedMember?.units ?? '-' }}
+                    </div>
+                    <div class="mt-1 text-muted-foreground">
+                        Allocation amount:
+                        {{
+                            allocationAmount !== null
+                                ? money(allocationAmount)
+                                : '-'
+                        }}
+                    </div>
                 </div>
 
                 <div class="grid gap-2">
@@ -190,7 +219,8 @@ watch(
                         :disabled="
                             form.processing ||
                             !fundCycle ||
-                            fundCycle.slots.length === 0
+                            fundCycle.slots.length === 0 ||
+                            allocationAmount === null
                         "
                     >
                         Save Allocation

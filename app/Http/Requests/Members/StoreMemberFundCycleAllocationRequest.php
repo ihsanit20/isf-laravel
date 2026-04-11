@@ -86,7 +86,7 @@ class StoreMemberFundCycleAllocationRequest extends FormRequest
                 return;
             }
 
-            $allocationAmount = $member->units * 1000;
+            $allocationAmount = $fundCycle->allocationAmountFor($member->units);
 
             $verifiedDepositAmount = (int) DepositSubmission::query()
                 ->where('user_id', $user->id)

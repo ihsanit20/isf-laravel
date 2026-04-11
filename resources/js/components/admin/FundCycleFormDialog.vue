@@ -26,12 +26,14 @@ type EditableFundCycle = {
     id: number;
     name: string;
     status: string;
+    unit_amount: number;
     start_date: string | null;
     lock_date: string | null;
     maturity_date: string | null;
     settlement_date: string | null;
     slots: string[];
     notes: string | null;
+    has_allocations: boolean;
 };
 
 type Props = {
@@ -93,6 +95,7 @@ const buildAutoSlots = (startDate: string, lockDate: string): string[] => {
 const form = useForm<{
     name: string;
     status: string;
+    unit_amount: number;
     start_date: string;
     lock_date: string;
     maturity_date: string;
@@ -102,6 +105,7 @@ const form = useForm<{
 }>({
     name: '',
     status: props.statuses[0] ?? 'draft',
+    unit_amount: 1000,
     start_date: '',
     lock_date: '',
     maturity_date: '',
@@ -119,6 +123,7 @@ const resetFormState = () => {
             ? {
                   name: props.fundCycle.name,
                   status: props.fundCycle.status,
+                  unit_amount: props.fundCycle.unit_amount,
                   start_date: props.fundCycle.start_date ?? '',
                   lock_date: props.fundCycle.lock_date ?? '',
                   maturity_date: props.fundCycle.maturity_date ?? '',
@@ -129,6 +134,7 @@ const resetFormState = () => {
             : {
                   name: '',
                   status: props.statuses[0] ?? 'draft',
+                  unit_amount: 1000,
                   start_date: '',
                   lock_date: '',
                   maturity_date: '',
@@ -292,6 +298,29 @@ watch(
                     </div>
 
                     <div class="grid gap-2">
+                        <Label for="fund-cycle-unit-amount">Unit Amount</Label>
+                        <Input
+                            id="fund-cycle-unit-amount"
+                            v-model.number="form.unit_amount"
+                            type="number"
+                            min="1"
+                            :disabled="
+                                isEditing && !!props.fundCycle?.has_allocations
+                            "
+                        />
+                        <p
+                            v-if="isEditing && props.fundCycle?.has_allocations"
+                            class="text-xs text-muted-foreground"
+                        >
+                            Unit amount is locked once allocations exist for
+                            this cycle.
+                        </p>
+                        <InputError :message="form.errors.unit_amount" />
+                    </div>
+                </div>
+
+                <div class="grid gap-2 md:grid-cols-3">
+                    <div class="grid gap-2">
                         <Label for="fund-cycle-start-date">Start Date</Label>
                         <Input
                             id="fund-cycle-start-date"
@@ -300,9 +329,7 @@ watch(
                         />
                         <InputError :message="form.errors.start_date" />
                     </div>
-                </div>
 
-                <div class="grid gap-2 md:grid-cols-3">
                     <div class="grid gap-2">
                         <Label for="fund-cycle-lock-date">Lock Date</Label>
                         <Input

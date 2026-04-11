@@ -34,6 +34,7 @@ test('admins can visit the fund cycle admin page', function () {
     FundCycle::query()->create([
         'name' => 'April 2026 Cycle',
         'status' => FundCycle::STATUS_DRAFT,
+        'unit_amount' => 1000,
         'start_date' => '2026-04-01',
         'slots' => ['January 2026', 'February 2026', 'March 2026'],
         'created_by_user_id' => $admin->id,
@@ -70,6 +71,7 @@ test('admins can create a fund cycle', function () {
     post(route('admin.fund-cycles.store'), [
         'name' => 'May 2026 Cycle',
         'status' => FundCycle::STATUS_OPEN,
+        'unit_amount' => 1500,
         'start_date' => '2026-05-01',
         'lock_date' => '2026-05-10',
         'maturity_date' => '2026-06-10',
@@ -82,6 +84,7 @@ test('admins can create a fund cycle', function () {
 
     expect($fundCycle)->not->toBeNull()
         ->and($fundCycle?->created_by_user_id)->toBe($admin->id)
+        ->and($fundCycle?->unit_amount)->toBe(1500)
         ->and($fundCycle?->slots)->toBe(['May 2026', 'June 2026']);
 });
 
@@ -92,6 +95,7 @@ test('admins can update a fund cycle', function () {
     $fundCycle = FundCycle::query()->create([
         'name' => 'June 2026 Cycle',
         'status' => FundCycle::STATUS_DRAFT,
+        'unit_amount' => 1000,
         'start_date' => '2026-06-01',
         'slots' => ['June 2026', 'July 2026'],
         'created_by_user_id' => $admin->id,
@@ -102,6 +106,7 @@ test('admins can update a fund cycle', function () {
     put(route('admin.fund-cycles.update', $fundCycle), [
         'name' => 'June 2026 Locked Cycle',
         'status' => FundCycle::STATUS_LOCKED,
+        'unit_amount' => 1200,
         'start_date' => '2026-06-01',
         'lock_date' => '2026-06-10',
         'maturity_date' => '2026-07-10',
@@ -112,8 +117,51 @@ test('admins can update a fund cycle', function () {
 
     expect($fundCycle->refresh()->name)->toBe('June 2026 Locked Cycle')
         ->and($fundCycle->status)->toBe(FundCycle::STATUS_LOCKED)
+        ->and($fundCycle->unit_amount)->toBe(1200)
         ->and($fundCycle->slots)->toBe(['June 2026', 'July 2026', 'August 2026'])
         ->and($fundCycle->notes)->toBe('Ready for investment');
+});
+
+test('unit amount cannot be changed after a cycle has allocations', function () {
+    $admin = User::factory()->create([
+        'role' => 'admin',
+    ]);
+    $fundCycle = FundCycle::query()->create([
+        'name' => 'Protected Unit Amount Cycle',
+        'status' => FundCycle::STATUS_OPEN,
+        'unit_amount' => 1000,
+        'start_date' => '2026-06-01',
+        'slots' => ['June 2026'],
+        'created_by_user_id' => $admin->id,
+    ]);
+    $member = Member::factory()->create([
+        'status' => MemberStatus::Approved,
+        'approved_at' => now(),
+        'activated_at' => now(),
+        'units' => 1,
+    ]);
+
+    FundCycleAllocation::query()->create([
+        'fund_cycle_id' => $fundCycle->id,
+        'member_id' => $member->id,
+        'slot_key' => 'June 2026',
+        'amount' => 1000,
+        'allocated_at' => now(),
+        'created_by_user_id' => $admin->id,
+    ]);
+
+    actingAs($admin);
+
+    put(route('admin.fund-cycles.update', $fundCycle), [
+        'name' => 'Protected Unit Amount Cycle',
+        'status' => FundCycle::STATUS_OPEN,
+        'unit_amount' => 1500,
+        'start_date' => '2026-06-01',
+        'slots' => ['June 2026'],
+        'notes' => null,
+    ])->assertSessionHasErrors(['unit_amount']);
+
+    expect($fundCycle->refresh()->unit_amount)->toBe(1000);
 });
 
 test('admins can allocate verified deposit pool into a fund cycle for an approved member', function () {
@@ -123,6 +171,7 @@ test('admins can allocate verified deposit pool into a fund cycle for an approve
     $fundCycle = FundCycle::query()->create([
         'name' => 'Allocation Cycle',
         'status' => FundCycle::STATUS_OPEN,
+        'unit_amount' => 2000,
         'start_date' => '2026-04-01',
         'slots' => ['January 2026', 'February 2026', 'March 2026'],
         'created_by_user_id' => $admin->id,
@@ -131,6 +180,7 @@ test('admins can allocate verified deposit pool into a fund cycle for an approve
         'status' => MemberStatus::Approved,
         'approved_at' => now(),
         'activated_at' => now(),
+        'units' => 1,
     ]);
 
     DepositSubmission::query()->create([
@@ -149,7 +199,6 @@ test('admins can allocate verified deposit pool into a fund cycle for an approve
     post(route('admin.fund-cycles.allocations.store', $fundCycle), [
         'member_id' => $member->id,
         'slot_key' => 'January 2026',
-        'amount' => 2000,
         'notes' => 'Initial member allocation',
     ])->assertRedirect(route('admin.fund-cycles.index'));
 
@@ -168,6 +217,7 @@ test('fund cycle allocation cannot exceed the remaining verified deposit pool', 
     $fundCycle = FundCycle::query()->create([
         'name' => 'Limited Pool Cycle',
         'status' => FundCycle::STATUS_OPEN,
+        'unit_amount' => 3000,
         'start_date' => '2026-04-01',
         'slots' => ['January 2026', 'February 2026'],
         'created_by_user_id' => $admin->id,
@@ -213,9 +263,8 @@ test('fund cycle allocation cannot exceed the remaining verified deposit pool', 
     post(route('admin.fund-cycles.allocations.store', $fundCycle), [
         'member_id' => $member->id,
         'slot_key' => 'January 2026',
-        'amount' => 2500,
         'notes' => 'Too large for remaining pool',
-    ])->assertSessionHasErrors(['amount']);
+    ])->assertSessionHasErrors(['member_id']);
 
     expect(FundCycleAllocation::query()->where('fund_cycle_id', $fundCycle->id)->exists())->toBeFalse();
 });
@@ -227,6 +276,7 @@ test('the same member can be allocated in different slots of the same fund cycle
     $fundCycle = FundCycle::query()->create([
         'name' => 'Multi Slot Cycle',
         'status' => FundCycle::STATUS_OPEN,
+        'unit_amount' => 1000,
         'start_date' => '2026-04-01',
         'slots' => ['January 2026', 'February 2026'],
         'created_by_user_id' => $admin->id,
@@ -253,14 +303,12 @@ test('the same member can be allocated in different slots of the same fund cycle
     post(route('admin.fund-cycles.allocations.store', $fundCycle), [
         'member_id' => $member->id,
         'slot_key' => 'January 2026',
-        'amount' => 1000,
         'notes' => 'First slot allocation',
     ])->assertRedirect(route('admin.fund-cycles.index'));
 
     post(route('admin.fund-cycles.allocations.store', $fundCycle), [
         'member_id' => $member->id,
         'slot_key' => 'February 2026',
-        'amount' => 1000,
         'notes' => 'Second slot allocation',
     ])->assertRedirect(route('admin.fund-cycles.index'));
 
@@ -284,6 +332,7 @@ test('approved activated member can allocate their own slot in an open fund cycl
     $fundCycle = FundCycle::query()->create([
         'name' => 'Member Self Allocation Cycle',
         'status' => FundCycle::STATUS_OPEN,
+        'unit_amount' => 1200,
         'start_date' => now()->startOfMonth()->toDateString(),
         'lock_date' => now()->addDays(5)->toDateString(),
         'slots' => ['April 2026', 'May 2026'],
@@ -315,7 +364,7 @@ test('approved activated member can allocate their own slot in an open fund cycl
 
     expect($allocation)->not->toBeNull()
         ->and($allocation?->slot_key)->toBe('April 2026')
-        ->and($allocation?->amount)->toBe(2000);
+        ->and($allocation?->amount)->toBe(2400);
 });
 
 test('member cannot allocate a slot after the cycle is locked', function () {
@@ -332,6 +381,7 @@ test('member cannot allocate a slot after the cycle is locked', function () {
     $fundCycle = FundCycle::query()->create([
         'name' => 'Locked Member Cycle',
         'status' => FundCycle::STATUS_OPEN,
+        'unit_amount' => 1000,
         'start_date' => now()->startOfMonth()->toDateString(),
         'lock_date' => now()->subDay()->toDateString(),
         'slots' => ['April 2026'],

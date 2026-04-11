@@ -19,8 +19,6 @@ use Inertia\Response;
 
 class MemberFundCycleController extends Controller
 {
-    private const DEFAULT_UNIT_AMOUNT = 1000;
-
     public function index(Request $request, Member $member): Response
     {
         /** @var User $user */
@@ -29,8 +27,6 @@ class MemberFundCycleController extends Controller
         abort_unless($member->managed_by_user_id === $user->id, 404);
 
         $remainingPool = $this->remainingPoolForUser($user);
-        $allocationAmount = $member->units * self::DEFAULT_UNIT_AMOUNT;
-
         return Inertia::render('members/FundCycles', [
             'member' => [
                 'id' => $member->id,
@@ -39,7 +35,6 @@ class MemberFundCycleController extends Controller
                 'units' => $member->units,
                 'approved_at' => $member->approved_at?->format('d M Y, h:i A'),
                 'activated_at' => $member->activated_at?->format('d M Y, h:i A'),
-                'allocation_amount' => $allocationAmount,
                 'remaining_pool' => $remainingPool,
             ],
             'fundCycles' => FundCycle::query()
@@ -47,7 +42,7 @@ class MemberFundCycleController extends Controller
                 ->with([
                     'allocations' => fn($query) => $query
                         ->where('member_id', $member->id)
-                        ->select(['id', 'fund_cycle_id', 'member_id', 'slot_key']),
+                        ->select(['id', 'fund_cycle_id', 'member_id', 'slot_key', 'amount']),
                 ])
                 ->where('status', FundCycle::STATUS_OPEN)
                 ->latest('start_date')
@@ -62,17 +57,24 @@ class MemberFundCycleController extends Controller
                     'lock_date' => $fundCycle->lock_date?->format('d M Y'),
                     'maturity_date' => $fundCycle->maturity_date?->format('d M Y'),
                     'settlement_date' => $fundCycle->settlement_date?->format('d M Y'),
+                    'unit_amount' => $fundCycle->unit_amount,
                     'slots' => collect($fundCycle->slots ?? [])->values(),
+                    'allocation_amount' => $fundCycle->allocationAmountFor($member->units),
                     'allocations_count' => $fundCycle->allocations_count,
                     'allocated_slots' => $fundCycle->allocations
                         ->pluck('slot_key')
                         ->filter()
                         ->values(),
+                    'allocated_slot_amounts' => $fundCycle->allocations
+                        ->filter(fn(FundCycleAllocation $allocation) => filled($allocation->slot_key))
+                        ->mapWithKeys(fn(FundCycleAllocation $allocation): array => [
+                            $allocation->slot_key => $allocation->amount,
+                        ]),
                     'is_locked' => $fundCycle->lock_date !== null && now()->startOfDay()->greaterThanOrEqualTo($fundCycle->lock_date),
                     'can_allocate' => $member->status === MemberStatus::Approved
                         && $member->activated_at !== null
                         && ($fundCycle->lock_date === null || now()->startOfDay()->lt($fundCycle->lock_date))
-                        && $remainingPool >= $allocationAmount,
+                        && $remainingPool >= $fundCycle->allocationAmountFor($member->units),
                 ])
                 ->values(),
         ]);
@@ -92,7 +94,7 @@ class MemberFundCycleController extends Controller
             $fundCycle->allocations()->create([
                 'member_id' => $member->id,
                 'slot_key' => $request->string('slot_key')->trim()->toString(),
-                'amount' => $member->units * self::DEFAULT_UNIT_AMOUNT,
+                'amount' => $fundCycle->allocationAmountFor($member->units),
                 'allocated_at' => now(),
                 'notes' => $request->validated('notes'),
                 'created_by_user_id' => $user->id,
