@@ -269,3 +269,94 @@ test('the same member can be allocated in different slots of the same fund cycle
         ->where('member_id', $member->id)
         ->count())->toBe(2);
 });
+
+test('approved activated member can allocate their own slot in an open fund cycle', function () {
+    $user = User::factory()->create([
+        'role' => 'member',
+    ]);
+    $member = Member::factory()->create([
+        'managed_by_user_id' => $user->id,
+        'status' => MemberStatus::Approved,
+        'approved_at' => now(),
+        'activated_at' => now(),
+        'units' => 2,
+    ]);
+    $fundCycle = FundCycle::query()->create([
+        'name' => 'Member Self Allocation Cycle',
+        'status' => FundCycle::STATUS_OPEN,
+        'start_date' => now()->startOfMonth()->toDateString(),
+        'lock_date' => now()->addDays(5)->toDateString(),
+        'slots' => ['April 2026', 'May 2026'],
+        'created_by_user_id' => User::factory()->create(['role' => 'admin'])->id,
+    ]);
+
+    DepositSubmission::query()->create([
+        'user_id' => $user->id,
+        'amount' => 5000,
+        'payment_method' => DepositSubmission::PAYMENT_METHOD_BANK_TRANSFER,
+        'reference_no' => 'SELF-ALLOC-01',
+        'deposit_date' => now()->toDateString(),
+        'proof_path' => 'deposit-proofs/self-alloc-01.jpg',
+        'status' => DepositSubmissionStatus::Verified,
+        'verified_at' => now(),
+    ]);
+
+    actingAs($user);
+
+    post(route('members.fund-cycles.allocations.store', [$member, $fundCycle]), [
+        'slot_key' => 'April 2026',
+        'notes' => 'Self allocated from member page',
+    ])->assertRedirect(route('members.fund-cycles.index', $member));
+
+    $allocation = FundCycleAllocation::query()
+        ->where('fund_cycle_id', $fundCycle->id)
+        ->where('member_id', $member->id)
+        ->first();
+
+    expect($allocation)->not->toBeNull()
+        ->and($allocation?->slot_key)->toBe('April 2026')
+        ->and($allocation?->amount)->toBe(2000);
+});
+
+test('member cannot allocate a slot after the cycle is locked', function () {
+    $user = User::factory()->create([
+        'role' => 'member',
+    ]);
+    $member = Member::factory()->create([
+        'managed_by_user_id' => $user->id,
+        'status' => MemberStatus::Approved,
+        'approved_at' => now(),
+        'activated_at' => now(),
+        'units' => 1,
+    ]);
+    $fundCycle = FundCycle::query()->create([
+        'name' => 'Locked Member Cycle',
+        'status' => FundCycle::STATUS_OPEN,
+        'start_date' => now()->startOfMonth()->toDateString(),
+        'lock_date' => now()->subDay()->toDateString(),
+        'slots' => ['April 2026'],
+        'created_by_user_id' => User::factory()->create(['role' => 'admin'])->id,
+    ]);
+
+    DepositSubmission::query()->create([
+        'user_id' => $user->id,
+        'amount' => 5000,
+        'payment_method' => DepositSubmission::PAYMENT_METHOD_BANK_TRANSFER,
+        'reference_no' => 'SELF-ALLOC-LOCKED',
+        'deposit_date' => now()->toDateString(),
+        'proof_path' => 'deposit-proofs/self-alloc-locked.jpg',
+        'status' => DepositSubmissionStatus::Verified,
+        'verified_at' => now(),
+    ]);
+
+    actingAs($user);
+
+    post(route('members.fund-cycles.allocations.store', [$member, $fundCycle]), [
+        'slot_key' => 'April 2026',
+    ])->assertSessionHasErrors(['slot_key']);
+
+    expect(FundCycleAllocation::query()
+        ->where('fund_cycle_id', $fundCycle->id)
+        ->where('member_id', $member->id)
+        ->exists())->toBeFalse();
+});

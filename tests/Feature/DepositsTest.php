@@ -103,7 +103,7 @@ test('charge settlement cannot exceed the total allocatable verified deposit amo
     expect(ChargeAllocation::query()->where('charge_id', $charge->id)->exists())->toBeFalse();
 });
 
-test('users can open the global allocation page', function () {
+test('membership page shows allocatable balance for registration fee modal', function () {
     $user = User::factory()->create();
 
     $registrationMember = Member::factory()->for($user, 'manager')->create([
@@ -133,14 +133,12 @@ test('users can open the global allocation page', function () {
     ]);
 
     actingAs($user)
-        ->get(route('deposits.allocate'))
+        ->get(route('members.index'))
         ->assertOk()
         ->assertInertia(fn(Assert $page) => $page
-            ->component('deposits/Allocate')
-            ->where('summary.total_deposit_amount', 3000)
-            ->where('summary.total_verified_amount', 3000)
-            ->where('summary.total_allocatable_amount', 3000)
-            ->has('charges', 1));
+            ->component('Members')
+            ->where('allocationSummary.available_to_allocate', 3000)
+            ->where('members.0.registration_charge.amount', 100));
 });
 
 test('available to allocate shows exact verified balance after allocations', function () {

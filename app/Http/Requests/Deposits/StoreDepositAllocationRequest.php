@@ -82,7 +82,7 @@ class StoreDepositAllocationRequest extends FormRequest
     private function pendingChargesById(array $chargeIds): Collection
     {
         return Charge::query()
-            ->where('status', Charge::STATUS_PENDING)
+            ->whereIn('status', [Charge::STATUS_PENDING, Charge::STATUS_CANCELLED])
             ->whereIn('id', array_map('intval', $chargeIds))
             ->whereHas('member', fn($query) => $query
                 ->where('managed_by_user_id', $this->user()?->id)

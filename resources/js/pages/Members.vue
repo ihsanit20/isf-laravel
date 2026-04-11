@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, Link } from '@inertiajs/vue3';
+import { Head, Link, useForm } from '@inertiajs/vue3';
 import {
     CalendarDays,
     Clock3,
@@ -8,8 +8,18 @@ import {
     UserRound,
     WalletCards,
 } from 'lucide-vue-next';
+import { computed, ref } from 'vue';
+import InputError from '@/components/InputError.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 
 type MemberStatus = 'pending' | 'approved' | 'rejected' | 'exited';
 type RelationshipOption = 'self' | 'spouse' | 'child' | 'parent' | 'other';
@@ -27,12 +37,17 @@ type MemberItem = {
     approved_at: string | null;
     activated_at: string | null;
     registration_charge: {
+        id: number;
         amount: number;
         status: ChargeStatus;
+        paid_at: string | null;
     } | null;
 };
 
 type Props = {
+    allocationSummary: {
+        available_to_allocate: number;
+    };
     members: MemberItem[];
 };
 
@@ -47,7 +62,14 @@ defineOptions({
     },
 });
 
-defineProps<Props>();
+const props = defineProps<Props>();
+
+const isRegistrationFeeDialogOpen = ref(false);
+const selectedMember = ref<MemberItem | null>(null);
+
+const form = useForm<{ charge_ids: number[] }>({
+    charge_ids: [],
+});
 
 const relationshipLabel = (value: RelationshipOption): string =>
     value.replace('_', ' ').replace(/\b\w/g, (char) => char.toUpperCase());
@@ -118,6 +140,53 @@ const shouldShowRegistrationFeeButton = (member: MemberItem): boolean =>
 
 const shouldShowCycleAllocationButton = (member: MemberItem): boolean =>
     member.registration_charge?.status === 'posted';
+
+const money = (amount: number): string => `${amount.toLocaleString()} BDT`;
+
+const selectedChargeAmount = computed(
+    () => selectedMember.value?.registration_charge?.amount ?? 0,
+);
+
+const remainingAfterRegistrationFee = computed(() =>
+    Math.max(
+        0,
+        props.allocationSummary.available_to_allocate -
+            selectedChargeAmount.value,
+    ),
+);
+
+const canConfirmRegistrationFee = computed(
+    () =>
+        !!selectedMember.value?.registration_charge?.id &&
+        props.allocationSummary.available_to_allocate >=
+            selectedChargeAmount.value,
+);
+
+const openRegistrationFeeDialog = (member: MemberItem) => {
+    selectedMember.value = member;
+    form.defaults({
+        charge_ids: member.registration_charge?.id
+            ? [member.registration_charge.id]
+            : [],
+    });
+    form.reset();
+    form.clearErrors();
+    isRegistrationFeeDialogOpen.value = true;
+};
+
+const closeRegistrationFeeDialog = () => {
+    isRegistrationFeeDialogOpen.value = false;
+    selectedMember.value = null;
+    form.reset();
+    form.clearErrors();
+};
+
+const confirmRegistrationFee = () => {
+    form.post('/my-deposits/allocate', {
+        preserveScroll: true,
+        onSuccess: () => closeRegistrationFeeDialog(),
+    });
+};
 
 const activationNote = (member: MemberItem): string => {
     if (member.activated_at) {
@@ -293,7 +362,11 @@ const activationNote = (member: MemberItem): string => {
                                 </Badge>
                             </div>
                             <p class="mt-2 font-medium text-foreground">
-                                {{ registrationFeeNote(member) }}
+                                {{
+                                    member.registration_charge?.paid_at
+                                        ? `Paid at ${member.registration_charge.paid_at}`
+                                        : registrationFeeNote(member)
+                                }}
                             </p>
                         </div>
                     </div>
@@ -304,13 +377,11 @@ const activationNote = (member: MemberItem): string => {
                         </p>
                         <Button
                             v-if="shouldShowRegistrationFeeButton(member)"
-                            as-child
                             variant="outline"
                             class="mt-3"
+                            @click="openRegistrationFeeDialog(member)"
                         >
-                            <Link href="/my-deposits/allocate"
-                                >Pay Registration Fee</Link
-                            >
+                            Pay Registration Fee
                         </Button>
 
                         <Button
@@ -353,5 +424,93 @@ const activationNote = (member: MemberItem): string => {
                 </Button>
             </div>
         </section>
+
+        <Dialog
+            :open="isRegistrationFeeDialogOpen"
+            @update:open="isRegistrationFeeDialogOpen = $event"
+        >
+            <DialogContent class="sm:max-w-lg">
+                <DialogHeader>
+                    <DialogTitle>Pay Registration Fee</DialogTitle>
+                    <DialogDescription>
+                        Confirm registration fee allocation from your verified
+                        deposit balance.
+                    </DialogDescription>
+                </DialogHeader>
+
+                <form
+                    class="space-y-4"
+                    @submit.prevent="confirmRegistrationFee"
+                >
+                    <div class="rounded-2xl bg-muted/30 px-4 py-4 text-sm">
+                        <div class="font-medium text-foreground">
+                            {{ selectedMember?.full_name || 'Member' }}
+                        </div>
+                        <div class="mt-2 text-muted-foreground">
+                            Available to allocate:
+                            <span class="font-medium text-foreground">
+                                {{
+                                    money(
+                                        props.allocationSummary
+                                            .available_to_allocate,
+                                    )
+                                }}
+                            </span>
+                        </div>
+                        <div class="mt-1 text-muted-foreground">
+                            Registration fee:
+                            <span class="font-medium text-foreground">
+                                {{ money(selectedChargeAmount) }}
+                            </span>
+                        </div>
+                        <div class="mt-1 text-muted-foreground">
+                            Remaining after confirm:
+                            <span class="font-medium text-foreground">
+                                {{ money(remainingAfterRegistrationFee) }}
+                            </span>
+                        </div>
+                    </div>
+
+                    <div
+                        v-if="!selectedMember?.registration_charge"
+                        class="rounded-2xl border border-dashed border-border/80 bg-background/70 px-4 py-4 text-sm text-muted-foreground"
+                    >
+                        Registration fee is not assigned yet for this member.
+                    </div>
+
+                    <div
+                        v-else-if="
+                            props.allocationSummary.available_to_allocate <
+                            selectedChargeAmount
+                        "
+                        class="rounded-2xl border border-dashed border-border/80 bg-background/70 px-4 py-4 text-sm text-muted-foreground"
+                    >
+                        Verified deposit balance is not enough to settle this
+                        registration fee.
+                    </div>
+
+                    <InputError :message="form.errors.charge_ids" />
+                    <InputError :message="form.errors['charge_ids.0']" />
+
+                    <DialogFooter class="gap-2">
+                        <Button
+                            type="button"
+                            variant="secondary"
+                            @click="closeRegistrationFeeDialog"
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            type="submit"
+                            :disabled="
+                                form.processing || !canConfirmRegistrationFee
+                            "
+                        >
+                            Confirm
+                        </Button>
+                    </DialogFooter>
+                </form>
+            </DialogContent>
+        </Dialog>
     </div>
 </template>

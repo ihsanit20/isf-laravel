@@ -2,17 +2,25 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\DepositSubmissionStatus;
 use App\Enums\MemberStatus;
+use App\Http\Requests\Members\StoreMemberFundCycleAllocationRequest;
+use App\Models\ChargeAllocation;
+use App\Models\DepositSubmission;
 use App\Models\FundCycle;
 use App\Models\FundCycleAllocation;
 use App\Models\Member;
 use App\Models\User;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class MemberFundCycleController extends Controller
 {
+    private const DEFAULT_UNIT_AMOUNT = 1000;
+
     public function index(Request $request, Member $member): Response
     {
         /** @var User $user */
@@ -20,16 +28,27 @@ class MemberFundCycleController extends Controller
 
         abort_unless($member->managed_by_user_id === $user->id, 404);
 
+        $remainingPool = $this->remainingPoolForUser($user);
+        $allocationAmount = $member->units * self::DEFAULT_UNIT_AMOUNT;
+
         return Inertia::render('members/FundCycles', [
             'member' => [
                 'id' => $member->id,
                 'full_name' => $member->full_name,
                 'status' => $member->status->value,
+                'units' => $member->units,
                 'approved_at' => $member->approved_at?->format('d M Y, h:i A'),
                 'activated_at' => $member->activated_at?->format('d M Y, h:i A'),
+                'allocation_amount' => $allocationAmount,
+                'remaining_pool' => $remainingPool,
             ],
             'fundCycles' => FundCycle::query()
                 ->withCount('allocations')
+                ->with([
+                    'allocations' => fn($query) => $query
+                        ->where('member_id', $member->id)
+                        ->select(['id', 'fund_cycle_id', 'member_id', 'slot_key']),
+                ])
                 ->where('status', FundCycle::STATUS_OPEN)
                 ->latest('start_date')
                 ->latest('id')
@@ -45,12 +64,60 @@ class MemberFundCycleController extends Controller
                     'settlement_date' => $fundCycle->settlement_date?->format('d M Y'),
                     'slots' => collect($fundCycle->slots ?? [])->values(),
                     'allocations_count' => $fundCycle->allocations_count,
-                    'has_member_allocation' => FundCycleAllocation::query()
-                        ->where('fund_cycle_id', $fundCycle->id)
-                        ->where('member_id', $member->id)
-                        ->exists(),
+                    'allocated_slots' => $fundCycle->allocations
+                        ->pluck('slot_key')
+                        ->filter()
+                        ->values(),
+                    'is_locked' => $fundCycle->lock_date !== null && now()->startOfDay()->greaterThanOrEqualTo($fundCycle->lock_date),
+                    'can_allocate' => $member->status === MemberStatus::Approved
+                        && $member->activated_at !== null
+                        && ($fundCycle->lock_date === null || now()->startOfDay()->lt($fundCycle->lock_date))
+                        && $remainingPool >= $allocationAmount,
                 ])
                 ->values(),
         ]);
+    }
+
+    public function store(
+        StoreMemberFundCycleAllocationRequest $request,
+        Member $member,
+        FundCycle $fundCycle,
+    ): RedirectResponse {
+        /** @var User $user */
+        $user = $request->user();
+
+        abort_unless($member->managed_by_user_id === $user->id, 404);
+
+        DB::transaction(function () use ($request, $member, $fundCycle, $user): void {
+            $fundCycle->allocations()->create([
+                'member_id' => $member->id,
+                'slot_key' => $request->string('slot_key')->trim()->toString(),
+                'amount' => $member->units * self::DEFAULT_UNIT_AMOUNT,
+                'allocated_at' => now(),
+                'notes' => $request->validated('notes'),
+                'created_by_user_id' => $user->id,
+            ]);
+        });
+
+        return to_route('members.fund-cycles.index', $member);
+    }
+
+    private function remainingPoolForUser(User $user): int
+    {
+        $verifiedDepositAmount = (int) DepositSubmission::query()
+            ->where('user_id', $user->id)
+            ->where('status', DepositSubmissionStatus::Verified)
+            ->sum('amount');
+
+        $chargeAllocatedAmount = (int) ChargeAllocation::query()
+            ->whereNull('reversed_at')
+            ->whereHas('charge.member', fn($query) => $query->where('managed_by_user_id', $user->id))
+            ->sum('amount');
+
+        $cycleAllocatedAmount = (int) FundCycleAllocation::query()
+            ->whereHas('member', fn($query) => $query->where('managed_by_user_id', $user->id))
+            ->sum('amount');
+
+        return max(0, $verifiedDepositAmount - $chargeAllocatedAmount - $cycleAllocatedAmount);
     }
 }

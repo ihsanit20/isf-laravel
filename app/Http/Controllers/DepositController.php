@@ -78,38 +78,6 @@ class DepositController extends Controller
         return to_route('deposits.index');
     }
 
-    public function allocate(Request $request): Response
-    {
-        /** @var User $user */
-        $user = $request->user();
-
-        $deposits = $user->depositSubmissions()->get();
-        $chargeAllocations = $this->managedChargeAllocationsQuery($user)->get();
-        $pendingCharges = $this->pendingChargesQuery($user)
-            ->with(['category:id,title,code', 'member:id,full_name,activated_at'])
-            ->orderBy('effective_at')
-            ->orderBy('id')
-            ->get();
-
-        return Inertia::render('deposits/Allocate', [
-            'summary' => $this->buildDepositSummary(
-                $deposits,
-                $chargeAllocations,
-                $pendingCharges->isNotEmpty(),
-            ),
-            'charges' => $pendingCharges
-                ->map(fn(Charge $charge): array => [
-                    'id' => $charge->id,
-                    'amount' => $charge->amount,
-                    'category_title' => $charge->category?->title,
-                    'category_code' => $charge->category?->code,
-                    'member_name' => $charge->member?->full_name,
-                    'effective_at' => $charge->effective_at?->format('d M Y, h:i A'),
-                ])
-                ->values(),
-        ]);
-    }
-
     public function storeAllocations(StoreDepositAllocationRequest $request): RedirectResponse
     {
         /** @var User $user */
@@ -137,7 +105,7 @@ class DepositController extends Controller
 
             $charges = Charge::query()
                 ->with(['category', 'member'])
-                ->where('status', Charge::STATUS_PENDING)
+                ->whereIn('status', [Charge::STATUS_PENDING, Charge::STATUS_CANCELLED])
                 ->whereIn('id', $chargeIds)
                 ->whereHas('member', fn($query) => $query
                     ->where('managed_by_user_id', $user->id)

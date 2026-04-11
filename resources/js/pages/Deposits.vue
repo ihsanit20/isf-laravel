@@ -105,16 +105,6 @@ const statusVariant = (
                 </div>
 
                 <div class="flex flex-wrap gap-3">
-                    <Button
-                        v-if="summary.can_allocate"
-                        as-child
-                        variant="outline"
-                        class="shrink-0"
-                    >
-                        <Link href="/my-deposits/allocate">
-                            Settle Charges
-                        </Link>
-                    </Button>
                     <Button as-child class="shrink-0">
                         <Link href="/my-deposits/create">
                             <Plus class="size-4" />
