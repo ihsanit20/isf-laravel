@@ -19,12 +19,14 @@ return new class extends Migration
             $table->enum('status', MemberStatus::values())->default(MemberStatus::Pending->value);
             $table->timestamp('applied_at')->nullable();
             $table->timestamp('approved_at')->nullable();
+            $table->timestamp('activated_at')->nullable();
             $table->foreignId('approved_by_user_id')->nullable()->constrained('users')->nullOnDelete();
             $table->string('rejection_note')->nullable();
             $table->timestamps();
 
             $table->index(['managed_by_user_id', 'status']);
             $table->index('applied_at');
+            $table->index('activated_at');
         });
     }
 
