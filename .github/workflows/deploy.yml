@@ -1,0 +1,143 @@
+name: Deploy ISF
+
+'on':
+  workflow_dispatch:
+    inputs:
+      source_branch:
+        description: Branch to deploy
+        required: true
+        default: main
+        type: string
+
+concurrency:
+  group: deploy-isf-production
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+env:
+  DEPLOY_BRANCH: deploy
+  APP_DOMAIN: isf.ihsanit.com
+  APP_DIR: /www/wwwroot/isf-laravel
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.source_branch }}
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          tools: composer:v2
+          coverage: none
+
+      - name: Prepare Laravel bootstrap
+        run: |
+          cp .env.example .env
+          composer install --no-interaction --no-progress --prefer-dist --optimize-autoloader
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.12.0
+          cache: npm
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Build frontend assets
+        run: npm run build
+
+      - name: Publish deploy branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          echo "Deploying ${APP_DOMAIN} from source branch: ${{ inputs.source_branch }}"
+
+          git checkout -B "$DEPLOY_BRANCH"
+          git add -A
+          git add -f public/build
+
+          if git diff --cached --quiet; then
+            git commit --allow-empty -m "Deploy ${GITHUB_SHA}"
+          else
+            git commit -m "Deploy ${GITHUB_SHA}"
+          fi
+
+          git push origin "HEAD:${DEPLOY_BRANCH}" --force
+
+      - name: Deploy on server
+        uses: appleboy/ssh-action@v1.2.2
+        env:
+          APP_DIR: ${{ env.APP_DIR }}
+          APP_DOMAIN: ${{ env.APP_DOMAIN }}
+          DEPLOY_BRANCH: ${{ env.DEPLOY_BRANCH }}
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          port: 22
+          envs: APP_DIR,APP_DOMAIN,DEPLOY_BRANCH
+          script: |
+            set -e
+
+            if [ ! -d "$APP_DIR" ]; then
+              echo "Application directory does not exist for ${APP_DOMAIN}: $APP_DIR"
+              exit 1
+            fi
+
+            cd "$APP_DIR"
+            git fetch origin "$DEPLOY_BRANCH"
+
+            if git show-ref --verify --quiet "refs/heads/$DEPLOY_BRANCH"; then
+              git checkout "$DEPLOY_BRANCH"
+            else
+              git checkout -b "$DEPLOY_BRANCH"
+            fi
+
+            git reset --hard "origin/$DEPLOY_BRANCH"
+
+            COMPOSER_PATH="$(command -v composer || true)"
+            if [ -z "$COMPOSER_PATH" ]; then
+              for candidate in /usr/bin/composer /usr/local/bin/composer; do
+                if [ -x "$candidate" ]; then
+                  COMPOSER_PATH="$candidate"
+                  break
+                fi
+              done
+            fi
+
+            if [ -z "$COMPOSER_PATH" ]; then
+              echo "composer not found on server"
+              exit 1
+            fi
+
+            PHP_BIN="php"
+            export COMPOSER_ALLOW_SUPERUSER=1
+
+            "$PHP_BIN" "$COMPOSER_PATH" install --no-interaction --no-dev --prefer-dist --optimize-autoloader
+            "$PHP_BIN" artisan migrate --force
+            "$PHP_BIN" artisan optimize:clear
+            "$PHP_BIN" artisan config:cache
+            "$PHP_BIN" artisan route:cache
+            "$PHP_BIN" artisan view:cache
+            "$PHP_BIN" artisan queue:restart || true
+
+            PHP83_MASTER_PID="$(pgrep -f "php-fpm: master process \(/www/server/php/83/etc/php-fpm.conf\)" | head -n 1 || true)"
+            if [ -n "$PHP83_MASTER_PID" ]; then
+              kill -USR2 "$PHP83_MASTER_PID" || true
+            fi
+
+            PHP82_MASTER_PID="$(pgrep -f "php-fpm: master process \(/www/server/php/82/etc/php-fpm.conf\)" | head -n 1 || true)"
+            if [ -n "$PHP82_MASTER_PID" ]; then
+              kill -USR2 "$PHP82_MASTER_PID" || true
+            fi
