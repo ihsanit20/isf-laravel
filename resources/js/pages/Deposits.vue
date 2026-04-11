@@ -155,57 +155,6 @@ const statusVariant = (
             </div>
         </section>
 
-        <section v-if="chargeAllocations.length > 0" class="space-y-4">
-            <div>
-                <h2
-                    class="text-lg font-semibold tracking-tight text-foreground"
-                >
-                    Charge Allocation History
-                </h2>
-                <p class="mt-1 text-sm text-muted-foreground">
-                    Charges are settled from the same verified deposit pool and
-                    can be reversed later if an admin cancels the fee.
-                </p>
-            </div>
-
-            <div class="space-y-3">
-                <div
-                    v-for="allocation in chargeAllocations"
-                    :key="allocation.id"
-                    class="flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-sidebar-border/70 bg-background px-5 py-4 shadow-sm"
-                >
-                    <div>
-                        <p class="font-medium text-foreground">
-                            {{ allocation.charge_title || 'Charge allocation' }}
-                        </p>
-                        <p class="mt-1 text-xs text-muted-foreground">
-                            {{ allocation.member_name || 'Unknown member' }}
-                        </p>
-                        <p class="mt-1 text-xs text-muted-foreground">
-                            {{
-                                allocation.reversed_at
-                                    ? 'Reversed back to your pool'
-                                    : 'Active charge allocation'
-                            }}
-                        </p>
-                    </div>
-
-                    <div class="text-right">
-                        <p class="font-medium text-foreground">
-                            {{ money(allocation.amount) }}
-                        </p>
-                        <p class="text-xs text-muted-foreground">
-                            {{
-                                allocation.reversed_at ||
-                                allocation.confirmed_at ||
-                                'Confirmed'
-                            }}
-                        </p>
-                    </div>
-                </div>
-            </div>
-        </section>
-
         <section v-if="deposits.length > 0" class="space-y-4">
             <div>
                 <h2
@@ -301,21 +250,6 @@ const statusVariant = (
                         Submit Deposit
                     </Link>
                 </Button>
-            </div>
-        </section>
-
-        <section
-            v-if="deposits.length > 0 && chargeAllocations.length === 0"
-            class="rounded-[28px] border border-dashed border-sidebar-border/80 bg-background p-8 text-center shadow-sm"
-        >
-            <div class="mx-auto max-w-2xl">
-                <h2 class="text-xl font-semibold tracking-tight">
-                    No charge settlements yet
-                </h2>
-                <p class="mt-2 text-sm leading-6 text-muted-foreground">
-                    Settled charges will appear here after you confirm them from
-                    the verified deposit pool.
-                </p>
             </div>
         </section>
     </div>
