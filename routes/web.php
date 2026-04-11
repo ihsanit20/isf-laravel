@@ -10,6 +10,8 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DepositController;
 use App\Http\Controllers\MemberController;
 use App\Http\Controllers\MemberFundCycleController;
+use App\Http\Controllers\MyAllocationController;
+use App\Http\Controllers\MyChargeController;
 use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Features;
 
@@ -30,6 +32,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('my-deposits/create', [DepositController::class, 'create'])->name('deposits.create');
     Route::post('my-deposits', [DepositController::class, 'store'])->name('deposits.store');
     Route::post('my-deposits/allocate', [DepositController::class, 'storeAllocations'])->name('deposits.allocations.store');
+    Route::get('my-allocations', [MyAllocationController::class, 'index'])->name('allocations.index');
+    Route::get('my-charges', [MyChargeController::class, 'index'])->name('charges.index');
 });
 
 Route::middleware(['auth', 'verified', 'admin'])->group(function () {

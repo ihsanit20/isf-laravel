@@ -8,6 +8,7 @@ import {
     Info,
     LayoutGrid,
     Landmark,
+    Layers3,
     ScrollText,
     SquarePen,
     UserRound,
@@ -51,6 +52,16 @@ const mainNavItems = computed<NavItem[]>(() => {
             title: 'My Deposits',
             href: '/my-deposits',
             icon: WalletCards,
+        },
+        {
+            title: 'My Charges',
+            href: '/my-charges',
+            icon: BadgeDollarSign,
+        },
+        {
+            title: 'My Allocations',
+            href: '/my-allocations',
+            icon: Layers3,
         },
     ];
 
