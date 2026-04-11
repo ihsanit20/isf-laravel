@@ -124,7 +124,26 @@ jobs:
               exit 1
             fi
 
-            PHP_BIN="php"
+            PHP_BIN=""
+            for candidate in /www/server/php/83/bin/php /usr/bin/php83 /usr/local/bin/php83; do
+              if [ -x "$candidate" ]; then
+                PHP_BIN="$candidate"
+                break
+              fi
+            done
+
+            if [ -z "$PHP_BIN" ]; then
+              PHP_VERSION="$(php -r 'echo PHP_MAJOR_VERSION.".".PHP_MINOR_VERSION;' 2>/dev/null || true)"
+              if [ "$PHP_VERSION" = "8.3" ]; then
+                PHP_BIN="$(command -v php)"
+              fi
+            fi
+
+            if [ -z "$PHP_BIN" ]; then
+              echo "PHP 8.3 binary not found on server"
+              exit 1
+            fi
+
             export COMPOSER_ALLOW_SUPERUSER=1
 
             "$PHP_BIN" "$COMPOSER_PATH" install --no-interaction --no-dev --prefer-dist --optimize-autoloader
