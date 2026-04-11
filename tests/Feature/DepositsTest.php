@@ -313,7 +313,12 @@ test('admins can verify a pending deposit', function () {
     config()->set('services.sms.sender_id', '8809617621674');
 
     Http::fake([
-        'http://bulksmsbd.net/api/smsapi' => Http::response('202', 200),
+        'http://bulksmsbd.net/api/smsapi' => Http::response([
+            'response_code' => 202,
+            'message_id' => '76691385',
+            'success_message' => 'SMS Submitted Successfully',
+            'error_message' => '',
+        ], 200),
     ]);
 
     $admin = User::factory()->create([
@@ -351,6 +356,7 @@ test('admins can verify a pending deposit', function () {
 
     expect($smsLog?->status)->toBe(SmsLog::STATUS_SENT)
         ->and($smsLog?->normalized_phone)->toBe('8801712345678')
+        ->and($smsLog?->provider_code)->toBe('202')
         ->and($smsLog?->smsable_type)->toBe($depositSubmission->getMorphClass())
         ->and($smsLog?->smsable_id)->toBe($depositSubmission->id);
 
@@ -370,7 +376,11 @@ test('deposit verification is preserved when sms delivery fails', function () {
     config()->set('services.sms.sender_id', '8809617621674');
 
     Http::fake([
-        'http://bulksmsbd.net/api/smsapi' => Http::response('1005', 500),
+        'http://bulksmsbd.net/api/smsapi' => Http::response([
+            'response_code' => 1005,
+            'success_message' => '',
+            'error_message' => 'Internal Error',
+        ], 500),
     ]);
 
     $admin = User::factory()->create([

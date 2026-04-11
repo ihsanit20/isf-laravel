@@ -128,7 +128,12 @@ test('admins can approve a member application', function () {
     config()->set('services.sms.sender_id', '8809617621674');
 
     Http::fake([
-        'http://bulksmsbd.net/api/smsapi' => Http::response('202', 200),
+        'http://bulksmsbd.net/api/smsapi' => Http::response([
+            'response_code' => 202,
+            'message_id' => '76691385',
+            'success_message' => 'SMS Submitted Successfully',
+            'error_message' => '',
+        ], 200),
     ]);
 
     $admin = User::factory()->create([
@@ -169,6 +174,7 @@ test('admins can approve a member application', function () {
 
     expect($smsLog?->status)->toBe(SmsLog::STATUS_SENT)
         ->and($smsLog?->normalized_phone)->toBe('8801912345678')
+        ->and($smsLog?->provider_code)->toBe('202')
         ->and($smsLog?->smsable_type)->toBe($member->getMorphClass())
         ->and($smsLog?->smsable_id)->toBe($member->id);
 

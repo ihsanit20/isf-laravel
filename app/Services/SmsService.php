@@ -75,7 +75,8 @@ class SmsService
             return false;
         }
 
-        $providerCode = trim($response->body());
+        $responseBody = $response->body();
+        $providerCode = $this->extractProviderCode($responseBody);
 
         if (! $response->successful() || $providerCode !== '202') {
             Log::warning('SMS provider returned an unsuccessful response.', [
@@ -92,7 +93,7 @@ class SmsService
                 smsable: $smsable,
                 providerCode: $providerCode,
                 httpStatus: $response->status(),
-                responseBody: $response->body(),
+                responseBody: $responseBody,
                 errorMessage: 'SMS provider returned an unsuccessful response.',
             );
 
@@ -107,10 +108,33 @@ class SmsService
             smsable: $smsable,
             providerCode: $providerCode,
             httpStatus: $response->status(),
-            responseBody: $response->body(),
+            responseBody: $responseBody,
         );
 
         return true;
+    }
+
+    private function extractProviderCode(string $responseBody): ?string
+    {
+        $trimmedBody = trim($responseBody);
+
+        if ($trimmedBody === '') {
+            return null;
+        }
+
+        $decoded = json_decode($trimmedBody, true);
+
+        if (is_array($decoded)) {
+            $responseCode = $decoded['response_code'] ?? $decoded['code'] ?? null;
+
+            return is_scalar($responseCode) ? (string) $responseCode : null;
+        }
+
+        if (preg_match('/^\d{3,10}$/', $trimmedBody) === 1) {
+            return $trimmedBody;
+        }
+
+        return null;
     }
 
     private function createLog(
