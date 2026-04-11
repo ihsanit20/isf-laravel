@@ -6,6 +6,7 @@ use App\Http\Controllers\Admin\ChargeListController;
 use App\Http\Controllers\Admin\DepositListController;
 use App\Http\Controllers\Admin\FundCycleController;
 use App\Http\Controllers\Admin\UserListController;
+use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DepositController;
 use App\Http\Controllers\MemberController;
 use App\Http\Controllers\MemberFundCycleController;
@@ -17,7 +18,7 @@ Route::inertia('/', 'Welcome', [
 ])->name('home');
 
 Route::middleware(['auth', 'verified'])->group(function () {
-    Route::inertia('dashboard', 'Dashboard')->name('dashboard');
+    Route::get('dashboard', DashboardController::class)->name('dashboard');
     Route::inertia('about-isf', 'AboutIsf')->name('about');
     Route::inertia('terms-and-conditions', 'TermsAndConditions')->name('terms');
     Route::get('my-membership', [MemberController::class, 'index'])->name('members.index');
