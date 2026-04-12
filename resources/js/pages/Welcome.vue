@@ -19,7 +19,7 @@ withDefaults(
     <div class="min-h-screen bg-slate-50 px-6 py-10 text-slate-900">
         <div class="mx-auto flex min-h-[calc(100vh-5rem)] max-w-4xl flex-col">
             <header
-                class="flex items-center justify-between border-b border-slate-200 pb-4"
+                class="flex flex-col gap-4 border-b border-slate-200 pb-4 md:flex-row md:items-center md:justify-between"
             >
                 <div class="flex items-center gap-3">
                     <AppLogoIcon class="h-12 object-contain" />
@@ -29,7 +29,9 @@ withDefaults(
                     </p>
                 </div>
 
-                <nav class="flex items-center gap-3 text-sm">
+                <nav
+                    class="flex w-full flex-wrap items-center gap-2 text-sm md:w-auto md:justify-end"
+                >
                     <Link
                         :href="about()"
                         class="rounded-md px-3 py-2 text-slate-600 transition hover:bg-slate-100 hover:text-slate-900"
