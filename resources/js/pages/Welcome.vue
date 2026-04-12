@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
 import AppLogoIcon from '@/components/AppLogoIcon.vue';
-import { dashboard, login, register } from '@/routes';
+import { about, dashboard, login, register, terms } from '@/routes';
 
 withDefaults(
     defineProps<{
@@ -30,6 +30,20 @@ withDefaults(
                 </div>
 
                 <nav class="flex items-center gap-3 text-sm">
+                    <Link
+                        :href="about()"
+                        class="rounded-md px-3 py-2 text-slate-600 transition hover:bg-slate-100 hover:text-slate-900"
+                    >
+                        About ISF
+                    </Link>
+
+                    <Link
+                        :href="terms()"
+                        class="rounded-md px-3 py-2 text-slate-600 transition hover:bg-slate-100 hover:text-slate-900"
+                    >
+                        Terms & Conditions
+                    </Link>
+
                     <Link
                         v-if="$page.props.auth.user"
                         :href="dashboard()"
