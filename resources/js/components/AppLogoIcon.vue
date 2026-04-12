@@ -9,7 +9,7 @@ type Props = {
     className?: HTMLAttributes['class'];
 };
 
-defineProps<Props>();
+const props = defineProps<Props>();
 </script>
 
 <template>
@@ -27,5 +27,10 @@ defineProps<Props>();
         />
     </svg> -->
     <!-- D:\laragon\www\isf\isf-laravel\public\isf_logo.png -->
-    <img src="/isf_logo.png" alt="ISF Logo" />
+    <img
+        src="/isf_logo.png"
+        alt="ISF Logo"
+        :class="props.className"
+        v-bind="$attrs"
+    />
 </template>

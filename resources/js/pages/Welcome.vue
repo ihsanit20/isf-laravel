@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
+import AppLogoIcon from '@/components/AppLogoIcon.vue';
 import { dashboard, login, register } from '@/routes';
 
 withDefaults(
@@ -20,9 +21,12 @@ withDefaults(
             <header
                 class="flex items-center justify-between border-b border-slate-200 pb-4"
             >
-                <div>
-                    <p class="text-lg font-semibold">ISF</p>
-                    <p class="text-sm text-slate-500">Al-Ihsan Savings Fund</p>
+                <div class="flex items-center gap-3">
+                    <AppLogoIcon class="h-12 object-contain" />
+
+                    <p class="font-bold text-slate-700">
+                        Al-Ihsan Savings Fund
+                    </p>
                 </div>
 
                 <nav class="flex items-center gap-3 text-sm">
