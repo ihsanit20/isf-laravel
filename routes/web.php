@@ -19,10 +19,16 @@ Route::inertia('/', 'Welcome', [
     'canRegister' => Features::enabled(Features::registration()),
 ])->name('home');
 
+Route::inertia('about-isf', 'AboutIsf', [
+    'canRegister' => Features::enabled(Features::registration()),
+])->name('about');
+
+Route::inertia('terms-and-conditions', 'TermsAndConditions', [
+    'canRegister' => Features::enabled(Features::registration()),
+])->name('terms');
+
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', DashboardController::class)->name('dashboard');
-    Route::inertia('about-isf', 'AboutIsf')->name('about');
-    Route::inertia('terms-and-conditions', 'TermsAndConditions')->name('terms');
     Route::get('my-membership', [MemberController::class, 'index'])->name('members.index');
     Route::get('my-membership/create', [MemberController::class, 'create'])->name('members.create');
     Route::post('my-membership', [MemberController::class, 'store'])->name('members.store');

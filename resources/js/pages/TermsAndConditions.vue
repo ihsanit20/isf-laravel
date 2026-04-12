@@ -9,17 +9,6 @@ import {
     CardTitle,
 } from '@/components/ui/card';
 
-defineOptions({
-    layout: {
-        breadcrumbs: [
-            {
-                title: 'Terms & Conditions',
-                href: '/terms-and-conditions',
-            },
-        ],
-    },
-});
-
 const terms = [
     'Every financial deposit must be recorded under a specific member, not under a user account.',
     'The registration fee for each member is BDT 100.',
@@ -41,7 +30,7 @@ const terms = [
 <template>
     <Head title="Terms & Conditions" />
 
-    <div class="space-y-6 p-4">
+    <div class="space-y-6">
         <Heading
             title="Terms & Conditions"
             description="The basic policies and conditions that apply to members and administrators using the fund platform."

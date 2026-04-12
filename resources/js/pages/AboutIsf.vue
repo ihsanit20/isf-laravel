@@ -9,17 +9,6 @@ import {
     CardTitle,
 } from '@/components/ui/card';
 
-defineOptions({
-    layout: {
-        breadcrumbs: [
-            {
-                title: 'About Us',
-                href: '/about-isf',
-            },
-        ],
-    },
-});
-
 const objectives = [
     'Collect member-based savings, verify deposits, and maintain transparent financial records.',
     'Give each member clear access to their own deposits, balances, and ledger history.',
@@ -38,7 +27,7 @@ const principles = [
 <template>
     <Head title="About Us" />
 
-    <div class="space-y-6 p-4">
+    <div class="space-y-6">
         <Heading
             title="About Us"
             description="A quick overview of Al-Ihsan Savings Fund, including our mission, vision, and core objectives."
