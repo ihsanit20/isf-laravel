@@ -14,8 +14,8 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
-type ReviewMode = 'approve' | 'reject' | 'exit';
-type ReviewStatus = 'approved' | 'rejected' | 'exited';
+type ReviewMode = 'approve' | 'reject';
+type ReviewStatus = 'approved' | 'rejected';
 
 type ReviewableMember = {
     id: number;
@@ -32,11 +32,7 @@ const props = defineProps<Props>();
 const isOpen = defineModel<boolean>('isOpen', { default: false });
 
 const reviewStatus = (): ReviewStatus =>
-    props.mode === 'approve'
-        ? 'approved'
-        : props.mode === 'reject'
-          ? 'rejected'
-          : 'exited';
+    props.mode === 'approve' ? 'approved' : 'rejected';
 
 const form = useForm({
     status: reviewStatus(),
@@ -44,7 +40,6 @@ const form = useForm({
 });
 
 const isRejecting = computed(() => props.mode === 'reject');
-const isExiting = computed(() => props.mode === 'exit');
 
 const resetFormState = () => {
     form.defaults({
@@ -87,21 +82,13 @@ watch(
         <DialogContent class="sm:max-w-lg">
             <DialogHeader>
                 <DialogTitle>
-                    {{
-                        isRejecting
-                            ? 'Reject Member'
-                            : isExiting
-                              ? 'Exit Member'
-                              : 'Approve Member'
-                    }}
+                    {{ isRejecting ? 'Reject Member' : 'Approve Member' }}
                 </DialogTitle>
                 <DialogDescription>
                     {{
                         isRejecting
                             ? `Record a rejection note for ${member?.full_name}.`
-                            : isExiting
-                              ? `Confirm that ${member?.full_name} has exited the fund.`
-                              : `Confirm approval for ${member?.full_name} after reviewing the membership details.`
+                            : `Confirm approval for ${member?.full_name} after reviewing the membership details.`
                     }}
                 </DialogDescription>
             </DialogHeader>
@@ -126,13 +113,7 @@ watch(
                         Cancel
                     </Button>
                     <Button type="submit" :disabled="form.processing">
-                        {{
-                            isRejecting
-                                ? 'Reject Member'
-                                : isExiting
-                                  ? 'Mark as Exited'
-                                  : 'Approve Member'
-                        }}
+                        {{ isRejecting ? 'Reject Member' : 'Approve Member' }}
                     </Button>
                 </DialogFooter>
             </form>

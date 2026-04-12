@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { Head, Link } from '@inertiajs/vue3';
-import { Check, LogOut, X } from 'lucide-vue-next';
+import { Head } from '@inertiajs/vue3';
+import { Check, X } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 import MemberReviewDialog from '@/components/admin/MemberReviewDialog.vue';
 import { Badge } from '@/components/ui/badge';
@@ -45,7 +45,6 @@ defineProps<Props>();
 
 const isApproveDialogOpen = ref(false);
 const isRejectDialogOpen = ref(false);
-const isExitDialogOpen = ref(false);
 const selectedMember = ref<AdminMember | null>(null);
 
 const reviewableMember = computed(() => {
@@ -89,11 +88,6 @@ const openApproveDialog = (member: AdminMember) => {
 const openRejectDialog = (member: AdminMember) => {
     selectedMember.value = member;
     isRejectDialogOpen.value = true;
-};
-
-const openExitDialog = (member: AdminMember) => {
-    selectedMember.value = member;
-    isExitDialogOpen.value = true;
 };
 </script>
 
@@ -199,15 +193,6 @@ const openExitDialog = (member: AdminMember) => {
                                         <X class="size-4" />
                                         Reject
                                     </Button>
-                                    <Button
-                                        v-if="member.status === 'approved'"
-                                        variant="outline"
-                                        size="sm"
-                                        @click="openExitDialog(member)"
-                                    >
-                                        <LogOut class="size-4" />
-                                        Exit
-                                    </Button>
                                 </div>
                             </td>
                         </tr>
@@ -233,12 +218,6 @@ const openExitDialog = (member: AdminMember) => {
         <MemberReviewDialog
             v-model:isOpen="isRejectDialogOpen"
             mode="reject"
-            :member="reviewableMember"
-        />
-
-        <MemberReviewDialog
-            v-model:isOpen="isExitDialogOpen"
-            mode="exit"
             :member="reviewableMember"
         />
     </div>
