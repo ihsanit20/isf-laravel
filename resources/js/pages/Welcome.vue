@@ -16,15 +16,15 @@ withDefaults(
 <template>
     <Head title="Home" />
 
-    <div class="min-h-screen bg-slate-50 px-6 py-10 text-slate-900">
+    <div class="min-h-screen bg-background px-6 py-10 text-foreground">
         <div class="mx-auto flex min-h-[calc(100vh-5rem)] max-w-4xl flex-col">
             <header
-                class="flex flex-col gap-4 border-b border-slate-200 pb-4 md:flex-row md:items-center md:justify-between"
+                class="flex flex-col gap-4 border-b border-border pb-4 md:flex-row md:items-center md:justify-between"
             >
                 <div class="flex items-center gap-3">
                     <AppLogoIcon class="h-12 object-contain" />
 
-                    <p class="font-bold text-slate-700">
+                    <p class="font-bold text-foreground">
                         Al-Ihsan Savings Fund
                     </p>
                 </div>
@@ -34,14 +34,14 @@ withDefaults(
                 >
                     <Link
                         :href="about()"
-                        class="rounded-md px-3 py-2 text-slate-600 transition hover:bg-slate-100 hover:text-slate-900"
+                        class="rounded-md px-3 py-2 text-muted-foreground transition hover:bg-accent hover:text-accent-foreground"
                     >
                         About ISF
                     </Link>
 
                     <Link
                         :href="terms()"
-                        class="rounded-md px-3 py-2 text-slate-600 transition hover:bg-slate-100 hover:text-slate-900"
+                        class="rounded-md px-3 py-2 text-muted-foreground transition hover:bg-accent hover:text-accent-foreground"
                     >
                         Terms & Conditions
                     </Link>
@@ -49,7 +49,7 @@ withDefaults(
                     <Link
                         v-if="$page.props.auth.user"
                         :href="dashboard()"
-                        class="rounded-md bg-slate-900 px-4 py-2 text-white"
+                        class="rounded-md bg-primary px-4 py-2 text-primary-foreground"
                     >
                         Dashboard
                     </Link>
@@ -57,7 +57,7 @@ withDefaults(
                     <template v-else>
                         <Link
                             :href="login()"
-                            class="rounded-md border border-slate-300 px-4 py-2"
+                            class="rounded-md border border-border bg-background px-4 py-2 transition hover:bg-accent hover:text-accent-foreground"
                         >
                             Log in
                         </Link>
@@ -65,7 +65,7 @@ withDefaults(
                         <Link
                             v-if="canRegister"
                             :href="register()"
-                            class="rounded-md bg-slate-900 px-4 py-2 text-white"
+                            class="rounded-md bg-primary px-4 py-2 text-primary-foreground"
                         >
                             Register
                         </Link>
@@ -75,9 +75,9 @@ withDefaults(
 
             <main class="flex flex-1 items-center">
                 <section
-                    class="w-full rounded-2xl bg-white p-8 shadow-sm ring-1 ring-slate-200 md:p-12"
+                    class="w-full rounded-2xl bg-card p-8 text-card-foreground shadow-sm ring-1 ring-border md:p-12"
                 >
-                    <p class="text-sm font-medium text-slate-500">
+                    <p class="text-sm font-medium text-muted-foreground">
                         Group savings platform
                     </p>
                     <h1
@@ -87,7 +87,7 @@ withDefaults(
                         in one place.
                     </h1>
                     <p
-                        class="mt-4 max-w-2xl text-base leading-7 text-slate-600"
+                        class="mt-4 max-w-2xl text-base leading-7 text-muted-foreground"
                     >
                         ISF gives members and administrators a clear view of
                         balances, deposit history, and account activity.
@@ -97,7 +97,7 @@ withDefaults(
                         <Link
                             v-if="$page.props.auth.user"
                             :href="dashboard()"
-                            class="rounded-md bg-slate-900 px-5 py-3 text-sm font-medium text-white"
+                            class="rounded-md bg-primary px-5 py-3 text-sm font-medium text-primary-foreground"
                         >
                             Go to dashboard
                         </Link>
@@ -105,7 +105,7 @@ withDefaults(
                         <template v-else>
                             <Link
                                 :href="login()"
-                                class="rounded-md bg-slate-900 px-5 py-3 text-sm font-medium text-white"
+                                class="rounded-md bg-primary px-5 py-3 text-sm font-medium text-primary-foreground"
                             >
                                 Log in
                             </Link>
@@ -113,7 +113,7 @@ withDefaults(
                             <Link
                                 v-if="canRegister"
                                 :href="register()"
-                                class="rounded-md border border-slate-300 px-5 py-3 text-sm font-medium"
+                                class="rounded-md border border-border bg-background px-5 py-3 text-sm font-medium transition hover:bg-accent hover:text-accent-foreground"
                             >
                                 Create account
                             </Link>
@@ -121,10 +121,10 @@ withDefaults(
                     </div>
 
                     <div
-                        class="mt-10 grid gap-4 border-t border-slate-200 pt-6 text-sm text-slate-600 md:grid-cols-3"
+                        class="mt-10 grid gap-4 border-t border-border pt-6 text-sm text-muted-foreground md:grid-cols-3"
                     >
-                        <div class="rounded-xl bg-slate-50 p-4">
-                            <p class="font-medium text-slate-900">
+                        <div class="rounded-xl bg-muted/50 p-4">
+                            <p class="font-medium text-foreground">
                                 Savings tracking
                             </p>
                             <p class="mt-1">
@@ -132,8 +132,8 @@ withDefaults(
                                 clarity.
                             </p>
                         </div>
-                        <div class="rounded-xl bg-slate-50 p-4">
-                            <p class="font-medium text-slate-900">
+                        <div class="rounded-xl bg-muted/50 p-4">
+                            <p class="font-medium text-foreground">
                                 Verification status
                             </p>
                             <p class="mt-1">
@@ -141,8 +141,8 @@ withDefaults(
                                 ambiguity.
                             </p>
                         </div>
-                        <div class="rounded-xl bg-slate-50 p-4">
-                            <p class="font-medium text-slate-900">
+                        <div class="rounded-xl bg-muted/50 p-4">
+                            <p class="font-medium text-foreground">
                                 Member access
                             </p>
                             <p class="mt-1">
