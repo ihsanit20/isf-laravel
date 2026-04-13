@@ -5,6 +5,7 @@ use App\Http\Controllers\Admin\ChargeCategoryController;
 use App\Http\Controllers\Admin\ChargeListController;
 use App\Http\Controllers\Admin\DepositListController;
 use App\Http\Controllers\Admin\FundCycleController;
+use App\Http\Controllers\Admin\GeneralExpenseController;
 use App\Http\Controllers\Admin\UserListController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DepositController;
@@ -53,6 +54,9 @@ Route::middleware(['auth', 'verified', 'admin'])->group(function () {
     Route::get('admin/charge-categories', [ChargeCategoryController::class, 'index'])->name('admin.charge-categories.index');
     Route::post('admin/charge-categories', [ChargeCategoryController::class, 'store'])->name('admin.charge-categories.store');
     Route::put('admin/charge-categories/{chargeCategory}', [ChargeCategoryController::class, 'update'])->name('admin.charge-categories.update');
+    Route::get('admin/general-expenses', [GeneralExpenseController::class, 'index'])->name('admin.general-expenses.index');
+    Route::post('admin/general-expenses', [GeneralExpenseController::class, 'store'])->name('admin.general-expenses.store');
+    Route::put('admin/general-expenses/{generalExpense}', [GeneralExpenseController::class, 'update'])->name('admin.general-expenses.update');
     Route::get('admin/members', [MemberListController::class, 'index'])->name('admin.members.index');
     Route::patch('admin/members/{member}/review', [MemberListController::class, 'review'])->name('admin.members.review');
     Route::get('admin/charges', [ChargeListController::class, 'index'])->name('admin.charges.index');

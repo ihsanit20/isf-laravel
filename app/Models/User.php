@@ -94,4 +94,9 @@ class User extends Authenticatable
     {
         return $this->hasMany(ChargeAllocation::class, 'reversed_by_user_id');
     }
+
+    public function createdGeneralExpenses(): HasMany
+    {
+        return $this->hasMany(GeneralExpense::class, 'created_by_user_id');
+    }
 }

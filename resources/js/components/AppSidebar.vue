@@ -91,6 +91,12 @@ const mainNavItems = computed<NavItem[]>(() => {
         });
 
         items.push({
+            title: 'General Expenses',
+            href: '/admin/general-expenses',
+            icon: BookMarked,
+        });
+
+        items.push({
             title: 'Charge List',
             href: '/admin/charges',
             icon: BadgeDollarSign,
