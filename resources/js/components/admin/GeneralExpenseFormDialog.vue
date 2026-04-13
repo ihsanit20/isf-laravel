@@ -45,6 +45,8 @@ type Props = {
 const props = defineProps<Props>();
 const isOpen = defineModel<boolean>('isOpen', { default: false });
 
+const today = new Date().toISOString().slice(0, 10);
+
 const isEditing = computed(
     () => props.mode === 'edit' && !!props.generalExpense,
 );
@@ -56,7 +58,7 @@ const form = useForm<{
     description: string;
     receipt: File | null;
 }>({
-    expense_date: '',
+    expense_date: today,
     category: props.expenseCategories[0]?.value ?? 'other',
     amount: '',
     description: '',
@@ -74,7 +76,7 @@ const resetFormState = () => {
                   receipt: null,
               }
             : {
-                  expense_date: '',
+                  expense_date: today,
                   category: props.expenseCategories[0]?.value ?? 'other',
                   amount: '',
                   description: '',
@@ -153,8 +155,7 @@ watch(
                     }}
                 </DialogTitle>
                 <DialogDescription>
-                    Record routine admin and operational expenses separately
-                    from member charges.
+                    Record routine admin and operational expenses separately.
                 </DialogDescription>
             </DialogHeader>
 
