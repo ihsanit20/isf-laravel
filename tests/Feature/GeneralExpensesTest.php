@@ -8,7 +8,6 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use function Pest\Laravel\actingAs;
 use function Pest\Laravel\post;
-use function Pest\Laravel\put;
 
 test('admins can visit the general expenses admin page', function () {
     $admin = User::factory()->create([
@@ -80,7 +79,8 @@ test('admins can update a general expense', function () {
 
     actingAs($admin);
 
-    put(route('admin.general-expenses.update', $expense), [
+    post(route('admin.general-expenses.update', $expense), [
+        '_method' => 'PUT',
         'expense_date' => '2026-04-13',
         'category' => GeneralExpenseCategory::OfficeSupplies->value,
         'amount' => 450,

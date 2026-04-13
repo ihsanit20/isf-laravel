@@ -105,13 +105,13 @@ const submit = () => {
     };
 
     if (isEditing.value && props.generalExpense) {
-        form.transform(() => payload).put(
-            `/admin/general-expenses/${props.generalExpense.id}`,
-            {
-                ...options,
-                forceFormData: true,
-            },
-        );
+        form.transform(() => ({
+            ...payload,
+            _method: 'put',
+        })).post(`/admin/general-expenses/${props.generalExpense.id}`, {
+            ...options,
+            forceFormData: true,
+        });
 
         return;
     }
