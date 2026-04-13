@@ -34,7 +34,7 @@ class GeneralExpense extends Model
 
     public static function attachmentDisk(): string
     {
-        return (string) config('filesystems.general_expense_attachments_disk', 'public');
+        return (string) config('filesystems.default', 'local');
     }
 
     public function receiptUrl(): ?string

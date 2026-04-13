@@ -36,7 +36,7 @@ test('members cannot visit the general expenses admin page', function () {
 
 test('admins can create a general expense', function () {
     Storage::fake('public');
-    config()->set('filesystems.general_expense_attachments_disk', 'public');
+    config()->set('filesystems.default', 'public');
 
     $admin = User::factory()->create([
         'role' => 'admin',
@@ -64,7 +64,7 @@ test('admins can create a general expense', function () {
 
 test('admins can update a general expense', function () {
     Storage::fake('public');
-    config()->set('filesystems.general_expense_attachments_disk', 'public');
+    config()->set('filesystems.default', 'public');
 
     $admin = User::factory()->create([
         'role' => 'admin',

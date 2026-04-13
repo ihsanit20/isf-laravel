@@ -17,8 +17,6 @@ return [
 
     'deposit_proofs_disk' => env('DEPOSIT_PROOFS_DISK', env('FILESYSTEM_DISK', 'local')),
 
-    'general_expense_attachments_disk' => env('GENERAL_EXPENSE_ATTACHMENTS_DISK', 'public'),
-
     /*
     |--------------------------------------------------------------------------
     | Filesystem Disks
