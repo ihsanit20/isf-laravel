@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
+import { computed } from 'vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 
@@ -53,6 +54,23 @@ defineOptions({
 const props = defineProps<Props>();
 
 const money = (amount: number): string => `${amount.toLocaleString()} BDT`;
+
+const slotGroups = computed(() => {
+    const groups = new Map<string, AllocationItem[]>();
+
+    for (const allocation of props.fundCycle.allocations) {
+        const slotKey = allocation.slot_key || 'No slot';
+        const items = groups.get(slotKey) ?? [];
+
+        items.push(allocation);
+        groups.set(slotKey, items);
+    }
+
+    return Array.from(groups.entries()).map(([slotKey, allocations]) => ({
+        slotKey,
+        allocations,
+    }));
+});
 </script>
 
 <template>
@@ -154,10 +172,7 @@ const money = (amount: number): string => `${amount.toLocaleString()} BDT`;
                 <h2 class="text-base font-medium">Allocation Details</h2>
             </div>
 
-            <div
-                v-if="props.fundCycle.allocations.length > 0"
-                class="overflow-x-auto"
-            >
+            <div v-if="slotGroups.length > 0" class="overflow-x-auto">
                 <table
                     class="min-w-full divide-y divide-sidebar-border/70 text-sm"
                 >
@@ -171,26 +186,42 @@ const money = (amount: number): string => `${amount.toLocaleString()} BDT`;
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-sidebar-border/70">
-                        <tr
-                            v-for="allocation in props.fundCycle.allocations"
-                            :key="allocation.id"
+                        <template
+                            v-for="slotGroup in slotGroups"
+                            :key="slotGroup.slotKey"
                         >
-                            <td class="px-4 py-3 text-muted-foreground">
-                                {{ allocation.slot_key || 'No slot' }}
-                            </td>
-                            <td class="px-4 py-3 text-muted-foreground">
-                                {{ allocation.member_name || 'Unknown member' }}
-                            </td>
-                            <td class="px-4 py-3 font-medium text-foreground">
-                                {{ money(allocation.amount) }}
-                            </td>
-                            <td class="px-4 py-3 text-muted-foreground">
-                                {{ allocation.allocated_at || '-' }}
-                            </td>
-                            <td class="px-4 py-3 text-muted-foreground">
-                                {{ allocation.notes || '-' }}
-                            </td>
-                        </tr>
+                            <tr
+                                v-for="(
+                                    allocation, index
+                                ) in slotGroup.allocations"
+                                :key="allocation.id"
+                            >
+                                <td
+                                    v-if="index === 0"
+                                    :rowspan="slotGroup.allocations.length"
+                                    class="px-4 py-3 align-top text-muted-foreground"
+                                >
+                                    {{ slotGroup.slotKey }}
+                                </td>
+                                <td class="px-4 py-3 text-muted-foreground">
+                                    {{
+                                        allocation.member_name ||
+                                        'Unknown member'
+                                    }}
+                                </td>
+                                <td
+                                    class="px-4 py-3 font-medium text-foreground"
+                                >
+                                    {{ money(allocation.amount) }}
+                                </td>
+                                <td class="px-4 py-3 text-muted-foreground">
+                                    {{ allocation.allocated_at || '-' }}
+                                </td>
+                                <td class="px-4 py-3 text-muted-foreground">
+                                    {{ allocation.notes || '-' }}
+                                </td>
+                            </tr>
+                        </template>
                     </tbody>
                 </table>
             </div>
