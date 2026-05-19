@@ -44,6 +44,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 });
 
 Route::middleware(['auth', 'verified', 'admin'])->group(function () {
+    Route::inertia('admin/settings', 'admin/Settings')->name('admin.settings');
     Route::get('admin/users', [UserListController::class, 'index'])->name('admin.users.index');
     Route::post('admin/users', [UserListController::class, 'store'])->name('admin.users.store');
     Route::put('admin/users/{user}', [UserListController::class, 'update'])->name('admin.users.update');

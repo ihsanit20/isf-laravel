@@ -10,6 +10,7 @@ use App\Models\Charge;
 use App\Models\ChargeAllocation;
 use App\Models\ChargeCategory;
 use App\Models\DepositSubmission;
+use App\Models\FundCycleAllocation;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -37,9 +38,14 @@ class DepositController extends Controller
             ->latest('id')
             ->get();
 
+        $totalFundCycleAllocatedAmount = (int) FundCycleAllocation::query()
+            ->whereHas('member', fn($query) => $query->where('managed_by_user_id', $user->id))
+            ->sum('amount');
+
         $summary = $this->buildDepositSummary(
             $deposits,
             $chargeAllocations,
+            $totalFundCycleAllocatedAmount,
             $this->pendingChargesQuery($user)->exists(),
         );
 
@@ -147,22 +153,31 @@ class DepositController extends Controller
         return to_route('deposits.index');
     }
 
-    private function buildDepositSummary(Collection $deposits, Collection $chargeAllocations, bool $hasPendingCharges): array
-    {
+    private function buildDepositSummary(
+        Collection $deposits,
+        Collection $chargeAllocations,
+        int $totalFundCycleAllocatedAmount,
+        bool $hasPendingCharges,
+    ): array {
         $totalDepositAmount = (int) $deposits->sum('amount');
         $totalVerifiedAmount = (int) $deposits
             ->filter(fn(DepositSubmission $depositSubmission): bool => $depositSubmission->status === DepositSubmissionStatus::Verified)
             ->sum('amount');
+        $totalRejectedDepositCount = $deposits
+            ->filter(fn(DepositSubmission $depositSubmission): bool => $depositSubmission->status === DepositSubmissionStatus::Rejected)
+            ->count();
         $totalChargeAllocatedAmount = (int) $chargeAllocations
             ->filter(fn(ChargeAllocation $allocation): bool => $allocation->reversed_at === null)
             ->sum('amount');
-        $totalAllocatedAmount = $totalChargeAllocatedAmount;
-        $totalAllocatableAmount = $this->allocatableAmountFromTotals($totalVerifiedAmount, $totalChargeAllocatedAmount);
+        $totalAllocatedAmount = $totalChargeAllocatedAmount + $totalFundCycleAllocatedAmount;
+        $totalAllocatableAmount = $this->allocatableAmountFromTotals($totalVerifiedAmount, $totalAllocatedAmount);
 
         return [
             'total_deposit_amount' => $totalDepositAmount,
             'total_verified_amount' => $totalVerifiedAmount,
+            'total_rejected_deposit_count' => $totalRejectedDepositCount,
             'total_charge_allocated_amount' => $totalChargeAllocatedAmount,
+            'total_fund_cycle_allocated_amount' => $totalFundCycleAllocatedAmount,
             'total_allocated_amount' => $totalAllocatedAmount,
             'total_allocatable_amount' => $totalAllocatableAmount,
             'total_deposit_count' => $deposits->count(),

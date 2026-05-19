@@ -24,6 +24,10 @@ defineOptions({
     layout: {
         breadcrumbs: [
             {
+                title: 'Settings',
+                href: '/admin/settings',
+            },
+            {
                 title: 'Charge Categories',
                 href: '/admin/charge-categories',
             },

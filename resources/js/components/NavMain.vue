@@ -13,6 +13,7 @@ import {
     SidebarMenu,
     SidebarMenuButton,
     SidebarMenuItem,
+    SidebarSeparator,
     SidebarMenuSub,
     SidebarMenuSubButton,
     SidebarMenuSubItem,
@@ -34,7 +35,12 @@ const isItemActive = (item: NavItem): boolean =>
     <SidebarGroup class="px-2 py-0">
         <SidebarGroupLabel>Platform</SidebarGroupLabel>
         <SidebarMenu>
-            <template v-for="item in items" :key="item.title">
+            <template
+                v-for="(item, index) in items"
+                :key="`${item.title}-${index}`"
+            >
+                <SidebarSeparator v-if="item.dividerBefore" class="my-2" />
+
                 <Collapsible
                     v-if="item.items?.length"
                     as-child

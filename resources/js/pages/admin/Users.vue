@@ -25,6 +25,10 @@ defineOptions({
     layout: {
         breadcrumbs: [
             {
+                title: 'Settings',
+                href: '/admin/settings',
+            },
+            {
                 title: 'User List',
                 href: '/admin/users',
             },

@@ -6,6 +6,8 @@ use App\Models\Charge;
 use App\Models\ChargeAllocation;
 use App\Models\ChargeCategory;
 use App\Models\DepositSubmission;
+use App\Models\FundCycle;
+use App\Models\FundCycleAllocation;
 use App\Models\Member;
 use App\Models\SmsLog;
 use App\Models\User;
@@ -38,7 +40,31 @@ test('authenticated users can view their deposit list page', function () {
             ->component('Deposits')
             ->has('deposits', 1)
             ->where('summary.total_deposit_amount', 4000)
+            ->where('summary.total_rejected_deposit_count', 0)
             ->where('summary.total_allocated_amount', 0));
+});
+
+test('deposit summary includes rejected deposit count', function () {
+    $user = User::factory()->create();
+
+    DepositSubmission::query()->create([
+        'user_id' => $user->id,
+        'amount' => 4500,
+        'payment_method' => DepositSubmission::PAYMENT_METHOD_BANK_TRANSFER,
+        'reference_no' => 'REJ-1001',
+        'deposit_date' => now()->toDateString(),
+        'proof_path' => 'deposit-proofs/rejected-proof.jpg',
+        'status' => DepositSubmissionStatus::Rejected,
+        'rejection_reason' => 'Proof is unclear.',
+    ]);
+
+    actingAs($user)
+        ->get(route('deposits.index'))
+        ->assertOk()
+        ->assertInertia(fn(Assert $page) => $page
+            ->component('Deposits')
+            ->where('summary.total_deposit_count', 1)
+            ->where('summary.total_rejected_deposit_count', 1));
 });
 
 test('authenticated users can submit a deposit proof', function () {
@@ -272,6 +298,53 @@ test('charge allocations reduce the available deposit pool', function () {
             ->where('summary.total_charge_allocated_amount', 200)
             ->where('summary.total_allocatable_amount', 800)
             ->has('chargeAllocations', 1));
+});
+
+test('fund cycle allocations are included in my deposits summary totals', function () {
+    $user = User::factory()->create();
+    $member = Member::factory()->for($user, 'manager')->create([
+        'status' => MemberStatus::Approved,
+        'approved_at' => now(),
+        'activated_at' => now(),
+        'units' => 1,
+    ]);
+
+    $fundCycle = FundCycle::query()->create([
+        'name' => 'May 2026 Cycle',
+        'status' => FundCycle::STATUS_OPEN,
+        'unit_amount' => 1000,
+        'start_date' => now()->toDateString(),
+        'created_by_user_id' => $user->id,
+    ]);
+
+    DepositSubmission::query()->create([
+        'user_id' => $user->id,
+        'amount' => 3000,
+        'payment_method' => DepositSubmission::PAYMENT_METHOD_BANK_TRANSFER,
+        'reference_no' => 'POOL-CYCLE-01',
+        'deposit_date' => now()->toDateString(),
+        'proof_path' => 'deposit-proofs/pool-cycle-proof.jpg',
+        'status' => DepositSubmissionStatus::Verified,
+        'verified_at' => now(),
+    ]);
+
+    FundCycleAllocation::query()->create([
+        'fund_cycle_id' => $fundCycle->id,
+        'member_id' => $member->id,
+        'slot_key' => 'A-1',
+        'amount' => 1000,
+        'allocated_at' => now(),
+        'created_by_user_id' => $user->id,
+    ]);
+
+    actingAs($user)
+        ->get(route('deposits.index'))
+        ->assertOk()
+        ->assertInertia(fn(Assert $page) => $page
+            ->component('Deposits')
+            ->where('summary.total_fund_cycle_allocated_amount', 1000)
+            ->where('summary.total_allocated_amount', 1000)
+            ->where('summary.total_allocatable_amount', 2000));
 });
 
 test('admins can view the deposit review page', function () {

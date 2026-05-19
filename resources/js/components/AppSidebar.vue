@@ -4,13 +4,13 @@ import { usePage } from '@inertiajs/vue3';
 import {
     BadgeDollarSign,
     BookMarked,
+    Cog,
     FileBadge2,
     Info,
     LayoutGrid,
     Landmark,
     Layers3,
     ScrollText,
-    SquarePen,
     UserRound,
     Users,
     WalletCards,
@@ -54,14 +54,14 @@ const mainNavItems = computed<NavItem[]>(() => {
             icon: WalletCards,
         },
         {
-            title: 'My Charges',
-            href: '/my-charges',
-            icon: BadgeDollarSign,
-        },
-        {
             title: 'My Allocations',
             href: '/my-allocations',
             icon: Layers3,
+        },
+        {
+            title: 'My Charges',
+            href: '/my-charges',
+            icon: BadgeDollarSign,
         },
     ];
 
@@ -70,24 +70,7 @@ const mainNavItems = computed<NavItem[]>(() => {
             title: 'Member List',
             href: '/admin/members',
             icon: Users,
-        });
-
-        items.push({
-            title: 'User List',
-            href: '/admin/users',
-            icon: SquarePen,
-        });
-
-        items.push({
-            title: 'Fund Cycles',
-            href: '/admin/fund-cycles',
-            icon: Landmark,
-        });
-
-        items.push({
-            title: 'Charge Categories',
-            href: '/admin/charge-categories',
-            icon: BookMarked,
+            dividerBefore: true,
         });
 
         items.push({
@@ -106,6 +89,18 @@ const mainNavItems = computed<NavItem[]>(() => {
             title: 'Deposit Reviews',
             href: '/admin/deposits',
             icon: FileBadge2,
+        });
+
+        items.push({
+            title: 'Fund Cycles',
+            href: '/admin/fund-cycles',
+            icon: Landmark,
+        });
+
+        items.push({
+            title: 'Settings',
+            href: '/admin/settings',
+            icon: Cog,
         });
     }
 

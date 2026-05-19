@@ -32,6 +32,7 @@ type DepositItem = {
 type DepositSummary = {
     total_deposit_amount: number;
     total_verified_amount: number;
+    total_rejected_deposit_count: number;
     total_charge_allocated_amount: number;
     total_allocated_amount: number;
     total_allocatable_amount: number;
@@ -92,10 +93,10 @@ const statusVariant = (
                     <p
                         class="text-xs font-medium tracking-[0.2em] text-muted-foreground uppercase"
                     >
-                        Total Deposited
+                        Total Verified Deposits
                     </p>
                     <h1 class="mt-2 text-3xl font-semibold tracking-tight">
-                        {{ money(summary.total_deposit_amount) }}
+                        {{ money(summary.total_verified_amount) }}
                     </h1>
                     <p class="mt-3 text-sm leading-6 text-muted-foreground">
                         Deposits stay independent from charge settlement. Submit
@@ -119,9 +120,14 @@ const statusVariant = (
             <div
                 class="rounded-3xl border border-sidebar-border/70 bg-background px-5 py-5 shadow-sm"
             >
-                <p class="text-xs text-muted-foreground">Verified Deposits</p>
+                <p class="text-xs text-muted-foreground">
+                    Total Submitted Deposits
+                </p>
                 <p class="mt-2 text-xl font-semibold text-foreground">
-                    {{ money(summary.total_verified_amount) }}
+                    {{ money(summary.total_deposit_amount) }}
+                </p>
+                <p class="mt-1 text-xs text-muted-foreground">
+                    Verified: {{ money(summary.total_verified_amount) }}
                 </p>
             </div>
             <div
@@ -132,7 +138,8 @@ const statusVariant = (
                     {{ money(summary.total_allocated_amount) }}
                 </p>
                 <p class="mt-1 text-xs text-muted-foreground">
-                    Charges only from your verified deposit pool
+                    Charges and fund cycle allocations from your verified
+                    deposit pool
                 </p>
             </div>
             <div
@@ -151,6 +158,9 @@ const statusVariant = (
                 <p class="text-xs text-muted-foreground">Deposit Count</p>
                 <p class="mt-2 text-xl font-semibold text-foreground">
                     {{ summary.total_deposit_count }}
+                </p>
+                <p class="mt-1 text-xs text-muted-foreground">
+                    Rejected: {{ summary.total_rejected_deposit_count }}
                 </p>
             </div>
         </section>
