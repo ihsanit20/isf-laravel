@@ -13,6 +13,7 @@ use App\Models\DepositSubmission;
 use App\Models\FundCycle;
 use App\Models\FundCycleAllocation;
 use App\Models\Member;
+use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -81,8 +82,39 @@ class FundCycleController extends Controller
     {
         $fundCycle->load([
             'creator:id,name',
-            'allocations.member:id,full_name',
+            'allocations.member:id,full_name,managed_by_user_id',
+            'allocations.member.manager:id,name,email',
         ]);
+
+        // Get all users who have approved members
+        $usersWithMembers = User::query()
+            ->whereHas('managedMembers', fn($query) => $query->where('status', MemberStatus::Approved))
+            ->with(['managedMembers' => fn($query) => $query->where('status', MemberStatus::Approved)->orderBy('full_name')])
+            ->orderBy('name')
+            ->get(['id', 'name', 'email']);
+
+        $slots = collect($fundCycle->slots ?? []);
+
+        // Calculate missing allocations by user
+        $existingAllocations = $fundCycle->allocations
+            ->groupBy(fn($allocation) => ($allocation->member?->managed_by_user_id ?? 0) . '-' . $allocation->slot_key);
+
+        $missingAllocations = [];
+        foreach ($usersWithMembers as $user) {
+            foreach ($slots as $slot) {
+                $key = $user->id . '-' . $slot;
+                if (!$existingAllocations->has($key)) {
+                    $memberNames = $user->managedMembers->pluck('full_name')->join(', ');
+                    $missingAllocations[] = [
+                        'user_id' => $user->id,
+                        'user_name' => $user->name,
+                        'user_email' => $user->email,
+                        'member_names' => $memberNames,
+                        'slot_key' => $slot,
+                    ];
+                }
+            }
+        }
 
         return Inertia::render('admin/FundCycleDetails', [
             'fundCycle' => [
@@ -95,7 +127,7 @@ class FundCycleController extends Controller
                 'lock_date' => $fundCycle->lock_date?->format('Y-m-d'),
                 'maturity_date' => $fundCycle->maturity_date?->format('Y-m-d'),
                 'settlement_date' => $fundCycle->settlement_date?->format('Y-m-d'),
-                'slots' => collect($fundCycle->slots ?? [])->values(),
+                'slots' => $slots->values(),
                 'notes' => $fundCycle->notes,
                 'created_by' => $fundCycle->creator?->name,
                 'created_at' => $fundCycle->created_at?->format('d M Y, h:i A'),
@@ -106,13 +138,23 @@ class FundCycleController extends Controller
                     ->values()
                     ->map(fn(FundCycleAllocation $allocation): array => [
                         'id' => $allocation->id,
+                        'member_id' => $allocation->member_id,
                         'member_name' => $allocation->member?->full_name,
+                        'user_id' => $allocation->member?->managed_by_user_id,
+                        'user_name' => $allocation->member?->manager?->name,
                         'slot_key' => $allocation->slot_key,
                         'amount' => $allocation->amount,
                         'allocated_at' => $allocation->allocated_at?->format('d M Y, h:i A'),
                         'notes' => $allocation->notes,
                     ]),
             ],
+            'users' => $usersWithMembers->map(fn(User $user): array => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'member_names' => $user->managedMembers->pluck('full_name')->join(', '),
+            ])->values(),
+            'missingAllocations' => $missingAllocations,
         ]);
     }
 
