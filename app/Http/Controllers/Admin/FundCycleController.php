@@ -91,7 +91,7 @@ class FundCycleController extends Controller
             ->whereHas('managedMembers', fn($query) => $query->where('status', MemberStatus::Approved))
             ->with(['managedMembers' => fn($query) => $query->where('status', MemberStatus::Approved)->orderBy('full_name')])
             ->orderBy('name')
-            ->get(['id', 'name', 'email']);
+            ->get(['id', 'name', 'email', 'phone']);
 
         $slots = collect($fundCycle->slots ?? []);
 
@@ -108,7 +108,7 @@ class FundCycleController extends Controller
                     $missingAllocations[] = [
                         'user_id' => $user->id,
                         'user_name' => $user->name,
-                        'user_email' => $user->email,
+                        'user_phone' => $user->phone,
                         'member_names' => $memberNames,
                         'slot_key' => $slot,
                     ];

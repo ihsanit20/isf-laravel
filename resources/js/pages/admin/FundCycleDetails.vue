@@ -19,7 +19,7 @@ type AllocationItem = {
 type MissingAllocation = {
     user_id: number;
     user_name: string;
-    user_email: string;
+    user_phone: string;
     member_names: string;
     slot_key: string;
 };
@@ -421,7 +421,7 @@ const clearFilters = () => {
                                 <td class="px-4 py-3 text-destructive">
                                     {{ missing.user_name }}
                                     <div class="text-xs">
-                                        {{ missing.user_email }}
+                                        {{ missing.user_phone }}
                                     </div>
                                 </td>
                                 <td class="px-4 py-3 text-muted-foreground">
