@@ -95,6 +95,16 @@ class FundCycleController extends Controller
 
         $slots = collect($fundCycle->slots ?? []);
 
+        // Calculate allocation statistics
+        $totalUsers = $usersWithMembers->count();
+        $totalSlots = $slots->count();
+        $allocatedAmount = (int) $fundCycle->allocations->sum('amount');
+        $allocationsCount = $fundCycle->allocations->count();
+        $expectedAllocations = $totalUsers * $totalSlots;
+        $expectedAmount = $expectedAllocations * $fundCycle->unit_amount;
+        $remainingAllocations = $expectedAllocations - $allocationsCount;
+        $remainingAmount = $expectedAmount - $allocatedAmount;
+
         // Calculate missing allocations by user
         $existingAllocations = $fundCycle->allocations
             ->groupBy(fn($allocation) => ($allocation->member?->managed_by_user_id ?? 0) . '-' . $allocation->slot_key);
@@ -131,8 +141,14 @@ class FundCycleController extends Controller
                 'notes' => $fundCycle->notes,
                 'created_by' => $fundCycle->creator?->name,
                 'created_at' => $fundCycle->created_at?->format('d M Y, h:i A'),
-                'allocated_amount' => (int) $fundCycle->allocations->sum('amount'),
-                'allocations_count' => $fundCycle->allocations->count(),
+                'total_users' => $totalUsers,
+                'total_slots' => $totalSlots,
+                'expected_allocations' => $expectedAllocations,
+                'expected_amount' => $expectedAmount,
+                'allocated_amount' => $allocatedAmount,
+                'allocations_count' => $allocationsCount,
+                'remaining_allocations' => $remainingAllocations,
+                'remaining_amount' => $remainingAmount,
                 'allocations' => $fundCycle->allocations
                     ->sortByDesc('allocated_at')
                     ->values()

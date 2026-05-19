@@ -45,8 +45,14 @@ type FundCycleDetails = {
     notes: string | null;
     created_by: string | null;
     created_at: string | null;
+    total_users: number;
+    total_slots: number;
+    expected_allocations: number;
+    expected_amount: number;
     allocated_amount: number;
     allocations_count: number;
+    remaining_allocations: number;
+    remaining_amount: number;
     allocations: AllocationItem[];
 };
 
@@ -179,12 +185,8 @@ const clearFilters = () => {
                     <Link href="/admin/fund-cycles">Back to Fund Cycles</Link>
                 </Button>
             </div>
-        </section>
 
-        <section
-            class="rounded-xl border border-sidebar-border/70 bg-background p-4 shadow-sm dark:border-sidebar-border"
-        >
-            <div class="grid gap-4 text-sm md:grid-cols-3">
+            <div class="mt-6 grid gap-4 text-sm md:grid-cols-3 lg:grid-cols-4">
                 <div>
                     <div class="text-xs text-muted-foreground">Status</div>
                     <div class="mt-1">
@@ -200,37 +202,63 @@ const clearFilters = () => {
                     </div>
                 </div>
                 <div>
-                    <div class="text-xs text-muted-foreground">
-                        Total Allocated
-                    </div>
+                    <div class="text-xs text-muted-foreground">Total Users</div>
                     <div class="mt-1 font-medium text-foreground">
-                        {{ money(props.fundCycle.allocated_amount) }}
+                        {{ props.fundCycle.total_users }}
                     </div>
                 </div>
                 <div>
-                    <div class="text-xs text-muted-foreground">
-                        Total Entries
-                    </div>
+                    <div class="text-xs text-muted-foreground">Total Slots</div>
                     <div class="mt-1 font-medium text-foreground">
-                        {{ props.fundCycle.allocations_count.toLocaleString() }}
-                    </div>
-                </div>
-                <div>
-                    <div class="text-xs text-muted-foreground">Created By</div>
-                    <div class="mt-1 text-muted-foreground">
-                        {{ props.fundCycle.created_by || '-' }}
-                    </div>
-                </div>
-                <div>
-                    <div class="text-xs text-muted-foreground">Created At</div>
-                    <div class="mt-1 text-muted-foreground">
-                        {{ props.fundCycle.created_at || '-' }}
+                        {{ props.fundCycle.total_slots }}
                     </div>
                 </div>
             </div>
 
             <div
-                class="mt-4 grid gap-3 text-sm text-muted-foreground md:grid-cols-2"
+                class="mt-4 grid gap-4 border-t border-sidebar-border/70 pt-4 text-sm md:grid-cols-3"
+            >
+                <div>
+                    <div class="text-xs text-muted-foreground">
+                        Expected Allocations
+                    </div>
+                    <div class="mt-1 font-semibold text-foreground">
+                        {{ props.fundCycle.expected_allocations }} entries
+                    </div>
+                    <div class="mt-0.5 text-xs text-primary">
+                        {{ money(props.fundCycle.expected_amount) }}
+                    </div>
+                </div>
+                <div>
+                    <div class="text-xs text-muted-foreground">Allocated</div>
+                    <div
+                        class="mt-1 font-semibold text-green-600 dark:text-green-500"
+                    >
+                        {{ props.fundCycle.allocations_count }} entries
+                    </div>
+                    <div
+                        class="mt-0.5 text-xs text-green-600 dark:text-green-500"
+                    >
+                        {{ money(props.fundCycle.allocated_amount) }}
+                    </div>
+                </div>
+                <div>
+                    <div class="text-xs text-muted-foreground">Remaining</div>
+                    <div
+                        class="mt-1 font-semibold text-orange-600 dark:text-orange-500"
+                    >
+                        {{ props.fundCycle.remaining_allocations }} entries
+                    </div>
+                    <div
+                        class="mt-0.5 text-xs text-orange-600 dark:text-orange-500"
+                    >
+                        {{ money(props.fundCycle.remaining_amount) }}
+                    </div>
+                </div>
+            </div>
+
+            <div
+                class="mt-4 grid gap-3 border-t border-sidebar-border/70 pt-4 text-sm text-muted-foreground md:grid-cols-2"
             >
                 <div>Start: {{ props.fundCycle.start_date || '-' }}</div>
                 <div>Lock: {{ props.fundCycle.lock_date || '-' }}</div>
@@ -241,10 +269,18 @@ const clearFilters = () => {
             </div>
 
             <div
-                v-if="props.fundCycle.notes"
-                class="mt-4 text-sm text-muted-foreground"
+                class="mt-4 grid gap-3 border-t border-sidebar-border/70 pt-4 text-sm text-muted-foreground md:grid-cols-2"
             >
-                {{ props.fundCycle.notes }}
+                <div>Created By: {{ props.fundCycle.created_by || '-' }}</div>
+                <div>Created At: {{ props.fundCycle.created_at || '-' }}</div>
+            </div>
+
+            <div
+                v-if="props.fundCycle.notes"
+                class="mt-4 border-t border-sidebar-border/70 pt-4 text-sm text-muted-foreground"
+            >
+                <div class="text-xs text-muted-foreground">Notes</div>
+                <div class="mt-1">{{ props.fundCycle.notes }}</div>
             </div>
         </section>
 
