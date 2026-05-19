@@ -49,6 +49,7 @@ Route::middleware(['auth', 'verified', 'admin'])->group(function () {
     Route::post('admin/users', [UserListController::class, 'store'])->name('admin.users.store');
     Route::put('admin/users/{user}', [UserListController::class, 'update'])->name('admin.users.update');
     Route::get('admin/fund-cycles', [FundCycleController::class, 'index'])->name('admin.fund-cycles.index');
+    Route::get('admin/fund-cycles/{fundCycle}', [FundCycleController::class, 'show'])->name('admin.fund-cycles.show');
     Route::post('admin/fund-cycles', [FundCycleController::class, 'store'])->name('admin.fund-cycles.store');
     Route::put('admin/fund-cycles/{fundCycle}', [FundCycleController::class, 'update'])->name('admin.fund-cycles.update');
     Route::post('admin/fund-cycles/{fundCycle}/allocations', [FundCycleController::class, 'storeAllocation'])->name('admin.fund-cycles.allocations.store');

@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { Head } from '@inertiajs/vue3';
-import { CircleDollarSign, Plus, SquarePen } from 'lucide-vue-next';
-import { computed, ref } from 'vue';
-import FundCycleAllocationDialog from '@/components/admin/FundCycleAllocationDialog.vue';
+import { Link } from '@inertiajs/vue3';
+import { Plus } from 'lucide-vue-next';
+import { ref } from 'vue';
 import FundCycleFormDialog from '@/components/admin/FundCycleFormDialog.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -23,34 +23,12 @@ type FundCycleItem = {
     created_by: string | null;
     created_at: string | null;
     allocated_amount: number;
-    allocations: Array<{
-        id: number;
-        member_name: string | null;
-        slot_key: string | null;
-        amount: number;
-        allocated_at: string | null;
-        notes: string | null;
-    }>;
-};
-
-type EligibleMember = {
-    id: number;
-    full_name: string;
-    units: number;
-};
-
-type PoolSummary = {
-    total_verified_deposits: number;
-    total_charge_allocations: number;
-    total_cycle_allocations: number;
-    remaining_pool: number;
+    allocations_count: number;
 };
 
 type Props = {
     fundCycles: FundCycleItem[];
     statuses: string[];
-    eligibleMembers: EligibleMember[];
-    poolSummary: PoolSummary;
 };
 
 defineOptions({
@@ -65,37 +43,9 @@ defineOptions({
 });
 
 const props = defineProps<Props>();
-
 const isCreateDialogOpen = ref(false);
-const isEditDialogOpen = ref(false);
-const isAllocationDialogOpen = ref(false);
-const selectedFundCycle = ref<FundCycleItem | null>(null);
-
-const editableFundCycle = computed(() => selectedFundCycle.value);
-const allocationTargetFundCycle = computed(() => {
-    if (!selectedFundCycle.value) {
-        return null;
-    }
-
-    return {
-        id: selectedFundCycle.value.id,
-        name: selectedFundCycle.value.name,
-        unit_amount: selectedFundCycle.value.unit_amount,
-        slots: selectedFundCycle.value.slots,
-    };
-});
 
 const money = (amount: number): string => `${amount.toLocaleString()} BDT`;
-
-const openEditDialog = (fundCycle: FundCycleItem) => {
-    selectedFundCycle.value = fundCycle;
-    isEditDialogOpen.value = true;
-};
-
-const openAllocationDialog = (fundCycle: FundCycleItem) => {
-    selectedFundCycle.value = fundCycle;
-    isAllocationDialogOpen.value = true;
-};
 </script>
 
 <template>
@@ -203,20 +153,13 @@ const openAllocationDialog = (fundCycle: FundCycleItem) => {
                                     {{ money(fundCycle.allocated_amount) }}
                                 </div>
                                 <div
-                                    v-if="fundCycle.allocations.length > 0"
-                                    class="mt-1 space-y-1 text-xs"
+                                    v-if="fundCycle.allocations_count > 0"
+                                    class="mt-1 text-xs"
                                 >
-                                    <div
-                                        v-for="allocation in fundCycle.allocations"
-                                        :key="allocation.id"
-                                    >
-                                        {{ allocation.slot_key || 'No slot' }} -
-                                        {{
-                                            allocation.member_name ||
-                                            'Unknown member'
-                                        }}:
-                                        {{ money(allocation.amount) }}
-                                    </div>
+                                    {{
+                                        fundCycle.allocations_count.toLocaleString()
+                                    }}
+                                    entries
                                 </div>
                                 <div v-else class="mt-1 text-xs">
                                     No allocations yet
@@ -229,23 +172,12 @@ const openAllocationDialog = (fundCycle: FundCycleItem) => {
                                 {{ fundCycle.created_at || '-' }}
                             </td>
                             <td class="px-4 py-3">
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    @click="openEditDialog(fundCycle)"
-                                >
-                                    <SquarePen class="size-4" />
-                                    Edit
-                                </Button>
-                                <Button
-                                    variant="secondary"
-                                    size="sm"
-                                    class="ml-2"
-                                    :disabled="fundCycle.slots.length === 0"
-                                    @click="openAllocationDialog(fundCycle)"
-                                >
-                                    <CircleDollarSign class="size-4" />
-                                    Allocate
+                                <Button variant="outline" size="sm" as-child>
+                                    <Link
+                                        :href="`/admin/fund-cycles/${fundCycle.id}`"
+                                    >
+                                        View details
+                                    </Link>
                                 </Button>
                             </td>
                         </tr>
@@ -266,19 +198,6 @@ const openAllocationDialog = (fundCycle: FundCycleItem) => {
             v-model:isOpen="isCreateDialogOpen"
             mode="create"
             :statuses="props.statuses"
-        />
-
-        <FundCycleFormDialog
-            v-model:isOpen="isEditDialogOpen"
-            mode="edit"
-            :fund-cycle="editableFundCycle"
-            :statuses="props.statuses"
-        />
-
-        <FundCycleAllocationDialog
-            v-model:isOpen="isAllocationDialogOpen"
-            :fund-cycle="allocationTargetFundCycle"
-            :eligible-members="props.eligibleMembers"
         />
     </div>
 </template>
