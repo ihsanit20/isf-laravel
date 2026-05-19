@@ -6,23 +6,100 @@ use App\Enums\DepositSubmissionStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\ReviewDepositSubmissionRequest;
 use App\Models\DepositSubmission;
+use App\Models\GeneralExpense;
 use App\Models\User;
 use App\Services\SmsService;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class DepositListController extends Controller
 {
-    public function index(): Response
+    public function index(Request $request): Response
     {
+        $status = $request->string('status')->toString();
+        $paymentMethod = $request->string('payment_method')->toString();
+        $search = trim($request->string('search')->toString());
+        $fromDate = $request->string('from_date')->toString();
+        $toDate = $request->string('to_date')->toString();
+        $perPage = $request->integer('per_page', 15);
+        $perPage = in_array($perPage, [15, 25, 50, 100, 200, 500], true) ? $perPage : 15;
+
+        $depositsQuery = DepositSubmission::query()
+            ->with(['user:id,name,email', 'verifier:id,name'])
+            ->when(
+                in_array($status, DepositSubmissionStatus::values(), true),
+                fn($query) => $query->where('status', $status),
+            )
+            ->when(
+                in_array($paymentMethod, DepositSubmission::paymentMethods(), true),
+                fn($query) => $query->where('payment_method', $paymentMethod),
+            )
+            ->when($fromDate !== '', fn($query) => $query->whereDate('deposit_date', '>=', $fromDate))
+            ->when($toDate !== '', fn($query) => $query->whereDate('deposit_date', '<=', $toDate))
+            ->when($search !== '', function ($query) use ($search): void {
+                $query->where(function ($subQuery) use ($search): void {
+                    $subQuery
+                        ->where('reference_no', 'like', "%{$search}%")
+                        ->orWhere('notes', 'like', "%{$search}%")
+                        ->orWhereHas('user', function ($userQuery) use ($search): void {
+                            $userQuery
+                                ->where('name', 'like', "%{$search}%")
+                                ->orWhere('email', 'like', "%{$search}%");
+                        });
+                });
+            })
+            ->latest('deposit_date')
+            ->latest('id');
+
+        $totalDepositAmount = (int) DepositSubmission::query()->sum('amount');
+        $verifiedAmount = (int) DepositSubmission::query()
+            ->where('status', DepositSubmissionStatus::Verified)
+            ->sum('amount');
+        $rejectedAmount = (int) DepositSubmission::query()
+            ->where('status', DepositSubmissionStatus::Rejected)
+            ->sum('amount');
+        $totalGeneralExpense = (int) GeneralExpense::query()->sum('amount');
+        $currentBalance = max(0, $verifiedAmount - $totalGeneralExpense);
+        $pendingAmount = (int) DepositSubmission::query()
+            ->where('status', DepositSubmissionStatus::Pending)
+            ->sum('amount');
+        $pendingCount = (int) DepositSubmission::query()
+            ->where('status', DepositSubmissionStatus::Pending)
+            ->count();
+
         return Inertia::render('admin/Deposits', [
-            'deposits' => DepositSubmission::query()
-                ->with(['user:id,name,email', 'verifier:id,name'])
-                ->latest('deposit_date')
-                ->latest('id')
-                ->get()
-                ->map(fn(DepositSubmission $depositSubmission): array => [
+            'summary' => [
+                'total_deposit_amount' => $totalDepositAmount,
+                'verified_amount' => $verifiedAmount,
+                'rejected_amount' => $rejectedAmount,
+                'total_general_expense' => $totalGeneralExpense,
+                'current_balance' => $currentBalance,
+                'pending_amount' => $pendingAmount,
+                'pending_count' => $pendingCount,
+            ],
+            'filters' => [
+                'status' => $status,
+                'payment_method' => $paymentMethod,
+                'search' => $search,
+                'from_date' => $fromDate,
+                'to_date' => $toDate,
+                'per_page' => $perPage,
+            ],
+            'filterOptions' => [
+                'statuses' => DepositSubmissionStatus::values(),
+                'payment_methods' => collect(DepositSubmission::paymentMethods())
+                    ->map(fn(string $method): array => [
+                        'value' => $method,
+                        'label' => DepositSubmission::paymentMethodLabel($method),
+                    ])
+                    ->values(),
+            ],
+            'deposits' => $depositsQuery
+                ->paginate($perPage)
+                ->withQueryString()
+                ->through(fn(DepositSubmission $depositSubmission): array => [
                     'id' => $depositSubmission->id,
                     'amount' => $depositSubmission->amount,
                     'payment_method' => $depositSubmission->payment_method,
@@ -39,8 +116,7 @@ class DepositListController extends Controller
                         'email' => $depositSubmission->user?->email,
                     ],
                     'verifier' => $depositSubmission->verifier?->name,
-                ])
-                ->values(),
+                ]),
         ]);
     }
 
