@@ -95,12 +95,16 @@ class FundCycleController extends Controller
 
         $slots = collect($fundCycle->slots ?? []);
 
+        // Calculate total units from all approved members
+        $totalMembers = $usersWithMembers->sum(fn($user) => $user->managedMembers->count());
+        $totalUnits = $usersWithMembers->sum(fn($user) => $user->managedMembers->sum('units'));
+
         // Calculate allocation statistics
         $totalUsers = $usersWithMembers->count();
         $totalSlots = $slots->count();
         $allocatedAmount = (int) $fundCycle->allocations->sum('amount');
         $allocationsCount = $fundCycle->allocations->count();
-        $expectedAllocations = $totalUsers * $totalSlots;
+        $expectedAllocations = $totalUnits * $totalSlots;
         $expectedAmount = $expectedAllocations * $fundCycle->unit_amount;
         $remainingAllocations = $expectedAllocations - $allocationsCount;
         $remainingAmount = $expectedAmount - $allocatedAmount;
@@ -139,9 +143,12 @@ class FundCycleController extends Controller
                 'settlement_date' => $fundCycle->settlement_date?->format('Y-m-d'),
                 'slots' => $slots->values(),
                 'notes' => $fundCycle->notes,
+                'has_allocations' => $allocationsCount > 0,
                 'created_by' => $fundCycle->creator?->name,
                 'created_at' => $fundCycle->created_at?->format('d M Y, h:i A'),
                 'total_users' => $totalUsers,
+                'total_members' => $totalMembers,
+                'total_units' => $totalUnits,
                 'total_slots' => $totalSlots,
                 'expected_allocations' => $expectedAllocations,
                 'expected_amount' => $expectedAmount,
@@ -171,6 +178,17 @@ class FundCycleController extends Controller
                 'member_names' => $user->managedMembers->pluck('full_name')->join(', '),
             ])->values(),
             'missingAllocations' => $missingAllocations,
+            'eligibleMembers' => Member::query()
+                ->where('status', MemberStatus::Approved)
+                ->orderBy('full_name')
+                ->get(['id', 'full_name', 'units'])
+                ->map(fn(Member $member): array => [
+                    'id' => $member->id,
+                    'full_name' => $member->full_name,
+                    'units' => $member->units,
+                ])
+                ->values(),
+            'statuses' => FundCycle::statuses(),
         ]);
     }
 
