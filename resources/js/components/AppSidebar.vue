@@ -67,16 +67,10 @@ const mainNavItems = computed<NavItem[]>(() => {
 
     if (adminRoles.includes(page.props.auth.user.role)) {
         items.push({
-            title: 'Member List',
-            href: '/admin/members',
-            icon: Users,
+            title: 'Deposit Reviews',
+            href: '/admin/deposits',
+            icon: FileBadge2,
             dividerBefore: true,
-        });
-
-        items.push({
-            title: 'General Expenses',
-            href: '/admin/general-expenses',
-            icon: BookMarked,
         });
 
         items.push({
@@ -86,9 +80,15 @@ const mainNavItems = computed<NavItem[]>(() => {
         });
 
         items.push({
-            title: 'Deposit Reviews',
-            href: '/admin/deposits',
-            icon: FileBadge2,
+            title: 'General Expenses',
+            href: '/admin/general-expenses',
+            icon: BookMarked,
+        });
+
+        items.push({
+            title: 'Member List',
+            href: '/admin/members',
+            icon: Users,
         });
 
         items.push({
