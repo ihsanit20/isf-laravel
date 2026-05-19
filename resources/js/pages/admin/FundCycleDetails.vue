@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
+import FundCycleAllocationDialog from '@/components/admin/FundCycleAllocationDialog.vue';
+import FundCycleFormDialog from '@/components/admin/FundCycleFormDialog.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 
@@ -43,9 +45,12 @@ type FundCycleDetails = {
     settlement_date: string | null;
     slots: string[];
     notes: string | null;
+    has_allocations: boolean;
     created_by: string | null;
     created_at: string | null;
     total_users: number;
+    total_members: number;
+    total_units: number;
     total_slots: number;
     expected_allocations: number;
     expected_amount: number;
@@ -56,10 +61,18 @@ type FundCycleDetails = {
     allocations: AllocationItem[];
 };
 
+type EligibleMember = {
+    id: number;
+    full_name: string;
+    units: number;
+};
+
 type Props = {
     fundCycle: FundCycleDetails;
     users: UserWithMembers[];
     missingAllocations: MissingAllocation[];
+    eligibleMembers: EligibleMember[];
+    statuses: string[];
 };
 
 defineOptions({
@@ -82,6 +95,8 @@ const props = defineProps<Props>();
 const selectedUser = ref<string>('');
 const selectedSlot = ref<string>('');
 const showMissingOnly = ref(false);
+const isEditDialogOpen = ref(false);
+const isAllocateDialogOpen = ref(false);
 
 const money = (amount: number): string => `${amount.toLocaleString()} BDT`;
 
@@ -181,12 +196,25 @@ const clearFilters = () => {
                     </p>
                 </div>
 
-                <Button variant="outline" as-child>
-                    <Link href="/admin/fund-cycles">Back to Fund Cycles</Link>
-                </Button>
+                <div class="flex flex-wrap gap-2">
+                    <Button
+                        variant="default"
+                        @click="isAllocateDialogOpen = true"
+                    >
+                        Allocate
+                    </Button>
+                    <Button variant="outline" @click="isEditDialogOpen = true">
+                        Edit
+                    </Button>
+                    <Button variant="outline" as-child>
+                        <Link href="/admin/fund-cycles">
+                            Back to Fund Cycles
+                        </Link>
+                    </Button>
+                </div>
             </div>
 
-            <div class="mt-6 grid gap-4 text-sm md:grid-cols-3 lg:grid-cols-4">
+            <div class="mt-6 grid gap-4 text-sm md:grid-cols-3 lg:grid-cols-6">
                 <div>
                     <div class="text-xs text-muted-foreground">Status</div>
                     <div class="mt-1">
@@ -205,6 +233,20 @@ const clearFilters = () => {
                     <div class="text-xs text-muted-foreground">Total Users</div>
                     <div class="mt-1 font-medium text-foreground">
                         {{ props.fundCycle.total_users }}
+                    </div>
+                </div>
+                <div>
+                    <div class="text-xs text-muted-foreground">
+                        Total Members
+                    </div>
+                    <div class="mt-1 font-medium text-foreground">
+                        {{ props.fundCycle.total_members }}
+                    </div>
+                </div>
+                <div>
+                    <div class="text-xs text-muted-foreground">Total Units</div>
+                    <div class="mt-1 font-medium text-foreground">
+                        {{ props.fundCycle.total_units }}
                     </div>
                 </div>
                 <div>
@@ -480,5 +522,18 @@ const clearFilters = () => {
                 }}
             </div>
         </section>
+
+        <FundCycleFormDialog
+            v-model:isOpen="isEditDialogOpen"
+            mode="edit"
+            :statuses="props.statuses"
+            :fund-cycle="props.fundCycle"
+        />
+
+        <FundCycleAllocationDialog
+            v-model:isOpen="isAllocateDialogOpen"
+            :fund-cycle="props.fundCycle"
+            :eligible-members="props.eligibleMembers"
+        />
     </div>
 </template>
