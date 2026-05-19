@@ -33,7 +33,8 @@ class FundCycleController extends Controller
         return Inertia::render('admin/FundCycles', [
             'fundCycles' => FundCycle::query()
                 ->withCount('allocations')
-                ->with(['creator:id,name', 'allocations.member:id,full_name'])
+                ->withSum('allocations', 'amount')
+                ->with(['creator:id,name'])
                 ->latest('start_date')
                 ->latest('id')
                 ->get()
@@ -50,20 +51,10 @@ class FundCycleController extends Controller
                     'slots' => collect($fundCycle->slots ?? [])->values(),
                     'notes' => $fundCycle->notes,
                     'has_allocations' => $fundCycle->allocations_count > 0,
+                    'allocations_count' => $fundCycle->allocations_count,
                     'created_by' => $fundCycle->creator?->name,
                     'created_at' => $fundCycle->created_at?->format('d M Y, h:i A'),
-                    'allocated_amount' => (int) $fundCycle->allocations->sum('amount'),
-                    'allocations' => $fundCycle->allocations
-                        ->sortByDesc('allocated_at')
-                        ->values()
-                        ->map(fn(FundCycleAllocation $allocation): array => [
-                            'id' => $allocation->id,
-                            'member_name' => $allocation->member?->full_name,
-                            'slot_key' => $allocation->slot_key,
-                            'amount' => $allocation->amount,
-                            'allocated_at' => $allocation->allocated_at?->format('d M Y, h:i A'),
-                            'notes' => $allocation->notes,
-                        ]),
+                    'allocated_amount' => (int) ($fundCycle->allocations_sum_amount ?? 0),
                 ])
                 ->values(),
             'statuses' => FundCycle::statuses(),
@@ -82,6 +73,45 @@ class FundCycleController extends Controller
                 'total_charge_allocations' => $totalChargeAllocations,
                 'total_cycle_allocations' => $totalCycleAllocations,
                 'remaining_pool' => max(0, $totalVerifiedDeposits - $totalChargeAllocations - $totalCycleAllocations),
+            ],
+        ]);
+    }
+
+    public function show(FundCycle $fundCycle): Response
+    {
+        $fundCycle->load([
+            'creator:id,name',
+            'allocations.member:id,full_name',
+        ]);
+
+        return Inertia::render('admin/FundCycleDetails', [
+            'fundCycle' => [
+                'id' => $fundCycle->id,
+                'name' => $fundCycle->name,
+                'status' => $fundCycle->status,
+                'status_label' => FundCycle::statusLabel($fundCycle->status),
+                'unit_amount' => $fundCycle->unit_amount,
+                'start_date' => $fundCycle->start_date?->format('Y-m-d'),
+                'lock_date' => $fundCycle->lock_date?->format('Y-m-d'),
+                'maturity_date' => $fundCycle->maturity_date?->format('Y-m-d'),
+                'settlement_date' => $fundCycle->settlement_date?->format('Y-m-d'),
+                'slots' => collect($fundCycle->slots ?? [])->values(),
+                'notes' => $fundCycle->notes,
+                'created_by' => $fundCycle->creator?->name,
+                'created_at' => $fundCycle->created_at?->format('d M Y, h:i A'),
+                'allocated_amount' => (int) $fundCycle->allocations->sum('amount'),
+                'allocations_count' => $fundCycle->allocations->count(),
+                'allocations' => $fundCycle->allocations
+                    ->sortByDesc('allocated_at')
+                    ->values()
+                    ->map(fn(FundCycleAllocation $allocation): array => [
+                        'id' => $allocation->id,
+                        'member_name' => $allocation->member?->full_name,
+                        'slot_key' => $allocation->slot_key,
+                        'amount' => $allocation->amount,
+                        'allocated_at' => $allocation->allocated_at?->format('d M Y, h:i A'),
+                        'notes' => $allocation->notes,
+                    ]),
             ],
         ]);
     }
