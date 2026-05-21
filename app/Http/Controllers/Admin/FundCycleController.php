@@ -80,26 +80,70 @@ class FundCycleController extends Controller
 
     public function show(FundCycle $fundCycle): Response
     {
+        $fundCycle->load(['creator:id,name'])
+            ->loadCount('allocations')
+            ->loadSum('allocations', 'amount');
+
+        $usersWithMembers = $this->usersWithApprovedMembers();
+        $slots = collect($fundCycle->slots ?? []);
+
+        $totalMembers = $usersWithMembers->sum(fn($user) => $user->managedMembers->count());
+        $totalUnits = $usersWithMembers->sum(fn($user) => $user->managedMembers->sum('units'));
+        $totalUsers = $usersWithMembers->count();
+        $totalSlots = $slots->count();
+        $allocatedAmount = (int) ($fundCycle->allocations_sum_amount ?? 0);
+        $allocationsCount = (int) ($fundCycle->allocations_count ?? 0);
+        $expectedAllocations = $totalUnits * $totalSlots;
+        $expectedAmount = $expectedAllocations * $fundCycle->unit_amount;
+        $remainingAllocations = $expectedAllocations - $allocationsCount;
+        $remainingAmount = $expectedAmount - $allocatedAmount;
+
+        return Inertia::render('admin/FundCycleDetails', [
+            'fundCycle' => [
+                'id' => $fundCycle->id,
+                'name' => $fundCycle->name,
+                'status' => $fundCycle->status,
+                'status_label' => FundCycle::statusLabel($fundCycle->status),
+                'unit_amount' => $fundCycle->unit_amount,
+                'start_date' => $fundCycle->start_date?->format('Y-m-d'),
+                'lock_date' => $fundCycle->lock_date?->format('Y-m-d'),
+                'maturity_date' => $fundCycle->maturity_date?->format('Y-m-d'),
+                'settlement_date' => $fundCycle->settlement_date?->format('Y-m-d'),
+                'slots' => $slots->values(),
+                'notes' => $fundCycle->notes,
+                'has_allocations' => $allocationsCount > 0,
+                'created_by' => $fundCycle->creator?->name,
+                'created_at' => $fundCycle->created_at?->format('d M Y, h:i A'),
+                'total_users' => $totalUsers,
+                'total_members' => $totalMembers,
+                'total_units' => $totalUnits,
+                'total_slots' => $totalSlots,
+                'expected_allocations' => $expectedAllocations,
+                'expected_amount' => $expectedAmount,
+                'allocated_amount' => $allocatedAmount,
+                'allocations_count' => $allocationsCount,
+                'remaining_allocations' => $remainingAllocations,
+                'remaining_amount' => $remainingAmount,
+            ],
+            'statuses' => FundCycle::statuses(),
+        ]);
+    }
+
+    public function allocations(FundCycle $fundCycle): Response
+    {
         $fundCycle->load([
             'creator:id,name',
             'allocations.member:id,full_name,managed_by_user_id',
             'allocations.member.manager:id,name,email',
         ]);
 
-        // Get all users who have approved members
-        $usersWithMembers = User::query()
-            ->whereHas('managedMembers', fn($query) => $query->where('status', MemberStatus::Approved))
-            ->with(['managedMembers' => fn($query) => $query->where('status', MemberStatus::Approved)->orderBy('full_name')])
-            ->orderBy('name')
-            ->get(['id', 'name', 'email', 'phone']);
+        $usersWithMembers = $this->usersWithApprovedMembers();
 
         $slots = collect($fundCycle->slots ?? []);
 
-        // Calculate total units from all approved members
         $totalMembers = $usersWithMembers->sum(fn($user) => $user->managedMembers->count());
         $totalUnits = $usersWithMembers->sum(fn($user) => $user->managedMembers->sum('units'));
 
-        // Calculate allocation statistics
         $totalUsers = $usersWithMembers->count();
         $totalSlots = $slots->count();
         $allocatedAmount = (int) $fundCycle->allocations->sum('amount');
@@ -109,7 +153,6 @@ class FundCycleController extends Controller
         $remainingAllocations = $expectedAllocations - $allocationsCount;
         $remainingAmount = $expectedAmount - $allocatedAmount;
 
-        // Calculate missing allocations by user
         $existingAllocations = $fundCycle->allocations
             ->groupBy(fn($allocation) => ($allocation->member?->managed_by_user_id ?? 0) . '-' . $allocation->slot_key);
 
@@ -130,7 +173,7 @@ class FundCycleController extends Controller
             }
         }
 
-        return Inertia::render('admin/FundCycleDetails', [
+        return Inertia::render('admin/FundCycleAllocations', [
             'fundCycle' => [
                 'id' => $fundCycle->id,
                 'name' => $fundCycle->name,
@@ -190,6 +233,19 @@ class FundCycleController extends Controller
                 ->values(),
             'statuses' => FundCycle::statuses(),
         ]);
+    }
+
+    private function usersWithApprovedMembers()
+    {
+        return User::query()
+            ->whereHas('managedMembers', fn($query) => $query->where('status', MemberStatus::Approved))
+            ->with([
+                'managedMembers' => fn($query) => $query
+                    ->where('status', MemberStatus::Approved)
+                    ->orderBy('full_name'),
+            ])
+            ->orderBy('name')
+            ->get(['id', 'name', 'email', 'phone']);
     }
 
     public function store(StoreFundCycleRequest $request): RedirectResponse

@@ -172,13 +172,30 @@ const money = (amount: number): string => `${amount.toLocaleString()} BDT`;
                                 {{ fundCycle.created_at || '-' }}
                             </td>
                             <td class="px-4 py-3">
-                                <Button variant="outline" size="sm" as-child>
-                                    <Link
-                                        :href="`/admin/fund-cycles/${fundCycle.id}`"
+                                <div class="flex flex-wrap gap-2">
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        as-child
                                     >
-                                        View details
-                                    </Link>
-                                </Button>
+                                        <Link
+                                            :href="`/admin/fund-cycles/${fundCycle.id}`"
+                                        >
+                                            View details
+                                        </Link>
+                                    </Button>
+                                    <Button
+                                        variant="default"
+                                        size="sm"
+                                        as-child
+                                    >
+                                        <Link
+                                            :href="`/admin/fund-cycles/${fundCycle.id}/allocations`"
+                                        >
+                                            Allocations
+                                        </Link>
+                                    </Button>
+                                </div>
                             </td>
                         </tr>
                         <tr v-if="fundCycles.length === 0">
