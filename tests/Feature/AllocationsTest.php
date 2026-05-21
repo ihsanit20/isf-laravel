@@ -89,11 +89,15 @@ test('authenticated users can view their allocation list', function () {
             ->where('summary.total_allocated_amount', 3400)
             ->where('summary.member_count', 2)
             ->where('summary.cycle_count', 2)
-            ->has('allocations', 2)
-            ->where('allocations.0.member_name', 'Family Member')
-            ->where('allocations.0.cycle_name', 'May 2026 Cycle')
-            ->where('allocations.0.slot_key', 'May 2026')
-            ->where('allocations.0.amount', 2400));
+            ->where('summary.available_to_allocate', 0)
+            ->has('memberTabs', 2)
+            ->where('memberTabs.0.member.full_name', 'Family Member')
+            ->where('memberTabs.0.member.units', 2)
+            ->has('memberTabs.0.rows', 1)
+            ->where('memberTabs.0.rows.0.status', 'allocated')
+            ->where('memberTabs.0.rows.0.cycle_name', 'May 2026 Cycle')
+            ->where('memberTabs.0.rows.0.slot_key', 'May 2026')
+            ->where('memberTabs.0.rows.0.amount', 2400));
 });
 
 test('guests are redirected from my allocations', function () {
