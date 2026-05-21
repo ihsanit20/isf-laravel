@@ -51,6 +51,7 @@ Route::middleware(['auth', 'verified', 'admin'])->group(function () {
     Route::get('admin/fund-cycles', [FundCycleController::class, 'index'])->name('admin.fund-cycles.index');
     Route::get('admin/fund-cycles/{fundCycle}', [FundCycleController::class, 'show'])->name('admin.fund-cycles.show');
     Route::get('admin/fund-cycles/{fundCycle}/allocations', [FundCycleController::class, 'allocations'])->name('admin.fund-cycles.allocations.index');
+    Route::get('admin/fund-cycles/{fundCycle}/events', [FundCycleController::class, 'events'])->name('admin.fund-cycles.events.index');
     Route::post('admin/fund-cycles', [FundCycleController::class, 'store'])->name('admin.fund-cycles.store');
     Route::put('admin/fund-cycles/{fundCycle}', [FundCycleController::class, 'update'])->name('admin.fund-cycles.update');
     Route::post('admin/fund-cycles/{fundCycle}/allocations', [FundCycleController::class, 'storeAllocation'])->name('admin.fund-cycles.allocations.store');

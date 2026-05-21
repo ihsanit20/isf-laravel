@@ -195,6 +195,17 @@ const money = (amount: number): string => `${amount.toLocaleString()} BDT`;
                                             Allocations
                                         </Link>
                                     </Button>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        as-child
+                                    >
+                                        <Link
+                                            :href="`/admin/fund-cycles/${fundCycle.id}/events`"
+                                        >
+                                            Events
+                                        </Link>
+                                    </Button>
                                 </div>
                             </td>
                         </tr>

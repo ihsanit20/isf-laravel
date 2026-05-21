@@ -86,6 +86,13 @@ const money = (amount: number): string => `${amount.toLocaleString()} BDT`;
                             Manage Allocations
                         </Link>
                     </Button>
+                    <Button variant="outline" as-child>
+                        <Link
+                            :href="`/admin/fund-cycles/${props.fundCycle.id}/events`"
+                        >
+                            Events
+                        </Link>
+                    </Button>
                     <Button variant="outline" @click="isEditDialogOpen = true">
                         Edit
                     </Button>

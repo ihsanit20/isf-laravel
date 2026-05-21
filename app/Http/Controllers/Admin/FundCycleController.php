@@ -235,6 +235,22 @@ class FundCycleController extends Controller
         ]);
     }
 
+    public function events(FundCycle $fundCycle): Response
+    {
+        return Inertia::render('admin/FundCycleEvents', [
+            'fundCycle' => [
+                'id' => $fundCycle->id,
+                'name' => $fundCycle->name,
+                'status' => $fundCycle->status,
+                'status_label' => FundCycle::statusLabel($fundCycle->status),
+                'start_date' => $fundCycle->start_date?->format('Y-m-d'),
+                'lock_date' => $fundCycle->lock_date?->format('Y-m-d'),
+                'maturity_date' => $fundCycle->maturity_date?->format('Y-m-d'),
+                'settlement_date' => $fundCycle->settlement_date?->format('Y-m-d'),
+            ],
+        ]);
+    }
+
     private function usersWithApprovedMembers()
     {
         return User::query()
