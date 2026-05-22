@@ -4,6 +4,9 @@ use App\Enums\FundCycleEventStatus;
 use App\Models\FundCycle;
 use App\Models\FundCycleEvent;
 use App\Models\User;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
 use function Pest\Laravel\actingAs;
 use function Pest\Laravel\get;
@@ -210,4 +213,40 @@ test('admins can update a fund cycle event', function () {
         ->and($event->slug)->toBe('updated-event')
         ->and($event->status)->toBe(FundCycleEventStatus::Cancelled)
         ->and($event->banner_image_path)->toBe('events/updated-banner.jpg');
+});
+
+test('admins can upload event cover image from details page', function () {
+    Storage::fake('public');
+    Config::set('filesystems.default', 'public');
+
+    $admin = User::factory()->create([
+        'role' => 'admin',
+    ]);
+    $fundCycle = FundCycle::query()->create([
+        'name' => 'Cover Upload Cycle',
+        'status' => FundCycle::STATUS_OPEN,
+        'unit_amount' => 1000,
+        'start_date' => '2026-05-01',
+        'slots' => ['May 2026'],
+        'created_by_user_id' => $admin->id,
+    ]);
+    $event = $fundCycle->events()->create([
+        'title' => 'Cover Upload Event',
+        'slug' => 'cover-upload-event',
+        'status' => FundCycleEventStatus::Draft,
+        'description' => null,
+        'banner_image_path' => null,
+        'order_open_at' => '2026-06-01 09:00:00',
+        'order_close_at' => '2026-06-10 23:00:00',
+        'expected_delivery_date' => null,
+    ]);
+
+    actingAs($admin);
+
+    post(route('admin.events.cover.store', $event), [
+        'cover_image' => UploadedFile::fake()->image('event-cover.jpg', 1280, 720),
+    ])->assertRedirect(route('admin.events.show', $event));
+
+    expect($event->refresh()->banner_image_path)->not->toBeNull();
+    expect(Storage::disk('public')->exists((string) $event->banner_image_path))->toBeTrue();
 });

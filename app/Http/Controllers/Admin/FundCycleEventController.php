@@ -5,10 +5,12 @@ namespace App\Http\Controllers\Admin;
 use App\Enums\FundCycleEventStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreFundCycleEventRequest;
+use App\Http\Requests\Admin\UploadFundCycleEventBannerRequest;
 use App\Http\Requests\Admin\UpdateFundCycleEventRequest;
 use App\Models\FundCycle;
 use App\Models\FundCycleEvent;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -41,6 +43,7 @@ class FundCycleEventController extends Controller
                     'status_label' => $event->status->label(),
                     'description' => $event->description,
                     'banner_image_path' => $event->banner_image_path,
+                    'banner_image_url' => $event->bannerUrl(),
                     'order_open_at' => $event->order_open_at?->format('Y-m-d\\TH:i'),
                     'order_close_at' => $event->order_close_at?->format('Y-m-d\\TH:i'),
                     'expected_delivery_date' => $event->expected_delivery_date?->format('Y-m-d'),
@@ -75,6 +78,7 @@ class FundCycleEventController extends Controller
                     'status' => $event->status->value,
                     'status_label' => $event->status->label(),
                     'description' => $event->description,
+                    'banner_image_url' => $event->bannerUrl(),
                     'order_open_at' => $event->order_open_at?->format('Y-m-d H:i'),
                     'order_close_at' => $event->order_close_at?->format('Y-m-d H:i'),
                     'expected_delivery_date' => $event->expected_delivery_date?->format('Y-m-d'),
@@ -102,6 +106,7 @@ class FundCycleEventController extends Controller
                 'status' => $fundCycleEvent->status->value,
                 'status_label' => $fundCycleEvent->status->label(),
                 'description' => $fundCycleEvent->description,
+                'banner_image_url' => $fundCycleEvent->bannerUrl(),
                 'order_open_at' => $fundCycleEvent->order_open_at?->format('Y-m-d\\TH:i'),
                 'order_close_at' => $fundCycleEvent->order_close_at?->format('Y-m-d\\TH:i'),
                 'expected_delivery_date' => $fundCycleEvent->expected_delivery_date?->format('Y-m-d'),
@@ -128,6 +133,31 @@ class FundCycleEventController extends Controller
         $attributes['slug'] = $this->generateUniqueSlug($attributes['title'], $fundCycleEvent->id);
 
         $fundCycleEvent->update($attributes);
+
+        return to_route('admin.events.show', $fundCycleEvent);
+    }
+
+    public function uploadCover(
+        UploadFundCycleEventBannerRequest $request,
+        FundCycleEvent $fundCycleEvent,
+    ): RedirectResponse {
+        $newPath = $request->file('cover_image')?->store('event-banners', FundCycleEvent::bannerDisk());
+
+        if (! is_string($newPath) || $newPath === '') {
+            return back()->withErrors([
+                'cover_image' => 'Cover image upload failed. Please check storage configuration and try again.',
+            ]);
+        }
+
+        if ($newPath !== null) {
+            if ($fundCycleEvent->banner_image_path !== null) {
+                Storage::disk(FundCycleEvent::bannerDisk())->delete($fundCycleEvent->banner_image_path);
+            }
+
+            $fundCycleEvent->update([
+                'banner_image_path' => $newPath,
+            ]);
+        }
 
         return to_route('admin.events.show', $fundCycleEvent);
     }

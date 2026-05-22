@@ -6,6 +6,7 @@ use App\Enums\FundCycleEventStatus;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Facades\Storage;
 
 #[Fillable([
     'fund_cycle_id',
@@ -33,5 +34,22 @@ class FundCycleEvent extends Model
     public function fundCycle(): BelongsTo
     {
         return $this->belongsTo(FundCycle::class);
+    }
+
+    public static function bannerDisk(): string
+    {
+        return (string) config('filesystems.default', 'local');
+    }
+
+    public function bannerUrl(): ?string
+    {
+        if ($this->banner_image_path === null) {
+            return null;
+        }
+
+        /** @var \Illuminate\Filesystem\FilesystemAdapter $disk */
+        $disk = Storage::disk(self::bannerDisk());
+
+        return $disk->url($this->banner_image_path);
     }
 }

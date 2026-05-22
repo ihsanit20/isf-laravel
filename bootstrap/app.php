@@ -6,7 +6,9 @@ use App\Http\Middleware\HandleInertiaRequests;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Exceptions\PostTooLargeException;
 use Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets;
+use Illuminate\Http\Request;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -28,5 +30,13 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        //
+        $exceptions->render(function (PostTooLargeException $exception, Request $request) {
+            if ($request->is('admin/events/*/cover')) {
+                return back()->withErrors([
+                    'cover_image' => 'Uploaded image exceeds server request size limit. Please use a smaller file.',
+                ]);
+            }
+
+            return null;
+        });
     })->create();
