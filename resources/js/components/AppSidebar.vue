@@ -4,6 +4,7 @@ import { usePage } from '@inertiajs/vue3';
 import {
     BadgeDollarSign,
     BookMarked,
+    CalendarDays,
     Cog,
     FileBadge2,
     Info,
@@ -95,6 +96,12 @@ const mainNavItems = computed<NavItem[]>(() => {
             title: 'Fund Cycles',
             href: '/admin/fund-cycles',
             icon: Landmark,
+        });
+
+        items.push({
+            title: 'Events',
+            href: '/admin/events',
+            icon: CalendarDays,
         });
 
         items.push({

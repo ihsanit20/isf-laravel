@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
-import { Pencil, Plus } from 'lucide-vue-next';
+import { Eye, Pencil, Plus } from 'lucide-vue-next';
 import { ref } from 'vue';
 import FundCycleEventFormDialog from '@/components/admin/FundCycleEventFormDialog.vue';
 import { Badge } from '@/components/ui/badge';
@@ -213,14 +213,28 @@ const formatDateTime = (value: string): string => {
                                 {{ event.created_at || '-' }}
                             </td>
                             <td class="px-4 py-3">
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    @click="openEditDialog(event)"
-                                >
-                                    <Pencil class="size-4" />
-                                    Edit
-                                </Button>
+                                <div class="flex gap-2">
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        as-child
+                                    >
+                                        <Link
+                                            :href="`/admin/events/${event.id}`"
+                                        >
+                                            <Eye class="size-4" />
+                                            Details
+                                        </Link>
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        @click="openEditDialog(event)"
+                                    >
+                                        <Pencil class="size-4" />
+                                        Edit
+                                    </Button>
+                                </div>
                             </td>
                         </tr>
                         <tr v-if="props.events.length === 0">

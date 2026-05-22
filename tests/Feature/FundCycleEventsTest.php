@@ -6,6 +6,7 @@ use App\Models\FundCycleEvent;
 use App\Models\User;
 use Inertia\Testing\AssertableInertia as Assert;
 use function Pest\Laravel\actingAs;
+use function Pest\Laravel\get;
 use function Pest\Laravel\post;
 use function Pest\Laravel\put;
 
@@ -58,6 +59,83 @@ test('members cannot visit the fund cycle events page', function () {
 
     actingAs($member)
         ->get(route('admin.fund-cycles.events.index', $fundCycle))
+        ->assertForbidden();
+});
+
+test('admins can visit all events admin page', function () {
+    $admin = User::factory()->create([
+        'role' => 'admin',
+    ]);
+    $fundCycle = FundCycle::query()->create([
+        'name' => 'Events Cycle',
+        'status' => FundCycle::STATUS_OPEN,
+        'unit_amount' => 1000,
+        'start_date' => '2026-05-01',
+        'slots' => ['May 2026'],
+        'created_by_user_id' => $admin->id,
+    ]);
+
+    $fundCycle->events()->create([
+        'title' => 'Public Event Listing',
+        'slug' => 'public-event-listing',
+        'status' => FundCycleEventStatus::Published,
+        'description' => null,
+        'banner_image_path' => null,
+        'order_open_at' => '2026-06-01 09:00:00',
+        'order_close_at' => '2026-06-10 23:00:00',
+        'expected_delivery_date' => null,
+    ]);
+
+    actingAs($admin)
+        ->get(route('admin.events.index'))
+        ->assertOk()
+        ->assertInertia(fn(Assert $page) => $page
+            ->component('admin/Events')
+            ->has('events', 1)
+            ->where('events.0.slug', 'public-event-listing')
+            ->where('events.0.fund_cycle.name', 'Events Cycle'));
+});
+
+test('admins can visit event details page', function () {
+    $admin = User::factory()->create([
+        'role' => 'admin',
+    ]);
+    $fundCycle = FundCycle::query()->create([
+        'name' => 'Details Cycle',
+        'status' => FundCycle::STATUS_OPEN,
+        'unit_amount' => 1000,
+        'start_date' => '2026-05-01',
+        'slots' => ['May 2026'],
+        'created_by_user_id' => $admin->id,
+    ]);
+
+    $event = $fundCycle->events()->create([
+        'title' => 'Event Details Page',
+        'slug' => 'event-details-page',
+        'status' => FundCycleEventStatus::Draft,
+        'description' => 'Details for this event',
+        'banner_image_path' => null,
+        'order_open_at' => '2026-06-01 09:00:00',
+        'order_close_at' => '2026-06-10 23:00:00',
+        'expected_delivery_date' => '2026-06-20',
+    ]);
+
+    actingAs($admin)
+        ->get(route('admin.events.show', $event))
+        ->assertOk()
+        ->assertInertia(fn(Assert $page) => $page
+            ->component('admin/EventDetails')
+            ->where('event.id', $event->id)
+            ->where('event.fund_cycle.name', 'Details Cycle'));
+});
+
+test('members cannot visit all events admin page', function () {
+    $member = User::factory()->create([
+        'role' => 'member',
+    ]);
+
+    actingAs($member)
+        ->get(route('admin.events.index'))
         ->assertForbidden();
 });
 

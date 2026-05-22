@@ -60,6 +60,65 @@ class FundCycleEventController extends Controller
         return to_route('admin.fund-cycles.events.index', $fundCycle);
     }
 
+    public function all(): Response
+    {
+        return Inertia::render('admin/Events', [
+            'events' => FundCycleEvent::query()
+                ->with('fundCycle:id,name,status')
+                ->latest('order_open_at')
+                ->latest('id')
+                ->get()
+                ->map(fn(FundCycleEvent $event): array => [
+                    'id' => $event->id,
+                    'title' => $event->title,
+                    'slug' => $event->slug,
+                    'status' => $event->status->value,
+                    'status_label' => $event->status->label(),
+                    'description' => $event->description,
+                    'order_open_at' => $event->order_open_at?->format('Y-m-d H:i'),
+                    'order_close_at' => $event->order_close_at?->format('Y-m-d H:i'),
+                    'expected_delivery_date' => $event->expected_delivery_date?->format('Y-m-d'),
+                    'fund_cycle' => [
+                        'id' => $event->fund_cycle_id,
+                        'name' => $event->fundCycle?->name,
+                        'status' => $event->fundCycle?->status,
+                    ],
+                    'created_at' => $event->created_at?->format('d M Y, h:i A'),
+                ])
+                ->values(),
+        ]);
+    }
+
+    public function show(FundCycleEvent $fundCycleEvent): Response
+    {
+        $fundCycleEvent->load('fundCycle:id,name,status,start_date,lock_date,maturity_date,settlement_date');
+
+        return Inertia::render('admin/EventDetails', [
+            'event' => [
+                'id' => $fundCycleEvent->id,
+                'title' => $fundCycleEvent->title,
+                'slug' => $fundCycleEvent->slug,
+                'status' => $fundCycleEvent->status->value,
+                'status_label' => $fundCycleEvent->status->label(),
+                'description' => $fundCycleEvent->description,
+                'order_open_at' => $fundCycleEvent->order_open_at?->format('Y-m-d H:i'),
+                'order_close_at' => $fundCycleEvent->order_close_at?->format('Y-m-d H:i'),
+                'expected_delivery_date' => $fundCycleEvent->expected_delivery_date?->format('Y-m-d'),
+                'created_at' => $fundCycleEvent->created_at?->format('d M Y, h:i A'),
+                'updated_at' => $fundCycleEvent->updated_at?->format('d M Y, h:i A'),
+                'fund_cycle' => [
+                    'id' => $fundCycleEvent->fund_cycle_id,
+                    'name' => $fundCycleEvent->fundCycle?->name,
+                    'status' => $fundCycleEvent->fundCycle?->status,
+                    'start_date' => $fundCycleEvent->fundCycle?->start_date?->format('Y-m-d'),
+                    'lock_date' => $fundCycleEvent->fundCycle?->lock_date?->format('Y-m-d'),
+                    'maturity_date' => $fundCycleEvent->fundCycle?->maturity_date?->format('Y-m-d'),
+                    'settlement_date' => $fundCycleEvent->fundCycle?->settlement_date?->format('Y-m-d'),
+                ],
+            ],
+        ]);
+    }
+
     public function update(
         UpdateFundCycleEventRequest $request,
         FundCycle $fundCycle,
