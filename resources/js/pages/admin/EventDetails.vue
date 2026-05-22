@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
 import { Pencil } from 'lucide-vue-next';
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import FundCycleEventFormDialog from '@/components/admin/FundCycleEventFormDialog.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -57,6 +57,16 @@ defineOptions({
 const props = defineProps<Props>();
 const isEditDialogOpen = ref(false);
 
+const editableEvent = computed(() => ({
+    id: props.event.id,
+    title: props.event.title,
+    status: props.event.status,
+    description: props.event.description,
+    order_open_at: props.event.order_open_at ?? '',
+    order_close_at: props.event.order_close_at ?? '',
+    expected_delivery_date: props.event.expected_delivery_date,
+}));
+
 const formatDateTime = (value: string | null): string => {
     if (!value) {
         return '-';
@@ -76,7 +86,7 @@ const formatDateTime = (value: string | null): string => {
             <div
                 class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between"
             >
-                <div class="max-w-3xl">
+                <div class="">
                     <p
                         class="text-xs font-medium tracking-[0.2em] text-muted-foreground uppercase"
                     >
@@ -178,7 +188,7 @@ const formatDateTime = (value: string | null): string => {
             mode="edit"
             :fund-cycle-id="props.event.fund_cycle.id"
             :event-statuses="props.eventStatuses"
-            :fund-cycle-event="props.event"
+            :fund-cycle-event="editableEvent"
             :update-url="`/admin/events/${props.event.id}`"
         />
     </div>
