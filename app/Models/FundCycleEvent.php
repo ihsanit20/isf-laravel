@@ -1,0 +1,37 @@
+<?php
+
+namespace App\Models;
+
+use App\Enums\FundCycleEventStatus;
+use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+#[Fillable([
+    'fund_cycle_id',
+    'title',
+    'slug',
+    'status',
+    'description',
+    'banner_image_path',
+    'order_open_at',
+    'order_close_at',
+    'expected_delivery_date',
+])]
+class FundCycleEvent extends Model
+{
+    protected function casts(): array
+    {
+        return [
+            'status' => FundCycleEventStatus::class,
+            'order_open_at' => 'datetime',
+            'order_close_at' => 'datetime',
+            'expected_delivery_date' => 'date',
+        ];
+    }
+
+    public function fundCycle(): BelongsTo
+    {
+        return $this->belongsTo(FundCycle::class);
+    }
+}

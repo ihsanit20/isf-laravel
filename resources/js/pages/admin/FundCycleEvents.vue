@@ -1,5 +1,8 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
+import { Pencil, Plus } from 'lucide-vue-next';
+import { ref } from 'vue';
+import FundCycleEventFormDialog from '@/components/admin/FundCycleEventFormDialog.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 
@@ -14,8 +17,29 @@ type FundCycleEventPage = {
     settlement_date: string | null;
 };
 
+type EventStatusOption = {
+    value: string;
+    label: string;
+};
+
+type FundCycleEventItem = {
+    id: number;
+    title: string;
+    slug: string;
+    status: string;
+    status_label: string;
+    description: string | null;
+    banner_image_path: string | null;
+    order_open_at: string;
+    order_close_at: string;
+    expected_delivery_date: string | null;
+    created_at: string | null;
+};
+
 type Props = {
     fundCycle: FundCycleEventPage;
+    eventStatuses: EventStatusOption[];
+    events: FundCycleEventItem[];
 };
 
 defineOptions({
@@ -34,6 +58,18 @@ defineOptions({
 });
 
 const props = defineProps<Props>();
+const isCreateDialogOpen = ref(false);
+const isEditDialogOpen = ref(false);
+const selectedEvent = ref<FundCycleEventItem | null>(null);
+
+const openEditDialog = (event: FundCycleEventItem) => {
+    selectedEvent.value = event;
+    isEditDialogOpen.value = true;
+};
+
+const formatDateTime = (value: string): string => {
+    return value.replace('T', ' ');
+};
 </script>
 
 <template>
@@ -62,6 +98,10 @@ const props = defineProps<Props>();
                 </div>
 
                 <div class="flex flex-wrap gap-2">
+                    <Button @click="isCreateDialogOpen = true">
+                        <Plus class="size-4" />
+                        Add Event
+                    </Button>
                     <Button variant="outline" as-child>
                         <Link
                             :href="`/admin/fund-cycles/${props.fundCycle.id}`"
@@ -116,20 +156,99 @@ const props = defineProps<Props>();
         </section>
 
         <section
-            class="rounded-xl border border-dashed border-sidebar-border/70 bg-background px-6 py-10 text-center shadow-sm dark:border-sidebar-border"
+            class="overflow-hidden rounded-xl border border-sidebar-border/70 bg-background shadow-sm dark:border-sidebar-border"
         >
-            <div class="mx-auto max-w-2xl">
-                <h2
-                    class="text-lg font-semibold tracking-tight text-foreground"
+            <div class="overflow-x-auto">
+                <table
+                    class="min-w-full divide-y divide-sidebar-border/70 text-sm"
                 >
-                    Events page is ready
-                </h2>
-                <p class="mt-2 text-sm leading-6 text-muted-foreground">
-                    This route is now available at
-                    /admin/fund-cycles/[id]/events. Event planning and
-                    implementation can be added next.
-                </p>
+                    <thead class="bg-muted/40 text-left">
+                        <tr>
+                            <th class="px-4 py-3 font-medium">Title</th>
+                            <th class="px-4 py-3 font-medium">Slug</th>
+                            <th class="px-4 py-3 font-medium">Status</th>
+                            <th class="px-4 py-3 font-medium">Order Window</th>
+                            <th class="px-4 py-3 font-medium">Delivery</th>
+                            <th class="px-4 py-3 font-medium">Banner</th>
+                            <th class="px-4 py-3 font-medium">Created At</th>
+                            <th class="px-4 py-3 font-medium">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-sidebar-border/70">
+                        <tr v-for="event in props.events" :key="event.id">
+                            <td class="px-4 py-3 font-medium">
+                                <div>{{ event.title }}</div>
+                                <div
+                                    v-if="event.description"
+                                    class="mt-1 line-clamp-2 max-w-sm text-xs text-muted-foreground"
+                                >
+                                    {{ event.description }}
+                                </div>
+                            </td>
+                            <td class="px-4 py-3 text-muted-foreground">
+                                {{ event.slug }}
+                            </td>
+                            <td class="px-4 py-3">
+                                <Badge variant="outline">{{
+                                    event.status_label
+                                }}</Badge>
+                            </td>
+                            <td class="px-4 py-3 text-muted-foreground">
+                                <div>
+                                    Open:
+                                    {{ formatDateTime(event.order_open_at) }}
+                                </div>
+                                <div>
+                                    Close:
+                                    {{ formatDateTime(event.order_close_at) }}
+                                </div>
+                            </td>
+                            <td class="px-4 py-3 text-muted-foreground">
+                                {{ event.expected_delivery_date || '-' }}
+                            </td>
+                            <td class="px-4 py-3 text-muted-foreground">
+                                {{ event.banner_image_path || '-' }}
+                            </td>
+                            <td class="px-4 py-3 text-muted-foreground">
+                                {{ event.created_at || '-' }}
+                            </td>
+                            <td class="px-4 py-3">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    @click="openEditDialog(event)"
+                                >
+                                    <Pencil class="size-4" />
+                                    Edit
+                                </Button>
+                            </td>
+                        </tr>
+                        <tr v-if="props.events.length === 0">
+                            <td
+                                colspan="8"
+                                class="px-4 py-8 text-center text-muted-foreground"
+                            >
+                                No events found for this cycle.
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
         </section>
+
+        <FundCycleEventFormDialog
+            v-model:isOpen="isCreateDialogOpen"
+            mode="create"
+            :fund-cycle-id="props.fundCycle.id"
+            :event-statuses="props.eventStatuses"
+        />
+
+        <FundCycleEventFormDialog
+            v-model:isOpen="isEditDialogOpen"
+            mode="edit"
+            :fund-cycle-id="props.fundCycle.id"
+            :event-statuses="props.eventStatuses"
+            :fund-cycle-event="selectedEvent"
+        />
     </div>
 </template>

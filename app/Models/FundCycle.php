@@ -76,4 +76,9 @@ class FundCycle extends Model
     {
         return $this->hasMany(FundCycleAllocation::class);
     }
+
+    public function events(): HasMany
+    {
+        return $this->hasMany(FundCycleEvent::class);
+    }
 }
