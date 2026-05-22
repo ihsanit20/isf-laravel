@@ -116,6 +116,9 @@ class FundCycleEventController extends Controller
                     'id' => $fundCycleEvent->fund_cycle_id,
                     'name' => $fundCycleEvent->fundCycle?->name,
                     'status' => $fundCycleEvent->fundCycle?->status,
+                    'status_label' => $fundCycleEvent->fundCycle?->status
+                        ? FundCycle::statusLabel($fundCycleEvent->fundCycle->status)
+                        : null,
                     'start_date' => $fundCycleEvent->fundCycle?->start_date?->format('Y-m-d'),
                     'lock_date' => $fundCycleEvent->fundCycle?->lock_date?->format('Y-m-d'),
                     'maturity_date' => $fundCycleEvent->fundCycle?->maturity_date?->format('Y-m-d'),
