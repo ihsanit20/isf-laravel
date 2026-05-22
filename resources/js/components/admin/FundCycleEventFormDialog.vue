@@ -41,6 +41,7 @@ type Props = {
     mode: 'create' | 'edit';
     eventStatuses: EventStatusOption[];
     fundCycleEvent?: EditableFundCycleEvent | null;
+    updateUrl?: string | null;
 };
 
 const props = defineProps<Props>();
@@ -105,13 +106,14 @@ const submit = () => {
     };
 
     if (isEditing.value && props.fundCycleEvent) {
-        form.transform(() => payload).put(
-            `/admin/fund-cycles/${props.fundCycleId}/events/${props.fundCycleEvent.id}`,
-            {
-                preserveScroll: true,
-                onSuccess: () => closeDialog(),
-            },
-        );
+        const updateUrl =
+            props.updateUrl ??
+            `/admin/fund-cycles/${props.fundCycleId}/events/${props.fundCycleEvent.id}`;
+
+        form.transform(() => payload).put(updateUrl, {
+            preserveScroll: true,
+            onSuccess: () => closeDialog(),
+        });
 
         return;
     }

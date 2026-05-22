@@ -94,6 +94,7 @@ class FundCycleEventController extends Controller
         $fundCycleEvent->load('fundCycle:id,name,status,start_date,lock_date,maturity_date,settlement_date');
 
         return Inertia::render('admin/EventDetails', [
+            'eventStatuses' => FundCycleEventStatus::options(),
             'event' => [
                 'id' => $fundCycleEvent->id,
                 'title' => $fundCycleEvent->title,
@@ -101,8 +102,8 @@ class FundCycleEventController extends Controller
                 'status' => $fundCycleEvent->status->value,
                 'status_label' => $fundCycleEvent->status->label(),
                 'description' => $fundCycleEvent->description,
-                'order_open_at' => $fundCycleEvent->order_open_at?->format('Y-m-d H:i'),
-                'order_close_at' => $fundCycleEvent->order_close_at?->format('Y-m-d H:i'),
+                'order_open_at' => $fundCycleEvent->order_open_at?->format('Y-m-d\\TH:i'),
+                'order_close_at' => $fundCycleEvent->order_close_at?->format('Y-m-d\\TH:i'),
                 'expected_delivery_date' => $fundCycleEvent->expected_delivery_date?->format('Y-m-d'),
                 'created_at' => $fundCycleEvent->created_at?->format('d M Y, h:i A'),
                 'updated_at' => $fundCycleEvent->updated_at?->format('d M Y, h:i A'),
@@ -117,6 +118,18 @@ class FundCycleEventController extends Controller
                 ],
             ],
         ]);
+    }
+
+    public function updateFromDetails(
+        UpdateFundCycleEventRequest $request,
+        FundCycleEvent $fundCycleEvent,
+    ): RedirectResponse {
+        $attributes = $request->validated();
+        $attributes['slug'] = $this->generateUniqueSlug($attributes['title'], $fundCycleEvent->id);
+
+        $fundCycleEvent->update($attributes);
+
+        return to_route('admin.events.show', $fundCycleEvent);
     }
 
     public function update(

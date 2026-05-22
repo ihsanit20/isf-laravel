@@ -1,7 +1,15 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
+import { Pencil } from 'lucide-vue-next';
+import { ref } from 'vue';
+import FundCycleEventFormDialog from '@/components/admin/FundCycleEventFormDialog.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+
+type EventStatusOption = {
+    value: string;
+    label: string;
+};
 
 type EventDetails = {
     id: number;
@@ -28,6 +36,7 @@ type EventDetails = {
 
 type Props = {
     event: EventDetails;
+    eventStatuses: EventStatusOption[];
 };
 
 defineOptions({
@@ -46,6 +55,15 @@ defineOptions({
 });
 
 const props = defineProps<Props>();
+const isEditDialogOpen = ref(false);
+
+const formatDateTime = (value: string | null): string => {
+    if (!value) {
+        return '-';
+    }
+
+    return value.replace('T', ' ');
+};
 </script>
 
 <template>
@@ -76,6 +94,10 @@ const props = defineProps<Props>();
                 </div>
 
                 <div class="flex flex-wrap gap-2">
+                    <Button @click="isEditDialogOpen = true">
+                        <Pencil class="size-4" />
+                        Edit Event
+                    </Button>
                     <Button variant="outline" as-child>
                         <Link href="/admin/events">Back to Events</Link>
                     </Button>
@@ -111,13 +133,13 @@ const props = defineProps<Props>();
                 <div>
                     <div class="text-xs text-muted-foreground">Order Open</div>
                     <div class="mt-1 font-medium text-foreground">
-                        {{ props.event.order_open_at || '-' }}
+                        {{ formatDateTime(props.event.order_open_at) }}
                     </div>
                 </div>
                 <div>
                     <div class="text-xs text-muted-foreground">Order Close</div>
                     <div class="mt-1 font-medium text-foreground">
-                        {{ props.event.order_close_at || '-' }}
+                        {{ formatDateTime(props.event.order_close_at) }}
                     </div>
                 </div>
                 <div>
@@ -151,42 +173,13 @@ const props = defineProps<Props>();
             </div>
         </section>
 
-        <section
-            class="rounded-xl border border-sidebar-border/70 bg-background p-6 shadow-sm dark:border-sidebar-border"
-        >
-            <h2 class="text-lg font-semibold tracking-tight">
-                Fund Cycle Timeline
-            </h2>
-            <div class="mt-4 grid gap-4 text-sm md:grid-cols-2 xl:grid-cols-4">
-                <div>
-                    <div class="text-xs text-muted-foreground">Start Date</div>
-                    <div class="mt-1 font-medium text-foreground">
-                        {{ props.event.fund_cycle.start_date || '-' }}
-                    </div>
-                </div>
-                <div>
-                    <div class="text-xs text-muted-foreground">Lock Date</div>
-                    <div class="mt-1 font-medium text-foreground">
-                        {{ props.event.fund_cycle.lock_date || '-' }}
-                    </div>
-                </div>
-                <div>
-                    <div class="text-xs text-muted-foreground">
-                        Maturity Date
-                    </div>
-                    <div class="mt-1 font-medium text-foreground">
-                        {{ props.event.fund_cycle.maturity_date || '-' }}
-                    </div>
-                </div>
-                <div>
-                    <div class="text-xs text-muted-foreground">
-                        Settlement Date
-                    </div>
-                    <div class="mt-1 font-medium text-foreground">
-                        {{ props.event.fund_cycle.settlement_date || '-' }}
-                    </div>
-                </div>
-            </div>
-        </section>
+        <FundCycleEventFormDialog
+            v-model:isOpen="isEditDialogOpen"
+            mode="edit"
+            :fund-cycle-id="props.event.fund_cycle.id"
+            :event-statuses="props.eventStatuses"
+            :fund-cycle-event="props.event"
+            :update-url="`/admin/events/${props.event.id}`"
+        />
     </div>
 </template>
