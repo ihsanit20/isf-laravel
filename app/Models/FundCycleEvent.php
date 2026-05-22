@@ -6,6 +6,7 @@ use App\Enums\FundCycleEventStatus;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Storage;
 
 #[Fillable([
@@ -34,6 +35,11 @@ class FundCycleEvent extends Model
     public function fundCycle(): BelongsTo
     {
         return $this->belongsTo(FundCycle::class);
+    }
+
+    public function packages(): HasMany
+    {
+        return $this->hasMany(EventPackage::class);
     }
 
     public static function bannerDisk(): string

@@ -7,8 +7,10 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreFundCycleEventRequest;
 use App\Http\Requests\Admin\UploadFundCycleEventBannerRequest;
 use App\Http\Requests\Admin\UpdateFundCycleEventRequest;
+use App\Models\EventPackage;
 use App\Models\FundCycle;
 use App\Models\FundCycleEvent;
+use App\Enums\EventPackageStatus;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -95,10 +97,14 @@ class FundCycleEventController extends Controller
 
     public function show(FundCycleEvent $fundCycleEvent): Response
     {
-        $fundCycleEvent->load('fundCycle:id,name,status,start_date,lock_date,maturity_date,settlement_date');
+        $fundCycleEvent->load([
+            'fundCycle:id,name,status,start_date,lock_date,maturity_date,settlement_date',
+            'packages' => fn($q) => $q->orderBy('sort_order')->orderBy('id'),
+        ]);
 
         return Inertia::render('admin/EventDetails', [
             'eventStatuses' => FundCycleEventStatus::options(),
+            'packageStatuses' => EventPackageStatus::options(),
             'event' => [
                 'id' => $fundCycleEvent->id,
                 'title' => $fundCycleEvent->title,
@@ -124,6 +130,23 @@ class FundCycleEventController extends Controller
                     'maturity_date' => $fundCycleEvent->fundCycle?->maturity_date?->format('Y-m-d'),
                     'settlement_date' => $fundCycleEvent->fundCycle?->settlement_date?->format('Y-m-d'),
                 ],
+                'packages' => $fundCycleEvent->packages
+                    ->map(fn(EventPackage $pkg): array => [
+                        'id' => $pkg->id,
+                        'name' => $pkg->name,
+                        'description' => $pkg->description,
+                        'unit_price' => $pkg->unit_price,
+                        'advance_percent' => $pkg->advance_percent,
+                        'min_qty_per_order' => $pkg->min_qty_per_order,
+                        'max_qty_per_order' => $pkg->max_qty_per_order,
+                        'stock_qty' => $pkg->stock_qty,
+                        'sold_qty' => $pkg->sold_qty,
+                        'remaining_qty' => $pkg->remainingQty(),
+                        'sort_order' => $pkg->sort_order,
+                        'status' => $pkg->status->value,
+                        'status_label' => $pkg->status->label(),
+                    ])
+                    ->values(),
             ],
         ]);
     }

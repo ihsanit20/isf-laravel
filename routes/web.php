@@ -4,6 +4,7 @@ use App\Http\Controllers\Admin\MemberListController;
 use App\Http\Controllers\Admin\ChargeCategoryController;
 use App\Http\Controllers\Admin\ChargeListController;
 use App\Http\Controllers\Admin\DepositListController;
+use App\Http\Controllers\Admin\EventPackageController;
 use App\Http\Controllers\Admin\FundCycleEventController;
 use App\Http\Controllers\Admin\FundCycleController;
 use App\Http\Controllers\Admin\GeneralExpenseController;
@@ -59,6 +60,9 @@ Route::middleware(['auth', 'verified', 'admin'])->group(function () {
     Route::get('admin/events/{fundCycleEvent}', [FundCycleEventController::class, 'show'])->name('admin.events.show');
     Route::put('admin/events/{fundCycleEvent}', [FundCycleEventController::class, 'updateFromDetails'])->name('admin.events.update');
     Route::post('admin/events/{fundCycleEvent}/cover', [FundCycleEventController::class, 'uploadCover'])->name('admin.events.cover.store');
+    Route::post('admin/events/{fundCycleEvent}/packages', [EventPackageController::class, 'store'])->name('admin.events.packages.store');
+    Route::put('admin/events/{fundCycleEvent}/packages/{eventPackage}', [EventPackageController::class, 'update'])->name('admin.events.packages.update');
+    Route::delete('admin/events/{fundCycleEvent}/packages/{eventPackage}', [EventPackageController::class, 'destroy'])->name('admin.events.packages.destroy');
     Route::post('admin/fund-cycles', [FundCycleController::class, 'store'])->name('admin.fund-cycles.store');
     Route::put('admin/fund-cycles/{fundCycle}', [FundCycleController::class, 'update'])->name('admin.fund-cycles.update');
     Route::post('admin/fund-cycles/{fundCycle}/allocations', [FundCycleController::class, 'storeAllocation'])->name('admin.fund-cycles.allocations.store');

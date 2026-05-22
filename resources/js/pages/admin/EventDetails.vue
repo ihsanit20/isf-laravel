@@ -1,13 +1,17 @@
 <script setup lang="ts">
-import { Head, Link, useForm } from '@inertiajs/vue3';
+import { Head, Link, useForm, router } from '@inertiajs/vue3';
 import {
     CalendarDays,
     ChevronDown,
     Clock3,
     Pencil,
     Tag,
+    Package,
+    Plus,
+    Trash2,
 } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
+import EventPackageFormDialog from '@/components/admin/EventPackageFormDialog.vue';
 import FundCycleEventFormDialog from '@/components/admin/FundCycleEventFormDialog.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -15,6 +19,27 @@ import { Button } from '@/components/ui/button';
 type EventStatusOption = {
     value: string;
     label: string;
+};
+
+type PackageStatusOption = {
+    value: string;
+    label: string;
+};
+
+type EventPackage = {
+    id: number;
+    name: string;
+    description: string | null;
+    unit_price: string;
+    advance_percent: string;
+    min_qty_per_order: number;
+    max_qty_per_order: number | null;
+    stock_qty: number | null;
+    sold_qty: number;
+    remaining_qty: number | null;
+    sort_order: number;
+    status: string;
+    status_label: string;
 };
 
 type EventDetails = {
@@ -30,6 +55,7 @@ type EventDetails = {
     expected_delivery_date: string | null;
     created_at: string | null;
     updated_at: string | null;
+    packages: EventPackage[];
     fund_cycle: {
         id: number;
         name: string | null;
@@ -45,6 +71,7 @@ type EventDetails = {
 type Props = {
     event: EventDetails;
     eventStatuses: EventStatusOption[];
+    packageStatuses: PackageStatusOption[];
 };
 
 defineOptions({
@@ -64,6 +91,8 @@ defineOptions({
 
 const props = defineProps<Props>();
 const isEditDialogOpen = ref(false);
+const isPackageDialogOpen = ref(false);
+const editingPackage = ref<EventPackage | null>(null);
 const isDescriptionExpanded = ref(false);
 const coverInputRef = ref<HTMLInputElement | null>(null);
 const coverForm = useForm<{
@@ -163,6 +192,30 @@ const submitCover = () => {
                 coverInputRef.value.value = '';
             }
         },
+    });
+};
+
+const openAddPackage = () => {
+    editingPackage.value = null;
+    isPackageDialogOpen.value = true;
+};
+
+const openEditPackage = (pkg: EventPackage) => {
+    editingPackage.value = pkg;
+    isPackageDialogOpen.value = true;
+};
+
+const deletePackage = (pkg: EventPackage) => {
+    if (
+        !confirm(
+            `"${pkg.name}" প্যাকেজটি মুছে ফেলবেন? এটি আর নতুন অর্ডারে দেখাবে না।`,
+        )
+    ) {
+        return;
+    }
+
+    router.delete(`/admin/events/${props.event.id}/packages/${pkg.id}`, {
+        preserveScroll: true,
     });
 };
 </script>
@@ -406,6 +459,143 @@ const submitCover = () => {
             </div>
         </section>
 
+        <!-- Packages Section -->
+        <section
+            class="rounded-xl border border-sidebar-border/70 bg-background p-6 shadow-sm dark:border-sidebar-border"
+        >
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <Package class="size-5 text-muted-foreground" />
+                    <h2 class="text-base font-semibold">Packages</h2>
+                    <Badge variant="secondary" class="text-xs">
+                        {{ props.event.packages.length }}
+                    </Badge>
+                </div>
+                <Button size="sm" @click="openAddPackage">
+                    <Plus class="size-4" />
+                    Add Package
+                </Button>
+            </div>
+
+            <div
+                v-if="props.event.packages.length === 0"
+                class="mt-6 rounded-xl border border-dashed border-sidebar-border/70 py-10 text-center text-sm text-muted-foreground"
+            >
+                No packages added yet. Click "Add Package" to create one.
+            </div>
+
+            <div
+                v-else
+                class="mt-4 overflow-x-auto rounded-xl border border-sidebar-border/70"
+            >
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr
+                            class="border-b border-sidebar-border/70 bg-muted/30 text-xs text-muted-foreground"
+                        >
+                            <th class="px-4 py-3 text-left font-medium">
+                                Name
+                            </th>
+                            <th class="px-4 py-3 text-right font-medium">
+                                Price
+                            </th>
+                            <th class="px-4 py-3 text-right font-medium">
+                                Advance
+                            </th>
+                            <th class="px-4 py-3 text-right font-medium">
+                                Min / Max
+                            </th>
+                            <th class="px-4 py-3 text-right font-medium">
+                                Stock
+                            </th>
+                            <th class="px-4 py-3 text-right font-medium">
+                                Sold
+                            </th>
+                            <th class="px-4 py-3 text-center font-medium">
+                                Status
+                            </th>
+                            <th class="px-4 py-3 text-right font-medium">
+                                Actions
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr
+                            v-for="pkg in props.event.packages"
+                            :key="pkg.id"
+                            class="border-b border-sidebar-border/50 last:border-0 hover:bg-muted/20"
+                        >
+                            <td class="px-4 py-3 font-medium text-foreground">
+                                {{ pkg.name }}
+                                <p
+                                    v-if="pkg.description"
+                                    class="mt-0.5 line-clamp-1 text-xs font-normal text-muted-foreground"
+                                >
+                                    {{ pkg.description }}
+                                </p>
+                            </td>
+                            <td class="px-4 py-3 text-right tabular-nums">
+                                ৳{{ Number(pkg.unit_price).toLocaleString() }}
+                            </td>
+                            <td class="px-4 py-3 text-right tabular-nums">
+                                {{ pkg.advance_percent }}%
+                            </td>
+                            <td
+                                class="px-4 py-3 text-right text-muted-foreground tabular-nums"
+                            >
+                                {{ pkg.min_qty_per_order }} /
+                                {{ pkg.max_qty_per_order ?? '∞' }}
+                            </td>
+                            <td class="px-4 py-3 text-right tabular-nums">
+                                {{ pkg.stock_qty ?? '∞' }}
+                            </td>
+                            <td class="px-4 py-3 text-right tabular-nums">
+                                {{ pkg.sold_qty }}
+                            </td>
+                            <td class="px-4 py-3 text-center">
+                                <Badge
+                                    variant="outline"
+                                    :class="{
+                                        'border-green-500/50 text-green-600 dark:text-green-400':
+                                            pkg.status === 'active',
+                                        'border-yellow-500/50 text-yellow-600 dark:text-yellow-400':
+                                            pkg.status === 'draft',
+                                        'border-muted text-muted-foreground':
+                                            pkg.status === 'inactive',
+                                    }"
+                                    class="text-xs"
+                                >
+                                    {{ pkg.status_label }}
+                                </Badge>
+                            </td>
+                            <td class="px-4 py-3 text-right">
+                                <div
+                                    class="flex items-center justify-end gap-1"
+                                >
+                                    <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        class="h-7 px-2"
+                                        @click="openEditPackage(pkg)"
+                                    >
+                                        <Pencil class="size-3.5" />
+                                    </Button>
+                                    <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        class="h-7 px-2 text-destructive hover:text-destructive"
+                                        @click="deletePackage(pkg)"
+                                    >
+                                        <Trash2 class="size-3.5" />
+                                    </Button>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
         <FundCycleEventFormDialog
             v-model:isOpen="isEditDialogOpen"
             mode="edit"
@@ -413,6 +603,14 @@ const submitCover = () => {
             :event-statuses="props.eventStatuses"
             :fund-cycle-event="editableEvent"
             :update-url="`/admin/events/${props.event.id}`"
+        />
+
+        <EventPackageFormDialog
+            v-model:isOpen="isPackageDialogOpen"
+            :event-id="props.event.id"
+            :mode="editingPackage ? 'edit' : 'create'"
+            :package-statuses="props.packageStatuses"
+            :event-package="editingPackage"
         />
     </div>
 </template>
