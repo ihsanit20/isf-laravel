@@ -47,6 +47,11 @@ class FundCycleEvent extends Model
         return $this->hasMany(EventPickupPoint::class);
     }
 
+    public function orders(): HasMany
+    {
+        return $this->hasMany(EventOrder::class);
+    }
+
     public static function bannerDisk(): string
     {
         return (string) config('filesystems.default', 'local');
