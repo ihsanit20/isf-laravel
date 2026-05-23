@@ -30,6 +30,7 @@ type FundCycleEventItem = {
     status_label: string;
     description: string | null;
     banner_image_path: string | null;
+    banner_image_url: string | null;
     order_open_at: string;
     order_close_at: string;
     expected_delivery_date: string | null;
@@ -164,18 +165,29 @@ const formatDateTime = (value: string): string => {
                 >
                     <thead class="bg-muted/40 text-left">
                         <tr>
+                            <th class="px-4 py-3 font-medium">Banner</th>
                             <th class="px-4 py-3 font-medium">Title</th>
                             <th class="px-4 py-3 font-medium">Slug</th>
                             <th class="px-4 py-3 font-medium">Status</th>
                             <th class="px-4 py-3 font-medium">Order Window</th>
                             <th class="px-4 py-3 font-medium">Delivery</th>
-                            <th class="px-4 py-3 font-medium">Banner</th>
                             <th class="px-4 py-3 font-medium">Created At</th>
                             <th class="px-4 py-3 font-medium">Action</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-sidebar-border/70">
                         <tr v-for="event in props.events" :key="event.id">
+                            <td class="px-4 py-3">
+                                <img
+                                    v-if="event.banner_image_url"
+                                    :src="event.banner_image_url"
+                                    :alt="event.title"
+                                    class="h-12 w-20 rounded object-cover"
+                                />
+                                <span v-else class="text-muted-foreground"
+                                    >-</span
+                                >
+                            </td>
                             <td class="px-4 py-3 font-medium">
                                 <div>{{ event.title }}</div>
                                 <div
@@ -205,9 +217,6 @@ const formatDateTime = (value: string): string => {
                             </td>
                             <td class="px-4 py-3 text-muted-foreground">
                                 {{ event.expected_delivery_date || '-' }}
-                            </td>
-                            <td class="px-4 py-3 text-muted-foreground">
-                                {{ event.banner_image_path || '-' }}
                             </td>
                             <td class="px-4 py-3 text-muted-foreground">
                                 {{ event.created_at || '-' }}
