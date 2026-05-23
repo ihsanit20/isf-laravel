@@ -8,6 +8,7 @@ use App\Http\Requests\Admin\StoreFundCycleEventRequest;
 use App\Http\Requests\Admin\UploadFundCycleEventBannerRequest;
 use App\Http\Requests\Admin\UpdateFundCycleEventRequest;
 use App\Models\EventPackage;
+use App\Models\EventPickupPoint;
 use App\Models\FundCycle;
 use App\Models\FundCycleEvent;
 use App\Enums\EventPackageStatus;
@@ -100,6 +101,7 @@ class FundCycleEventController extends Controller
         $fundCycleEvent->load([
             'fundCycle:id,name,status,start_date,lock_date,maturity_date,settlement_date',
             'packages' => fn($q) => $q->orderBy('sort_order')->orderBy('id'),
+            'pickupPoints' => fn($q) => $q->orderBy('sort_order')->orderBy('id'),
         ]);
 
         return Inertia::render('admin/EventDetails', [
@@ -145,6 +147,18 @@ class FundCycleEventController extends Controller
                         'sort_order' => $pkg->sort_order,
                         'status' => $pkg->status->value,
                         'status_label' => $pkg->status->label(),
+                    ])
+                    ->values(),
+                'pickup_points' => $fundCycleEvent->pickupPoints
+                    ->map(fn(EventPickupPoint $point): array => [
+                        'id' => $point->id,
+                        'name' => $point->name,
+                        'area' => $point->area,
+                        'address' => $point->address,
+                        'contact_person' => $point->contact_person,
+                        'phone' => $point->phone,
+                        'sort_order' => $point->sort_order,
+                        'is_active' => $point->is_active,
                     ])
                     ->values(),
             ],

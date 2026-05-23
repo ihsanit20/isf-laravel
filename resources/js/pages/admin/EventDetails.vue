@@ -4,6 +4,7 @@ import {
     CalendarDays,
     ChevronDown,
     Clock3,
+    MapPin,
     Pencil,
     Tag,
     Package,
@@ -12,6 +13,7 @@ import {
 } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 import EventPackageFormDialog from '@/components/admin/EventPackageFormDialog.vue';
+import EventPickupPointFormDialog from '@/components/admin/EventPickupPointFormDialog.vue';
 import FundCycleEventFormDialog from '@/components/admin/FundCycleEventFormDialog.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -42,6 +44,17 @@ type EventPackage = {
     status_label: string;
 };
 
+type EventPickupPoint = {
+    id: number;
+    name: string;
+    area: string | null;
+    address: string | null;
+    contact_person: string | null;
+    phone: string | null;
+    sort_order: number;
+    is_active: boolean;
+};
+
 type EventDetails = {
     id: number;
     title: string;
@@ -56,6 +69,7 @@ type EventDetails = {
     created_at: string | null;
     updated_at: string | null;
     packages: EventPackage[];
+    pickup_points: EventPickupPoint[];
     fund_cycle: {
         id: number;
         name: string | null;
@@ -93,6 +107,8 @@ const props = defineProps<Props>();
 const isEditDialogOpen = ref(false);
 const isPackageDialogOpen = ref(false);
 const editingPackage = ref<EventPackage | null>(null);
+const isPickupPointDialogOpen = ref(false);
+const editingPickupPoint = ref<EventPickupPoint | null>(null);
 const isDescriptionExpanded = ref(false);
 const coverInputRef = ref<HTMLInputElement | null>(null);
 const coverForm = useForm<{
@@ -215,6 +231,26 @@ const deletePackage = (pkg: EventPackage) => {
     }
 
     router.delete(`/admin/events/${props.event.id}/packages/${pkg.id}`, {
+        preserveScroll: true,
+    });
+};
+
+const openAddPickupPoint = () => {
+    editingPickupPoint.value = null;
+    isPickupPointDialogOpen.value = true;
+};
+
+const openEditPickupPoint = (point: EventPickupPoint) => {
+    editingPickupPoint.value = point;
+    isPickupPointDialogOpen.value = true;
+};
+
+const deletePickupPoint = (point: EventPickupPoint) => {
+    if (!confirm(`"${point.name}" পিকআপ পয়েন্টটি মুছে ফেলবেন?`)) {
+        return;
+    }
+
+    router.delete(`/admin/events/${props.event.id}/pickup-points/${point.id}`, {
         preserveScroll: true,
     });
 };
@@ -596,6 +632,124 @@ const deletePackage = (pkg: EventPackage) => {
             </div>
         </section>
 
+        <!-- ── Pickup Points section ── -->
+        <section
+            class="overflow-hidden rounded-xl border border-sidebar-border/70 bg-background shadow-sm dark:border-sidebar-border"
+        >
+            <div
+                class="flex items-center justify-between border-b border-sidebar-border/70 px-6 py-4"
+            >
+                <div class="flex items-center gap-2">
+                    <MapPin class="size-4 text-muted-foreground" />
+                    <h2 class="text-base font-semibold">Pickup Points</h2>
+                    <Badge variant="secondary" class="ml-1">
+                        {{ props.event.pickup_points.length }}
+                    </Badge>
+                </div>
+                <Button size="sm" @click="openAddPickupPoint">
+                    <Plus class="size-4" />
+                    Add Pickup Point
+                </Button>
+            </div>
+
+            <!-- Empty state -->
+            <div
+                v-if="props.event.pickup_points.length === 0"
+                class="flex flex-col items-center justify-center gap-2 py-12 text-center text-muted-foreground"
+            >
+                <MapPin class="size-8 opacity-30" />
+                <p class="text-sm">No pickup points added yet.</p>
+                <Button size="sm" variant="outline" @click="openAddPickupPoint">
+                    Add the first pickup point
+                </Button>
+            </div>
+
+            <!-- Table -->
+            <div v-else class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr
+                            class="border-b border-sidebar-border/70 bg-muted/30 text-xs text-muted-foreground"
+                        >
+                            <th class="px-4 py-2 text-left font-medium">
+                                Name
+                            </th>
+                            <th class="px-4 py-2 text-left font-medium">
+                                Area
+                            </th>
+                            <th class="px-4 py-2 text-left font-medium">
+                                Contact
+                            </th>
+                            <th class="px-4 py-2 text-left font-medium">
+                                Phone
+                            </th>
+                            <th class="px-4 py-2 text-center font-medium">
+                                Status
+                            </th>
+                            <th class="px-4 py-2 text-right font-medium">
+                                Actions
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-sidebar-border/70">
+                        <tr
+                            v-for="point in props.event.pickup_points"
+                            :key="point.id"
+                            class="hover:bg-muted/20"
+                        >
+                            <td class="px-4 py-3 font-medium">
+                                {{ point.name }}
+                            </td>
+                            <td class="px-4 py-3 text-muted-foreground">
+                                {{ point.area ?? '—' }}
+                            </td>
+                            <td class="px-4 py-3 text-muted-foreground">
+                                {{ point.contact_person ?? '—' }}
+                            </td>
+                            <td class="px-4 py-3 text-muted-foreground">
+                                {{ point.phone ?? '—' }}
+                            </td>
+                            <td class="px-4 py-3 text-center">
+                                <Badge
+                                    :variant="
+                                        point.is_active
+                                            ? 'default'
+                                            : 'secondary'
+                                    "
+                                >
+                                    {{
+                                        point.is_active ? 'Active' : 'Inactive'
+                                    }}
+                                </Badge>
+                            </td>
+                            <td class="px-4 py-3 text-right">
+                                <div
+                                    class="flex items-center justify-end gap-1"
+                                >
+                                    <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        class="h-7 px-2"
+                                        @click="openEditPickupPoint(point)"
+                                    >
+                                        <Pencil class="size-3.5" />
+                                    </Button>
+                                    <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        class="h-7 px-2 text-destructive hover:text-destructive"
+                                        @click="deletePickupPoint(point)"
+                                    >
+                                        <Trash2 class="size-3.5" />
+                                    </Button>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
         <FundCycleEventFormDialog
             v-model:isOpen="isEditDialogOpen"
             mode="edit"
@@ -611,6 +765,13 @@ const deletePackage = (pkg: EventPackage) => {
             :mode="editingPackage ? 'edit' : 'create'"
             :package-statuses="props.packageStatuses"
             :event-package="editingPackage"
+        />
+
+        <EventPickupPointFormDialog
+            v-model:isOpen="isPickupPointDialogOpen"
+            :event-id="props.event.id"
+            :mode="editingPickupPoint ? 'edit' : 'create'"
+            :pickup-point="editingPickupPoint"
         />
     </div>
 </template>
