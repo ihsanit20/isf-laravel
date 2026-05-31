@@ -1,15 +1,16 @@
 <?php
 
-use App\Http\Controllers\Admin\MemberListController;
 use App\Http\Controllers\Admin\ChargeCategoryController;
 use App\Http\Controllers\Admin\ChargeListController;
 use App\Http\Controllers\Admin\DepositListController;
 use App\Http\Controllers\Admin\EventPackageController;
 use App\Http\Controllers\Admin\EventPickupPointController;
-use App\Http\Controllers\Admin\FundCycleEventController;
 use App\Http\Controllers\Admin\FundCycleController;
+use App\Http\Controllers\Admin\FundCycleEventController;
 use App\Http\Controllers\Admin\GeneralExpenseController;
+use App\Http\Controllers\Admin\MemberListController;
 use App\Http\Controllers\Admin\UserListController;
+use App\Http\Controllers\BkashCallbackController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DepositController;
 use App\Http\Controllers\MemberController;
@@ -18,6 +19,9 @@ use App\Http\Controllers\MyAllocationController;
 use App\Http\Controllers\MyChargeController;
 use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Features;
+
+Route::match(['get', 'post'], '/bkash/callback', [BkashCallbackController::class, 'handle'])
+    ->name('bkash.callback');
 
 Route::inertia('/', 'Welcome', [
     'canRegister' => Features::enabled(Features::registration()),
@@ -84,4 +88,4 @@ Route::middleware(['auth', 'verified', 'admin'])->group(function () {
     Route::patch('admin/deposits/{depositSubmission}/review', [DepositListController::class, 'review'])->name('admin.deposits.review');
 });
 
-require __DIR__ . '/settings.php';
+require __DIR__.'/settings.php';

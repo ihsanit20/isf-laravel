@@ -10,11 +10,16 @@ use App\Models\EventOrderItem;
 use App\Models\EventOrderStatusHistory;
 use App\Models\EventPackage;
 use App\Models\FundCycleEvent;
+use App\Services\EventBkashPaymentService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 
 class PublicOrderController extends Controller
 {
+    public function __construct(
+        private readonly EventBkashPaymentService $bkashPayments,
+    ) {}
+
     public function store(PlaceOrderRequest $request): JsonResponse
     {
         $event = FundCycleEvent::query()
@@ -73,16 +78,16 @@ class PublicOrderController extends Controller
                 ], 422);
             }
 
-            $unitPrice  = (float) $pkg->unit_price;
-            $lineTotal  = round($unitPrice * $qty, 2);
+            $unitPrice = (float) $pkg->unit_price;
+            $lineTotal = round($unitPrice * $qty, 2);
             $totalAmount += $lineTotal;
             $advancePercents[] = (float) $pkg->advance_percent;
 
             $lineItems[] = [
                 'event_package_id' => $pkg->id,
-                'quantity'         => $qty,
-                'unit_price'       => $unitPrice,
-                'line_total'       => $lineTotal,
+                'quantity' => $qty,
+                'unit_price' => $unitPrice,
+                'line_total' => $lineTotal,
             ];
         }
 
@@ -90,17 +95,17 @@ class PublicOrderController extends Controller
         $maxAdvancePercent = count($advancePercents) ? max($advancePercents) : 0;
         $totalAdvance = round($totalAmount * $maxAdvancePercent / 100, 2);
 
-        $order = DB::transaction(function () use ($event, $request, $lineItems, $totalAmount, $totalAdvance, $packages) {
+        $order = DB::transaction(function () use ($event, $request, $lineItems, $totalAmount, $totalAdvance) {
             $order = EventOrder::create([
-                'fund_cycle_event_id'   => $event->id,
+                'fund_cycle_event_id' => $event->id,
                 'event_pickup_point_id' => $request->pickup_point_id,
-                'order_number'          => $this->generateOrderNumber(),
-                'customer_name'         => $request->customer_name,
-                'customer_phone'        => $request->customer_phone,
-                'customer_address'      => $request->customer_address,
-                'status'                => EventOrderStatus::Pending->value,
-                'total_amount'          => $totalAmount,
-                'advance_amount'        => $totalAdvance,
+                'order_number' => $this->generateOrderNumber(),
+                'customer_name' => $request->customer_name,
+                'customer_phone' => $request->customer_phone,
+                'customer_address' => $request->customer_address,
+                'status' => EventOrderStatus::Pending->value,
+                'total_amount' => $totalAmount,
+                'advance_amount' => $totalAdvance,
             ]);
 
             foreach ($lineItems as $item) {
@@ -115,39 +120,44 @@ class PublicOrderController extends Controller
 
             // Record initial status history
             EventOrderStatusHistory::create([
-                'event_order_id'     => $order->id,
-                'status'             => EventOrderStatus::Pending->value,
-                'note'               => 'Order placed by customer.',
+                'event_order_id' => $order->id,
+                'status' => EventOrderStatus::Pending->value,
+                'note' => 'Order placed by customer.',
                 'changed_by_user_id' => null,
-                'changed_at'         => now(),
+                'changed_at' => now(),
             ]);
 
             return $order;
         });
 
+        if ((float) $order->advance_amount <= 0) {
+            $this->bkashPayments->confirmOrderWithoutPayment($order);
+            $order->refresh();
+        }
+
         return response()->json([
             'message' => 'Order placed successfully.',
-            'data'    => [
-                'order_number'   => $order->order_number,
-                'customer_name'  => $order->customer_name,
+            'data' => [
+                'order_number' => $order->order_number,
+                'customer_name' => $order->customer_name,
                 'customer_phone' => $order->customer_phone,
-                'total_amount'   => (float) $order->total_amount,
+                'total_amount' => (float) $order->total_amount,
                 'advance_amount' => (float) $order->advance_amount,
-                'status'         => $order->status->value,
-                'status_label'   => $order->status->label(),
+                'status' => $order->status->value,
+                'status_label' => $order->status->label(),
             ],
         ], 201);
     }
 
     private function generateOrderNumber(): string
     {
-        $prefix = 'ISF-' . date('ymd') . '-';
-        $last = EventOrder::where('order_number', 'like', $prefix . '%')
+        $prefix = 'ISF-'.date('ymd').'-';
+        $last = EventOrder::where('order_number', 'like', $prefix.'%')
             ->orderByDesc('id')
             ->value('order_number');
 
         $seq = $last ? ((int) substr($last, -4)) + 1 : 1;
 
-        return $prefix . str_pad($seq, 4, '0', STR_PAD_LEFT);
+        return $prefix.str_pad($seq, 4, '0', STR_PAD_LEFT);
     }
 }

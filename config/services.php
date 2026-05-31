@@ -41,4 +41,8 @@ return [
         'sender_id' => env('SMS_SENDER_ID'),
     ],
 
+    'frontend' => [
+        'url' => env('FRONTEND_URL', 'http://localhost:3000'),
+    ],
+
 ];

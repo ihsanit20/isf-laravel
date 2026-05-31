@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\PublicBkashPaymentController;
 use App\Http\Controllers\Api\PublicEventController;
 use App\Http\Controllers\Api\PublicOrderController;
 use App\Http\Controllers\Api\PublicOrderTrackingController;
@@ -12,6 +13,10 @@ Route::prefix('v1')->group(function () {
 
     // Public order placement
     Route::post('orders', [PublicOrderController::class, 'store'])->name('api.orders.store');
+
+    // bKash advance payment
+    Route::post('orders/{orderNumber}/bkash/init', [PublicBkashPaymentController::class, 'init'])
+        ->name('api.orders.bkash.init');
 
     // Public order tracking
     Route::get('orders/track', [PublicOrderTrackingController::class, 'show'])->name('api.orders.track');

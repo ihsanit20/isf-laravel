@@ -28,7 +28,7 @@ class EventOrder extends Model
     protected function casts(): array
     {
         return [
-            'status'       => EventOrderStatus::class,
+            'status' => EventOrderStatus::class,
             'total_amount' => 'decimal:2',
             'advance_amount' => 'decimal:2',
             'confirmed_at' => 'datetime',
@@ -58,5 +58,41 @@ class EventOrder extends Model
     public function statusHistories(): HasMany
     {
         return $this->hasMany(EventOrderStatusHistory::class);
+    }
+
+    public function hasVerifiedAdvancePayment(): bool
+    {
+        return $this->payments()
+            ->where('payment_status', 'verified')
+            ->exists();
+    }
+
+    /**
+     * @return 'none'|'verified'|'pending'|'unpaid'
+     */
+    public function advancePaymentStatus(): string
+    {
+        if ((float) $this->advance_amount <= 0) {
+            return 'none';
+        }
+
+        if ($this->hasVerifiedAdvancePayment()) {
+            return 'verified';
+        }
+
+        if ($this->payments()->where('payment_status', 'pending')->exists()) {
+            return 'pending';
+        }
+
+        return 'unpaid';
+    }
+
+    public function isAdvancePaid(): bool
+    {
+        if ((float) $this->advance_amount <= 0) {
+            return true;
+        }
+
+        return $this->hasVerifiedAdvancePayment();
     }
 }

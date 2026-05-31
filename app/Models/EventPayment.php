@@ -10,6 +10,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'event_order_id',
     'amount',
     'payment_method',
+    'bkash_payment_id',
+    'merchant_invoice',
     'payment_status',
     'transaction_reference',
     'note',
@@ -22,8 +24,8 @@ class EventPayment extends Model
     protected function casts(): array
     {
         return [
-            'amount'      => 'decimal:2',
-            'paid_at'     => 'datetime',
+            'amount' => 'decimal:2',
+            'paid_at' => 'datetime',
             'verified_at' => 'datetime',
         ];
     }
