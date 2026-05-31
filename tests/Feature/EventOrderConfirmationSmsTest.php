@@ -105,7 +105,7 @@ test('track by token returns order without phone in request', function () {
     $order = EventOrder::query()->create([
         'fund_cycle_event_id' => $event->id,
         'event_pickup_point_id' => $pickup->id,
-        'order_number' => 'FC1E1EO-099',
+        'order_number' => 'FC1E1-099',
         'tracking_token' => 'abc123token',
         'customer_name' => 'Buyer',
         'customer_phone' => '01798765432',
@@ -118,7 +118,7 @@ test('track by token returns order without phone in request', function () {
     $response = get('/api/v1/orders/track-by-token?token=abc123token');
 
     $response->assertOk()
-        ->assertJsonPath('data.order_number', 'FC1E1EO-099')
+        ->assertJsonPath('data.order_number', 'FC1E1-099')
         ->assertJsonPath('data.due_amount', 400);
 });
 

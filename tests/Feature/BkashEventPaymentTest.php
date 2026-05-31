@@ -224,7 +224,7 @@ test('order with zero advance is confirmed on placement', function () {
     $order = EventOrder::query()->where('order_number', $response->json('data.order_number'))->first();
     expect($order)->not->toBeNull()
         ->and($order->status)->toBe(EventOrderStatus::Confirmed)
-        ->and($response->json('data.order_number'))->toBe("FC{$cycle->id}E{$event->id}EO-001");
+        ->and($response->json('data.order_number'))->toBe("FC{$cycle->id}E{$event->id}-001");
 });
 
 test('order numbers encode fund cycle id event id and per-event sequence', function () {
@@ -280,11 +280,11 @@ test('order numbers encode fund cycle id event id and per-event sequence', funct
 
     $first = postJson('/api/v1/orders', $payload);
     $first->assertCreated();
-    expect($first->json('data.order_number'))->toBe("FC{$cycle->id}E{$event->id}EO-001");
+    expect($first->json('data.order_number'))->toBe("FC{$cycle->id}E{$event->id}-001");
 
     $second = postJson('/api/v1/orders', array_merge($payload, [
         'customer_phone' => '01733333333',
     ]));
     $second->assertCreated();
-    expect($second->json('data.order_number'))->toBe("FC{$cycle->id}E{$event->id}EO-002");
+    expect($second->json('data.order_number'))->toBe("FC{$cycle->id}E{$event->id}-002");
 });

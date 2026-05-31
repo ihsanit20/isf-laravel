@@ -8,12 +8,12 @@ use App\Models\FundCycleEvent;
 class EventOrderNumber
 {
     /**
-     * Format: FC{fund_cycle_id}E{event_id}EO-{seq}
-     * Example: FC1E2EO-001 (cycle 1, event 2, 1st order for that event)
+     * Format: FC{fund_cycle_id}E{event_id}-{seq}
+     * Example: FC1E2-001 (cycle 1, event 2, 1st order for that event)
      */
     public static function generateForEvent(FundCycleEvent $event): string
     {
-        $prefix = sprintf('FC%dE%dEO-', $event->fund_cycle_id, $event->id);
+        $prefix = sprintf('FC%dE%d-', $event->fund_cycle_id, $event->id);
 
         $lastSeq = EventOrder::query()
             ->where('fund_cycle_event_id', $event->id)
@@ -31,7 +31,7 @@ class EventOrderNumber
 
     public static function prefixFor(FundCycleEvent $event): string
     {
-        return sprintf('FC%dE%dEO-', $event->fund_cycle_id, $event->id);
+        return sprintf('FC%dE%d-', $event->fund_cycle_id, $event->id);
     }
 
     private static function sequenceFrom(string $orderNumber, string $prefix): ?int
