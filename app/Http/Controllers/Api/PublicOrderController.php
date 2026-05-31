@@ -10,7 +10,7 @@ use App\Models\EventOrderItem;
 use App\Models\EventOrderStatusHistory;
 use App\Models\EventPackage;
 use App\Models\FundCycleEvent;
-use App\Services\EventBkashPaymentService;
+use App\Services\EventOrderConfirmationService;
 use App\Support\EventOrderNumber;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
@@ -18,7 +18,7 @@ use Illuminate\Support\Facades\DB;
 class PublicOrderController extends Controller
 {
     public function __construct(
-        private readonly EventBkashPaymentService $bkashPayments,
+        private readonly EventOrderConfirmationService $orderConfirmation,
     ) {}
 
     public function store(PlaceOrderRequest $request): JsonResponse
@@ -130,11 +130,16 @@ class PublicOrderController extends Controller
                 'changed_at' => now(),
             ]);
 
+            EventOrder::ensureTrackingToken($order);
+
             return $order;
         });
 
         if ((float) $order->advance_amount <= 0) {
-            $this->bkashPayments->confirmOrderWithoutPayment($order);
+            $this->orderConfirmation->confirm(
+                $order,
+                'Order confirmed (no advance payment required).',
+            );
             $order->refresh();
         }
 

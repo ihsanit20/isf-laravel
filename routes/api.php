@@ -20,4 +20,6 @@ Route::prefix('v1')->group(function () {
 
     // Public order tracking
     Route::get('orders/track', [PublicOrderTrackingController::class, 'show'])->name('api.orders.track');
+    Route::get('orders/track-by-token', [PublicOrderTrackingController::class, 'showByToken'])
+        ->name('api.orders.track-by-token');
 });

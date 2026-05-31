@@ -4,7 +4,6 @@ namespace App\Services;
 
 use App\Enums\EventOrderStatus;
 use App\Models\EventOrder;
-use App\Models\EventOrderStatusHistory;
 use App\Models\EventPayment;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -15,6 +14,10 @@ use Symfony\Component\HttpFoundation\Response;
 class EventBkashPaymentService
 {
     use BkashPayment;
+
+    public function __construct(
+        private readonly EventOrderConfirmationService $orderConfirmation,
+    ) {}
 
     public function callbackUrl(): string
     {
@@ -131,7 +134,9 @@ class EventBkashPaymentService
 
         $trxId = (string) ($response->trxID ?? '');
 
-        DB::transaction(function () use ($order, $payment, $trxId): void {
+        $confirmed = false;
+
+        DB::transaction(function () use ($order, $payment, $trxId, &$confirmed): void {
             $order->refresh();
 
             if ($order->status === EventOrderStatus::Confirmed) {
@@ -147,45 +152,26 @@ class EventBkashPaymentService
                 'verified_at' => $now,
             ]);
 
-            $order->update([
-                'status' => EventOrderStatus::Confirmed,
-                'confirmed_at' => $now,
-            ]);
-
-            EventOrderStatusHistory::create([
-                'event_order_id' => $order->id,
-                'status' => EventOrderStatus::Confirmed->value,
-                'note' => 'Advance paid via bKash'.($trxId ? " (trx: {$trxId})" : '').'.',
-                'changed_by_user_id' => null,
-                'changed_at' => $now,
-            ]);
+            $confirmed = $this->orderConfirmation->markConfirmed(
+                $order,
+                'Advance paid via bKash'.($trxId ? " (trx: {$trxId})" : '').'.',
+            );
         });
+
+        if ($confirmed) {
+            $order->refresh();
+            $this->orderConfirmation->sendConfirmationSms($order);
+        }
 
         return redirect($this->frontendRedirect('success', $orderNumber, $order->customer_phone));
     }
 
     public function confirmOrderWithoutPayment(EventOrder $order): void
     {
-        if ($order->status !== EventOrderStatus::Pending) {
-            return;
-        }
-
-        DB::transaction(function () use ($order): void {
-            $now = now();
-
-            $order->update([
-                'status' => EventOrderStatus::Confirmed,
-                'confirmed_at' => $now,
-            ]);
-
-            EventOrderStatusHistory::create([
-                'event_order_id' => $order->id,
-                'status' => EventOrderStatus::Confirmed->value,
-                'note' => 'Order confirmed (no advance payment required).',
-                'changed_by_user_id' => null,
-                'changed_at' => $now,
-            ]);
-        });
+        $this->orderConfirmation->confirm(
+            $order,
+            'Order confirmed (no advance payment required).',
+        );
     }
 
     private function merchantInvoiceFor(EventOrder $order): string

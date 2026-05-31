@@ -7,12 +7,15 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Str;
 
 #[Fillable([
     'fund_cycle_event_id',
     'event_pickup_point_id',
     'order_number',
+    'tracking_token',
     'customer_name',
     'customer_phone',
     'customer_address',
@@ -58,6 +61,31 @@ class EventOrder extends Model
     public function statusHistories(): HasMany
     {
         return $this->hasMany(EventOrderStatusHistory::class);
+    }
+
+    public function smsLogs(): MorphMany
+    {
+        return $this->morphMany(SmsLog::class, 'smsable');
+    }
+
+    public static function ensureTrackingToken(EventOrder $order): string
+    {
+        if ($order->tracking_token) {
+            return $order->tracking_token;
+        }
+
+        do {
+            $token = Str::lower(Str::random(10));
+        } while (static::query()->where('tracking_token', $token)->exists());
+
+        $order->update(['tracking_token' => $token]);
+
+        return $token;
+    }
+
+    public function dueAmount(): float
+    {
+        return max(0, round((float) $this->total_amount - (float) $this->advance_amount, 2));
     }
 
     public function hasVerifiedAdvancePayment(): bool
