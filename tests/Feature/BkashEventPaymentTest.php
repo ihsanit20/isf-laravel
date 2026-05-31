@@ -223,5 +223,68 @@ test('order with zero advance is confirmed on placement', function () {
 
     $order = EventOrder::query()->where('order_number', $response->json('data.order_number'))->first();
     expect($order)->not->toBeNull()
-        ->and($order->status)->toBe(EventOrderStatus::Confirmed);
+        ->and($order->status)->toBe(EventOrderStatus::Confirmed)
+        ->and($response->json('data.order_number'))->toBe("FC{$cycle->id}E{$event->id}EO-001");
+});
+
+test('order numbers encode fund cycle id event id and per-event sequence', function () {
+    $user = User::factory()->create();
+
+    $cycle = FundCycle::query()->create([
+        'name' => 'Cycle A',
+        'status' => FundCycle::STATUS_OPEN,
+        'unit_amount' => 1000,
+        'start_date' => now()->toDateString(),
+        'created_by_user_id' => $user->id,
+    ]);
+
+    $event = FundCycleEvent::query()->create([
+        'fund_cycle_id' => $cycle->id,
+        'title' => 'Event A',
+        'slug' => 'event-a-'.uniqid(),
+        'status' => FundCycleEventStatus::Published,
+        'order_open_at' => now()->subDay(),
+        'order_close_at' => now()->addMonth(),
+    ]);
+
+    $package = $event->packages()->create([
+        'name' => 'Pkg',
+        'unit_price' => 200,
+        'advance_percent' => 50,
+        'min_qty_per_order' => 1,
+        'status' => EventPackageStatus::Active->value,
+    ]);
+
+    $pickup = $event->pickupPoints()->create([
+        'name' => 'Hub',
+        'is_active' => true,
+    ]);
+
+    $payload = [
+        'event_slug' => $event->slug,
+        'customer_name' => 'Buyer',
+        'customer_phone' => '01722222222',
+        'pickup_point_id' => $pickup->id,
+        'items' => [
+            ['package_id' => $package->id, 'quantity' => 1],
+        ],
+    ];
+
+    Http::fake([
+        '*/tokenized/checkout/token/grant' => Http::response(['id_token' => 't']),
+        '*/tokenized/checkout/create' => Http::response([
+            'paymentID' => 'PAY1',
+            'bkashURL' => 'https://sandbox.bka.sh/pay',
+        ]),
+    ]);
+
+    $first = postJson('/api/v1/orders', $payload);
+    $first->assertCreated();
+    expect($first->json('data.order_number'))->toBe("FC{$cycle->id}E{$event->id}EO-001");
+
+    $second = postJson('/api/v1/orders', array_merge($payload, [
+        'customer_phone' => '01733333333',
+    ]));
+    $second->assertCreated();
+    expect($second->json('data.order_number'))->toBe("FC{$cycle->id}E{$event->id}EO-002");
 });
