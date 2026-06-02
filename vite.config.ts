@@ -27,6 +27,7 @@ export default defineConfig({
         }),
         vueDevTools({
             appendTo: 'resources/js/app.ts',
+            launchEditor: 'cursor',
         }),
     ],
 });

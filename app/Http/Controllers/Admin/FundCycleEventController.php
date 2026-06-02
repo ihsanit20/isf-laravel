@@ -71,6 +71,7 @@ class FundCycleEventController extends Controller
         return Inertia::render('admin/Events', [
             'events' => FundCycleEvent::query()
                 ->with('fundCycle:id,name,status')
+                ->withCount('orders')
                 ->latest('order_open_at')
                 ->latest('id')
                 ->get()
@@ -90,6 +91,7 @@ class FundCycleEventController extends Controller
                         'name' => $event->fundCycle?->name,
                         'status' => $event->fundCycle?->status,
                     ],
+                    'orders_count' => $event->orders_count,
                     'created_at' => $event->created_at?->format('d M Y, h:i A'),
                 ])
                 ->values(),

@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\ChargeCategoryController;
 use App\Http\Controllers\Admin\ChargeListController;
 use App\Http\Controllers\Admin\DepositListController;
+use App\Http\Controllers\Admin\EventOrderController;
 use App\Http\Controllers\Admin\EventPackageController;
 use App\Http\Controllers\Admin\EventPickupPointController;
 use App\Http\Controllers\Admin\FundCycleController;
@@ -63,6 +64,8 @@ Route::middleware(['auth', 'verified', 'admin'])->group(function () {
     Route::put('admin/fund-cycles/{fundCycle}/events/{fundCycleEvent}', [FundCycleEventController::class, 'update'])->name('admin.fund-cycles.events.update');
     Route::get('admin/events', [FundCycleEventController::class, 'all'])->name('admin.events.index');
     Route::get('admin/events/{fundCycleEvent}', [FundCycleEventController::class, 'show'])->name('admin.events.show');
+    Route::get('admin/events/{fundCycleEvent}/orders', [EventOrderController::class, 'index'])->name('admin.events.orders.index');
+    Route::get('admin/events/{fundCycleEvent}/orders/{eventOrder}', [EventOrderController::class, 'show'])->name('admin.events.orders.show');
     Route::put('admin/events/{fundCycleEvent}', [FundCycleEventController::class, 'updateFromDetails'])->name('admin.events.update');
     Route::post('admin/events/{fundCycleEvent}/cover', [FundCycleEventController::class, 'uploadCover'])->name('admin.events.cover.store');
     Route::post('admin/events/{fundCycleEvent}/packages', [EventPackageController::class, 'store'])->name('admin.events.packages.store');

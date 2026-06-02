@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
-import { Eye } from 'lucide-vue-next';
+import { Eye, ListOrdered } from 'lucide-vue-next';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 
@@ -19,6 +19,7 @@ type EventItem = {
         name: string | null;
         status: string | null;
     };
+    orders_count: number;
     created_at: string | null;
 };
 
@@ -110,12 +111,20 @@ defineProps<Props>();
                                 {{ event.created_at || '-' }}
                             </td>
                             <td class="px-4 py-3">
-                                <Button variant="outline" size="sm" as-child>
-                                    <Link :href="`/admin/events/${event.id}`">
-                                        <Eye class="size-4" />
-                                        Details
-                                    </Link>
-                                </Button>
+                                <div class="flex flex-wrap gap-2">
+                                    <Button variant="outline" size="sm" as-child>
+                                        <Link :href="`/admin/events/${event.id}/orders`">
+                                            <ListOrdered class="size-4" />
+                                            Order List ({{ event.orders_count }})
+                                        </Link>
+                                    </Button>
+                                    <Button variant="outline" size="sm" as-child>
+                                        <Link :href="`/admin/events/${event.id}`">
+                                            <Eye class="size-4" />
+                                            Details
+                                        </Link>
+                                    </Button>
+                                </div>
                             </td>
                         </tr>
                         <tr v-if="events.length === 0">
