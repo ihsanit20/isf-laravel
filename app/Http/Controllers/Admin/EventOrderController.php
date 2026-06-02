@@ -28,6 +28,8 @@ class EventOrderController extends Controller
                     'status' => $order->status->value,
                     'status_label' => $order->status->label(),
                     'total_amount' => (string) $order->total_amount,
+                    'advance_amount' => (string) $order->advance_amount,
+                    'due_amount' => (string) $order->dueAmount(),
                     'total_quantity' => $order->items->sum('quantity'),
                     'payment_status' => $latestPayment?->payment_status ?? 'unpaid',
                     'created_at' => $order->created_at?->format('d M Y, h:i A'),
@@ -72,6 +74,7 @@ class EventOrderController extends Controller
                 'status_label' => $eventOrder->status->label(),
                 'total_amount' => (string) $eventOrder->total_amount,
                 'advance_amount' => (string) $eventOrder->advance_amount,
+                'due_amount' => (string) $eventOrder->dueAmount(),
                 'created_at' => $eventOrder->created_at?->format('d M Y, h:i A'),
                 'confirmed_at' => $eventOrder->confirmed_at?->format('d M Y, h:i A'),
                 'pickup_point' => $eventOrder->pickupPoint ? [

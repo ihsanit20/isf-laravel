@@ -18,6 +18,8 @@ type OrderItem = {
     status: string;
     status_label: string;
     total_amount: string;
+    advance_amount: string;
+    due_amount: string;
     total_quantity: number;
     payment_status: string;
     created_at: string | null;
@@ -85,6 +87,8 @@ const props = defineProps<Props>();
                             <th class="px-4 py-3 font-medium">Phone</th>
                             <th class="px-4 py-3 font-medium">Qty</th>
                             <th class="px-4 py-3 font-medium">Total</th>
+                            <th class="px-4 py-3 font-medium">Advance</th>
+                            <th class="px-4 py-3 font-medium">Due</th>
                             <th class="px-4 py-3 font-medium">Payment</th>
                             <th class="px-4 py-3 font-medium">Status</th>
                             <th class="px-4 py-3 font-medium">Created At</th>
@@ -105,6 +109,12 @@ const props = defineProps<Props>();
                             </td>
                             <td class="px-4 py-3 text-muted-foreground">
                                 {{ order.total_amount }}
+                            </td>
+                            <td class="px-4 py-3 text-muted-foreground">
+                                {{ order.advance_amount }}
+                            </td>
+                            <td class="px-4 py-3 font-semibold text-amber-600">
+                                {{ order.due_amount }}
                             </td>
                             <td class="px-4 py-3 text-muted-foreground">
                                 {{ order.payment_status }}
@@ -130,7 +140,7 @@ const props = defineProps<Props>();
                         </tr>
                         <tr v-if="props.orders.length === 0">
                             <td
-                                colspan="9"
+                                colspan="11"
                                 class="px-4 py-8 text-center text-muted-foreground"
                             >
                                 এই event-এ এখনো কোন order নেই।

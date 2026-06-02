@@ -54,6 +54,7 @@ type OrderDetails = {
     status_label: string;
     total_amount: string;
     advance_amount: string;
+    due_amount: string;
     created_at: string | null;
     confirmed_at: string | null;
     pickup_point: PickupPoint | null;
@@ -68,7 +69,7 @@ type Props = {
 };
 
 defineOptions({
-    layout: {
+    layout: (props: Props) => ({
         breadcrumbs: [
             {
                 title: 'Events',
@@ -76,14 +77,14 @@ defineOptions({
             },
             {
                 title: 'Order List',
-                href: '#',
+                href: `/admin/events/${props.event.id}/orders`,
             },
             {
                 title: 'Order Details',
                 href: '#',
             },
         ],
-    },
+    }),
 });
 
 const props = defineProps<Props>();
@@ -114,6 +115,33 @@ const props = defineProps<Props>();
             </div>
         </section>
 
+        <section class="grid gap-4 md:grid-cols-3">
+            <div class="rounded-xl border border-emerald-300/60 bg-emerald-50 p-5">
+                <div class="text-xs font-semibold tracking-wide text-emerald-700 uppercase">
+                    Total Amount
+                </div>
+                <div class="mt-2 text-2xl font-bold text-emerald-800">
+                    {{ props.order.total_amount }}
+                </div>
+            </div>
+            <div class="rounded-xl border border-blue-300/60 bg-blue-50 p-5">
+                <div class="text-xs font-semibold tracking-wide text-blue-700 uppercase">
+                    Advance Paid/Required
+                </div>
+                <div class="mt-2 text-2xl font-bold text-blue-800">
+                    {{ props.order.advance_amount }}
+                </div>
+            </div>
+            <div class="rounded-xl border border-amber-300/60 bg-amber-50 p-5">
+                <div class="text-xs font-semibold tracking-wide text-amber-700 uppercase">
+                    Due Amount
+                </div>
+                <div class="mt-2 text-2xl font-bold text-amber-800">
+                    {{ props.order.due_amount }}
+                </div>
+            </div>
+        </section>
+
         <section class="grid gap-4 md:grid-cols-2">
             <div class="rounded-xl border border-sidebar-border/70 bg-background p-5">
                 <h2 class="text-base font-semibold">Order Info</h2>
@@ -141,6 +169,10 @@ const props = defineProps<Props>();
                     <div class="flex justify-between gap-3">
                         <span class="text-muted-foreground">Advance</span>
                         <span>{{ props.order.advance_amount }}</span>
+                    </div>
+                    <div class="flex justify-between gap-3">
+                        <span class="text-muted-foreground">Due</span>
+                        <span>{{ props.order.due_amount }}</span>
                     </div>
                     <div class="flex justify-between gap-3">
                         <span class="text-muted-foreground">Created At</span>
