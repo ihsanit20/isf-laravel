@@ -307,8 +307,8 @@ const paginationLabel = (label: string): string =>
                         {{ props.event.title }} - Orders
                     </h1>
                     <p class="mt-2 text-sm text-muted-foreground">
-                        Focus on confirmed orders and verified payments.
-                        Pending and other counts are shown for reference.
+                        Focus on confirmed orders and verified payments. Pending
+                        and other counts are shown for reference.
                     </p>
                     <dl
                         class="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground"
@@ -362,7 +362,7 @@ const paginationLabel = (label: string): string =>
                 class="rounded-xl border-2 border-primary/30 bg-primary/5 p-6 shadow-sm"
             >
                 <p
-                    class="text-xs font-medium uppercase tracking-wide text-primary"
+                    class="text-xs font-medium tracking-wide text-primary uppercase"
                 >
                     Verified collected
                 </p>
@@ -386,14 +386,14 @@ const paginationLabel = (label: string): string =>
                     {{ money(props.summary.focus.confirmed_order_amount) }}
                 </p>
                 <p class="mt-3 text-sm text-muted-foreground">
-                    {{ props.summary.focus.confirmed_order_count.toLocaleString() }}
+                    {{
+                        props.summary.focus.confirmed_order_count.toLocaleString()
+                    }}
                     confirmed orders
                 </p>
             </Link>
             <Link
-                :href="
-                    filterUrl({ status: 'confirmed', has_due: '1' })
-                "
+                :href="filterUrl({ status: 'confirmed', has_due: '1' })"
                 class="rounded-xl border border-sidebar-border/70 bg-background p-6 shadow-sm transition-colors hover:bg-muted/30 dark:border-sidebar-border"
             >
                 <p class="text-xs text-muted-foreground">Confirmed due</p>
@@ -458,7 +458,9 @@ const paginationLabel = (label: string): string =>
                 Delivered {{ props.summary.focus.delivered_order_count }}
             </Link>
             <span class="mx-2">·</span>
-            <span>Cancelled {{ props.summary.focus.cancelled_order_count }}</span>
+            <span
+                >Cancelled {{ props.summary.focus.cancelled_order_count }}</span
+            >
             <span class="mx-2">·</span>
             <Link
                 :href="filterUrl({ payment_status: 'unpaid' })"
@@ -710,7 +712,7 @@ const paginationLabel = (label: string): string =>
                                     <button
                                         v-if="order.can_update_status"
                                         type="button"
-                                        class="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                        class="rounded-full focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                                         :title="`Update status for ${order.order_number}`"
                                         @click="openStatusDialog(order)"
                                     >
@@ -789,8 +791,8 @@ const paginationLabel = (label: string): string =>
                     Orders by Pickup Point
                 </h2>
                 <p class="mt-1 text-sm text-muted-foreground">
-                    Orders and package quantities per pickup hub, with status
-                    counts.
+                    Status counts show all orders; Total, packages, and due
+                    reflect confirmed orders (operational focus).
                 </p>
                 <div
                     v-if="props.summary.pickup_points.length === 0"
@@ -808,7 +810,9 @@ const paginationLabel = (label: string): string =>
                                     Pickup Point
                                 </th>
                                 <th class="px-3 py-2 font-medium">Packages</th>
-                                <th class="px-3 py-2 font-medium">Total</th>
+                                <th class="px-3 py-2 font-medium">
+                                    Confirmed
+                                </th>
                                 <th
                                     v-for="status in statusColumns"
                                     :key="status.value"
@@ -925,8 +929,9 @@ const paginationLabel = (label: string): string =>
                             Package Stock Snapshot
                         </h2>
                         <p class="mt-1 text-sm text-muted-foreground">
-                            Stock levels and how many orders (by status) include
-                            each package.
+                            Status counts show all orders; Confirmed and
+                            ordered totals reflect confirmed only (operational
+                            focus).
                         </p>
                     </div>
                     <Link
@@ -951,7 +956,9 @@ const paginationLabel = (label: string): string =>
                                 <th class="px-3 py-2 font-medium">Package</th>
                                 <th class="px-3 py-2 font-medium">Ordered</th>
                                 <th class="px-3 py-2 font-medium">Stock</th>
-                                <th class="px-3 py-2 font-medium">Orders</th>
+                                <th class="px-3 py-2 font-medium">
+                                    Confirmed
+                                </th>
                                 <th
                                     v-for="status in statusColumns"
                                     :key="status.value"
@@ -974,11 +981,6 @@ const paginationLabel = (label: string): string =>
                                 </td>
                                 <td class="px-3 py-2 text-muted-foreground">
                                     <template v-if="pkg.pack_count > 0">
-                                        <div
-                                            class="font-medium text-foreground"
-                                        >
-                                            {{ pkg.physical_label }}
-                                        </div>
                                         <div class="text-xs">
                                             {{ pkg.pack_line_label }}
                                         </div>

@@ -157,10 +157,10 @@ test('admins can visit event orders list with filters and pagination props', fun
                 ->where('summary.focus.confirmed_verified_payment_count', 1)
                 ->has('summary.pickup_points', 2)
                 ->where('summary.pickup_points.0.name', 'Hub A')
-                ->where('summary.pickup_points.0.order_count', 1)
+                ->where('summary.pickup_points.0.order_count', 0)
                 ->where('summary.pickup_points.0.by_status.pending', 1)
                 ->where('summary.pickup_points.0.by_status.confirmed', 0)
-                ->where('summary.pickup_points.0.total_due_amount', '1000.00')
+                ->where('summary.pickup_points.0.total_due_amount', '0.00')
                 ->where('summary.pickup_points.1.name', 'Hub B')
                 ->where('summary.pickup_points.1.order_count', 1)
                 ->where('summary.pickup_points.1.by_status.confirmed', 1)
@@ -335,7 +335,7 @@ test('event orders list can filter orders with due balance', function () {
 });
 
 test('pickup point summary includes package quantities per hub', function () {
-    ['event' => $event, 'pickupA' => $pickupA, 'orders' => $orders] = createEventWithFilterableOrders();
+    ['event' => $event, 'pickupA' => $pickupA, 'pickupB' => $pickupB, 'orders' => $orders] = createEventWithFilterableOrders();
 
     $pkg = $event->packages()->create([
         'name' => 'Oil 1kg',
@@ -348,7 +348,7 @@ test('pickup point summary includes package quantities per hub', function () {
     ]);
 
     EventOrderItem::query()->create([
-        'event_order_id' => $orders['pending_unpaid']->id,
+        'event_order_id' => $orders['confirmed_verified']->id,
         'event_package_id' => $pkg->id,
         'quantity' => 3,
         'unit_type' => EventPackageUnitType::Kg->value,
@@ -368,15 +368,16 @@ test('pickup point summary includes package quantities per hub', function () {
         ->assertInertia(
             fn (Assert $page) => $page
                 ->where('summary.pickup_points.0.id', $pickupA->id)
-                ->where('summary.pickup_points.0.packages', [
+                ->where('summary.pickup_points.0.packages', [])
+                ->where('summary.pickup_points.1.id', $pickupB->id)
+                ->where('summary.pickup_points.1.packages', [
                     [
                         'id' => $pkg->id,
                         'name' => 'Oil 1kg',
                         'quantity' => 3,
                         'unit_label' => '1 kg',
                     ],
-                ])
-                ->where('summary.pickup_points.1.packages', []),
+                ]),
         );
 });
 
@@ -424,10 +425,10 @@ test('event orders summary includes package order counts by status', function ()
         ->assertInertia(
             fn (Assert $page) => $page
                 ->where('summary.packages.0.name', 'Rice 5kg')
-                ->where('summary.packages.0.order_count', 2)
-                ->where('summary.packages.0.pack_count', 3)
-                ->where('summary.packages.0.physical_label', '15 kg')
-                ->where('summary.packages.0.pack_line_label', '3 × 5 kg = 15 kg')
+                ->where('summary.packages.0.order_count', 1)
+                ->where('summary.packages.0.pack_count', 2)
+                ->where('summary.packages.0.physical_label', '10 kg')
+                ->where('summary.packages.0.pack_line_label', '2 × 5 kg = 10 kg')
                 ->where('summary.packages.0.by_status.pending', 1)
                 ->where('summary.packages.0.by_status.confirmed', 1)
                 ->where('summary.packages.0.by_status.delivered', 0),
@@ -448,7 +449,7 @@ test('event orders summary cards include package physical totals', function () {
     ]);
 
     EventOrderItem::query()->create([
-        'event_order_id' => $orders['pending_unpaid']->id,
+        'event_order_id' => $orders['confirmed_verified']->id,
         'event_package_id' => $pkg->id,
         'quantity' => 2,
         'unit_type' => EventPackageUnitType::Kg->value,

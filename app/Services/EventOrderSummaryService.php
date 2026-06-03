@@ -45,7 +45,7 @@ class EventOrderSummaryService
             ->orderBy('id')
             ->get(['id', 'name']);
 
-        $pickupAggregates = $baseQuery()
+        $pickupAggregates = $this->confirmedOrdersQuery($eventId)
             ->selectRaw('event_pickup_point_id')
             ->selectRaw('COUNT(*) as order_count')
             ->selectRaw("COALESCE(SUM({$dueExpression}), 0) as total_due_amount")
@@ -64,6 +64,7 @@ class EventOrderSummaryService
         $pickupPackageQuantities = EventOrderItem::query()
             ->join('event_orders', 'event_orders.id', '=', 'event_order_items.event_order_id')
             ->where('event_orders.fund_cycle_event_id', $eventId)
+            ->where('event_orders.status', EventOrderStatus::Confirmed)
             ->whereNotNull('event_orders.event_pickup_point_id')
             ->selectRaw('event_orders.event_pickup_point_id')
             ->selectRaw('event_order_items.event_package_id')
@@ -90,6 +91,7 @@ class EventOrderSummaryService
         $packageOrderAggregates = EventOrderItem::query()
             ->join('event_orders', 'event_orders.id', '=', 'event_order_items.event_order_id')
             ->where('event_orders.fund_cycle_event_id', $eventId)
+            ->where('event_orders.status', EventOrderStatus::Confirmed)
             ->selectRaw('event_order_items.event_package_id')
             ->selectRaw('SUM(event_order_items.quantity) as pack_count')
             ->selectRaw(
@@ -188,6 +190,13 @@ class EventOrderSummaryService
         }
 
         return $counts;
+    }
+
+    private function confirmedOrdersQuery(int $eventId): Builder
+    {
+        return EventOrder::query()
+            ->where('fund_cycle_event_id', $eventId)
+            ->where('status', EventOrderStatus::Confirmed);
     }
 
     private function countByPaymentStatus(int $eventId, string $paymentStatus): int
@@ -318,7 +327,7 @@ class EventOrderSummaryService
                     'sold_qty' => $package->sold_qty,
                     'stock_qty' => $package->stock_qty,
                     'remaining_qty' => $package->remainingQty(),
-                    'order_count' => array_sum($byStatus),
+                    'order_count' => (int) ($byStatus[EventOrderStatus::Confirmed->value] ?? 0),
                     'by_status' => $byStatus,
                     'pack_count' => $packCount,
                     'physical_label' => $packCount > 0
