@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\EventOrderStatus;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -96,6 +97,35 @@ class EventOrder extends Model
         return match (DB::connection()->getDriverName()) {
             'sqlite' => "MAX(0, event_orders.total_amount - {$subquery})",
             default => "GREATEST(0, event_orders.total_amount - {$subquery})",
+        };
+    }
+
+    /**
+     * Use before GROUP BY aggregates — avoids MySQL ONLY_FULL_GROUP_BY errors
+     * from correlated subqueries referencing event_orders.id.
+     */
+    public function scopeWithVerifiedPaidSum(Builder $query): Builder
+    {
+        $verifiedPaymentsSubquery = EventPayment::query()
+            ->select('event_order_id')
+            ->selectRaw('COALESCE(SUM(amount), 0) as verified_paid')
+            ->where('payment_status', 'verified')
+            ->groupBy('event_order_id');
+
+        return $query->leftJoinSub(
+            $verifiedPaymentsSubquery,
+            'order_verified_payments',
+            'order_verified_payments.event_order_id',
+            '=',
+            'event_orders.id',
+        );
+    }
+
+    public static function dueAmountWithJoinSqlExpression(): string
+    {
+        return match (DB::connection()->getDriverName()) {
+            'sqlite' => 'MAX(0, event_orders.total_amount - COALESCE(order_verified_payments.verified_paid, 0))',
+            default => 'GREATEST(0, event_orders.total_amount - COALESCE(order_verified_payments.verified_paid, 0))',
         };
     }
 

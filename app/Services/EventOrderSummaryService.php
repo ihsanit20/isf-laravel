@@ -32,6 +32,7 @@ class EventOrderSummaryService
             ->pluck('aggregate_count', 'status');
 
         $dueExpression = EventOrder::dueAmountSqlExpression();
+        $dueExpressionForGroupBy = EventOrder::dueAmountWithJoinSqlExpression();
 
         $moneyRow = $baseQuery()
             ->selectRaw('COALESCE(SUM(total_amount), 0) as total_order_amount')
@@ -46,9 +47,10 @@ class EventOrderSummaryService
             ->get(['id', 'name']);
 
         $pickupAggregates = $this->confirmedOrdersQuery($eventId)
+            ->withVerifiedPaidSum()
             ->selectRaw('event_pickup_point_id')
             ->selectRaw('COUNT(*) as order_count')
-            ->selectRaw("COALESCE(SUM({$dueExpression}), 0) as total_due_amount")
+            ->selectRaw("COALESCE(SUM({$dueExpressionForGroupBy}), 0) as total_due_amount")
             ->groupBy('event_pickup_point_id')
             ->get()
             ->keyBy('event_pickup_point_id');
