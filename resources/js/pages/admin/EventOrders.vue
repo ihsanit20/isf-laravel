@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
-import { ArrowLeft, Banknote, Eye, Printer, RefreshCw } from 'lucide-vue-next';
+import { ArrowLeft, Eye, Printer } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 import EventOrderRecordPaymentDialog from '@/components/admin/EventOrderRecordPaymentDialog.vue';
 import EventOrderStatusUpdateDialog from '@/components/admin/EventOrderStatusUpdateDialog.vue';
@@ -59,6 +59,7 @@ type OrderSummary = {
             name: string;
             quantity: number;
             unit_label: string;
+            pack_line_label: string;
         }>;
         total_due_amount: string;
     }>;
@@ -270,6 +271,10 @@ const lowStockPackages = computed(() =>
 );
 
 const statusColumns = computed(() => props.filterOptions.statuses);
+
+const statusBreakdownColumns = computed(() =>
+    statusColumns.value.filter((status) => status.value !== 'confirmed'),
+);
 
 const statusCount = (counts: StatusCounts, status: string): number =>
     counts[status] ?? 0;
@@ -798,9 +803,7 @@ const paginationLabel = (label: string): string =>
             </div>
 
             <div v-else-if="activeTab === 'pickup'" class="p-4">
-                <div
-                    class="flex flex-wrap items-start justify-between gap-3"
-                >
+                <div class="flex flex-wrap items-start justify-between gap-3">
                     <div>
                         <h2 class="text-sm font-semibold tracking-tight">
                             Orders by Pickup Point
@@ -837,11 +840,9 @@ const paginationLabel = (label: string): string =>
                                     Pickup Point
                                 </th>
                                 <th class="px-3 py-2 font-medium">Packages</th>
-                                <th class="px-3 py-2 font-medium">
-                                    Confirmed
-                                </th>
+                                <th class="px-3 py-2 font-medium">Confirmed</th>
                                 <th
-                                    v-for="status in statusColumns"
+                                    v-for="status in statusBreakdownColumns"
                                     :key="status.value"
                                     class="px-3 py-2 font-medium"
                                 >
@@ -875,14 +876,8 @@ const paginationLabel = (label: string): string =>
                                             >
                                                 {{ pkg.name }}
                                             </span>
-                                            · {{ pkg.quantity }} pack{{
-                                                pkg.quantity === 1 ? '' : 's'
-                                            }}
-                                            <span
-                                                v-if="pkg.unit_label"
-                                                class="text-muted-foreground"
-                                            >
-                                                ({{ pkg.unit_label }})
+                                            <span class="text-muted-foreground">
+                                                · {{ pkg.pack_line_label }}
                                             </span>
                                         </li>
                                     </ul>
@@ -892,7 +887,7 @@ const paginationLabel = (label: string): string =>
                                     {{ point.order_count.toLocaleString() }}
                                 </td>
                                 <td
-                                    v-for="status in statusColumns"
+                                    v-for="status in statusBreakdownColumns"
                                     :key="`${point.id}-${status.value}`"
                                     class="px-3 py-2"
                                 >
@@ -967,9 +962,8 @@ const paginationLabel = (label: string): string =>
                             Package Stock Snapshot
                         </h2>
                         <p class="mt-1 text-sm text-muted-foreground">
-                            Status counts show all orders; Confirmed and
-                            ordered totals reflect confirmed only (operational
-                            focus).
+                            Status counts show all orders; Confirmed and ordered
+                            totals reflect confirmed only (operational focus).
                         </p>
                     </div>
                     <div class="flex flex-wrap items-center gap-2">
@@ -1006,11 +1000,9 @@ const paginationLabel = (label: string): string =>
                                 <th class="px-3 py-2 font-medium">Package</th>
                                 <th class="px-3 py-2 font-medium">Ordered</th>
                                 <th class="px-3 py-2 font-medium">Stock</th>
-                                <th class="px-3 py-2 font-medium">
-                                    Confirmed
-                                </th>
+                                <th class="px-3 py-2 font-medium">Confirmed</th>
                                 <th
-                                    v-for="status in statusColumns"
+                                    v-for="status in statusBreakdownColumns"
                                     :key="status.value"
                                     class="px-3 py-2 font-medium"
                                 >
@@ -1050,7 +1042,7 @@ const paginationLabel = (label: string): string =>
                                     {{ pkg.order_count.toLocaleString() }}
                                 </td>
                                 <td
-                                    v-for="status in statusColumns"
+                                    v-for="status in statusBreakdownColumns"
                                     :key="`${pkg.id}-${status.value}`"
                                     class="px-3 py-2 text-muted-foreground"
                                 >

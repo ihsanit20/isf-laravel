@@ -376,6 +376,7 @@ test('pickup point summary includes package quantities per hub', function () {
                         'name' => 'Oil 1kg',
                         'quantity' => 3,
                         'unit_label' => '1 kg',
+                        'pack_line_label' => '3 × 1 kg = 3 kg',
                     ],
                 ]),
         );

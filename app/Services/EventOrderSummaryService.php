@@ -295,6 +295,11 @@ class EventOrderSummaryService
                     'name' => $package->name,
                     'quantity' => $quantity,
                     'unit_label' => $package->unitLabel(),
+                    'pack_line_label' => EventPackageUnitType::formatPackLine(
+                        $package->unit_size,
+                        $package->unit_type,
+                        $quantity,
+                    ),
                 ];
             })
             ->filter()
