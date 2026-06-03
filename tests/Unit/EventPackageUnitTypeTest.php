@@ -13,6 +13,13 @@ test('formatPackLine shows pack multiplication and total', function () {
         ->toBe('3 × 1 kg = 3 kg');
 });
 
+test('formatPackSizeLine shows size then pack count without extra spaces', function () {
+    expect(EventPackageUnitType::formatPackSizeLine(3, EventPackageUnitType::Kg, 2))
+        ->toBe('3kg*2=6kg')
+        ->and(EventPackageUnitType::formatPackSizeLine(5, EventPackageUnitType::Kg, 4))
+        ->toBe('5kg*4=20kg');
+});
+
 test('formatTotalsSummary joins totals by unit type', function () {
     $summary = EventPackageUnitType::formatTotalsSummary([
         'kg' => 3,

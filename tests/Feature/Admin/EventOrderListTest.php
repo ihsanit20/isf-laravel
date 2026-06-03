@@ -305,14 +305,8 @@ test('event orders list shows per-package pack lines', function () {
             fn (Assert $page) => $page
                 ->has('orders.data', 1)
                 ->where('orders.data.0.package_lines', [
-                    [
-                        'package_name' => 'Ghee 3kg',
-                        'line_label' => '2 × 3 kg = 6 kg',
-                    ],
-                    [
-                        'package_name' => 'Ghee 5kg',
-                        'line_label' => '4 × 5 kg = 20 kg',
-                    ],
+                    ['line_label' => '3kg*2=6kg'],
+                    ['line_label' => '5kg*4=20kg'],
                 ]),
         );
 });

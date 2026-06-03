@@ -79,6 +79,11 @@ enum EventPackageUnitType: string
         return "{$amount} {$this->shortLabel()}";
     }
 
+    public function formatSizeCompact(float|string $size): string
+    {
+        return self::formatAmount($size).$this->shortLabel();
+    }
+
     public static function formatAmount(float|string $size): string
     {
         $numeric = (float) $size;
@@ -116,6 +121,21 @@ enum EventPackageUnitType: string
         $physical = self::formatPhysicalQuantity($unitSize, $type, $packQuantity);
 
         return "{$packQuantity} × {$perPack} = {$physical}";
+    }
+
+    /**
+     * Pack size first, tight spacing: "3kg*2=6kg"
+     */
+    public static function formatPackSizeLine(
+        float|string $unitSize,
+        self|string $unitType,
+        int $packQuantity,
+    ): string {
+        $type = is_string($unitType) ? self::from($unitType) : $unitType;
+        $perPack = $type->formatSizeCompact($unitSize);
+        $physical = $type->formatSizeCompact((float) $unitSize * $packQuantity);
+
+        return "{$perPack}*{$packQuantity}={$physical}";
     }
 
     /**

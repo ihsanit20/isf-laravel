@@ -208,8 +208,7 @@ class EventOrderController extends Controller
             'advance_amount' => (string) $order->advance_amount,
             'due_amount' => (string) $order->dueAmount(),
             'package_lines' => $order->items->map(fn ($item): array => [
-                'package_name' => $item->package?->name ?? '-',
-                'line_label' => $item->quantityLabel(),
+                'line_label' => $item->packageSizeLineLabel(),
             ])->values(),
             'payment_status' => $latestPayment?->payment_status ?? 'unpaid',
             'pickup_point' => $order->pickupPoint ? [

@@ -17,7 +17,6 @@ type PickupPointSummary = {
 };
 
 type PackageLine = {
-    package_name: string;
     line_label: string;
 };
 
@@ -95,9 +94,7 @@ defineOptions({
 
 const props = defineProps<Props>();
 
-const ordersIndexUrl = computed(
-    () => `/admin/events/${props.event.id}/orders`,
-);
+const ordersIndexUrl = computed(() => `/admin/events/${props.event.id}/orders`);
 
 const hasActiveFilters = computed(() => {
     const f = props.filters;
@@ -137,9 +134,7 @@ const paginationLabel = (label: string): string =>
         <section
             class="rounded-xl border border-sidebar-border/70 bg-background p-6 shadow-sm dark:border-sidebar-border"
         >
-            <div
-                class="mb-4 flex flex-wrap items-center justify-between gap-3"
-            >
+            <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
                 <div>
                     <h1 class="text-2xl font-semibold tracking-tight">
                         {{ props.event.title }} - Orders
@@ -269,7 +264,9 @@ const paginationLabel = (label: string): string =>
             class="overflow-hidden rounded-xl border border-sidebar-border/70 bg-background shadow-sm dark:border-sidebar-border"
         >
             <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-sidebar-border/70 text-sm">
+                <table
+                    class="min-w-full divide-y divide-sidebar-border/70 text-sm"
+                >
                     <thead class="bg-muted/40 text-left">
                         <tr>
                             <th class="px-4 py-3 font-medium">Order ID</th>
@@ -307,21 +304,20 @@ const paginationLabel = (label: string): string =>
                                 </template>
                                 <span v-else>-</span>
                             </td>
-                            <td class="px-4 py-3 text-muted-foreground">
-                                <template v-if="order.package_lines.length">
-                                    <div
-                                        v-for="(line, index) in order.package_lines"
+                            <td class="px-3 py-2 text-muted-foreground">
+                                <p
+                                    v-if="order.package_lines.length"
+                                    class="m-0 leading-none tracking-tight"
+                                >
+                                    <span
+                                        v-for="(
+                                            line, index
+                                        ) in order.package_lines"
                                         :key="index"
-                                        class="text-xs leading-relaxed"
+                                        class="block whitespace-nowrap"
+                                        >{{ line.line_label }}</span
                                     >
-                                        <span class="text-foreground">{{
-                                            line.package_name
-                                        }}</span>
-                                        <span class="text-muted-foreground">
-                                            — {{ line.line_label }}
-                                        </span>
-                                    </div>
-                                </template>
+                                </p>
                                 <span v-else>-</span>
                             </td>
                             <td class="px-4 py-3 text-muted-foreground">
@@ -385,9 +381,7 @@ const paginationLabel = (label: string): string =>
                             link.active
                                 ? 'border-foreground bg-foreground text-background'
                                 : 'border-sidebar-border/70 text-muted-foreground',
-                            !link.url
-                                ? 'pointer-events-none opacity-50'
-                                : '',
+                            !link.url ? 'pointer-events-none opacity-50' : '',
                         ]"
                     >
                         {{ paginationLabel(link.label) }}

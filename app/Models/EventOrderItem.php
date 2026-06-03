@@ -68,4 +68,17 @@ class EventOrderItem extends Model
             $this->quantity,
         );
     }
+
+    public function packageSizeLineLabel(): string
+    {
+        if ($this->unit_type === null || $this->unit_size === null) {
+            return (string) $this->quantity;
+        }
+
+        return EventPackageUnitType::formatPackSizeLine(
+            $this->unit_size,
+            $this->unit_type,
+            $this->quantity,
+        );
+    }
 }
