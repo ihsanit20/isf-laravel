@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Head, Link, useForm } from '@inertiajs/vue3';
-import { ArrowLeft, Banknote, RefreshCw } from 'lucide-vue-next';
+import { ArrowLeft, Banknote, Printer, RefreshCw } from 'lucide-vue-next';
 import { ref } from 'vue';
 import EventOrderRecordPaymentDialog from '@/components/admin/EventOrderRecordPaymentDialog.vue';
 import EventOrderStatusUpdateDialog from '@/components/admin/EventOrderStatusUpdateDialog.vue';
@@ -109,6 +109,7 @@ defineOptions({
 const props = defineProps<Props>();
 
 const baseUrl = `/admin/events/${props.event.id}/orders/${props.order.id}`;
+const customerReceiptPrintUrl = `${baseUrl}/print/receipt`;
 
 const isStatusDialogOpen = ref(false);
 const isPaymentDialogOpen = ref(false);
@@ -176,6 +177,16 @@ const submitReject = (paymentId: number) => {
                     >
                         <Banknote class="size-4" />
                         Record payment
+                    </Button>
+                    <Button variant="outline" size="sm" as-child>
+                        <a
+                            :href="customerReceiptPrintUrl"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                        >
+                            <Printer class="size-4" />
+                            কাস্টমার কপি
+                        </a>
                     </Button>
                     <Button variant="outline" size="sm" as-child>
                         <Link :href="`/admin/events/${props.event.id}/orders`">

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
-import { ArrowLeft, Eye } from 'lucide-vue-next';
+import { ArrowLeft, Banknote, Eye, Printer, RefreshCw } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 import EventOrderRecordPaymentDialog from '@/components/admin/EventOrderRecordPaymentDialog.vue';
 import EventOrderStatusUpdateDialog from '@/components/admin/EventOrderStatusUpdateDialog.vue';
@@ -195,6 +195,17 @@ const openPaymentDialog = (order: OrderItem) => {
 };
 
 const ordersIndexUrl = computed(() => `/admin/events/${props.event.id}/orders`);
+
+const printPickupAllUrl = computed(
+    () => `/admin/events/${props.event.id}/prints/pickup`,
+);
+
+const printPackageSummaryUrl = computed(
+    () => `/admin/events/${props.event.id}/prints/package-summary`,
+);
+
+const printPickupHubUrl = (pickupPointId: number) =>
+    `/admin/events/${props.event.id}/prints/pickup/${pickupPointId}`;
 
 const orderTabs: Array<{ key: OrderTab; label: string }> = [
     { key: 'orders', label: 'Order List' },
@@ -787,13 +798,29 @@ const paginationLabel = (label: string): string =>
             </div>
 
             <div v-else-if="activeTab === 'pickup'" class="p-4">
-                <h2 class="text-sm font-semibold tracking-tight">
-                    Orders by Pickup Point
-                </h2>
-                <p class="mt-1 text-sm text-muted-foreground">
-                    Status counts show all orders; Total, packages, and due
-                    reflect confirmed orders (operational focus).
-                </p>
+                <div
+                    class="flex flex-wrap items-start justify-between gap-3"
+                >
+                    <div>
+                        <h2 class="text-sm font-semibold tracking-tight">
+                            Orders by Pickup Point
+                        </h2>
+                        <p class="mt-1 text-sm text-muted-foreground">
+                            Status counts show all orders; Total, packages, and
+                            due reflect confirmed orders (operational focus).
+                        </p>
+                    </div>
+                    <Button variant="outline" size="sm" as-child>
+                        <a
+                            :href="printPickupAllUrl"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                        >
+                            <Printer class="size-4" />
+                            সব হাব প্রিন্ট
+                        </a>
+                    </Button>
+                </div>
                 <div
                     v-if="props.summary.pickup_points.length === 0"
                     class="mt-6 text-center text-sm text-muted-foreground"
@@ -903,18 +930,29 @@ const paginationLabel = (label: string): string =>
                                     {{ money(point.total_due_amount) }}
                                 </td>
                                 <td class="px-3 py-2">
-                                    <Link
-                                        :href="
-                                            filterUrl({
-                                                pickup_point_id: String(
-                                                    point.id,
-                                                ),
-                                            })
-                                        "
-                                        class="text-xs font-medium text-primary underline-offset-4 hover:underline"
-                                    >
-                                        View all
-                                    </Link>
+                                    <div class="flex flex-wrap gap-2">
+                                        <Link
+                                            :href="
+                                                filterUrl({
+                                                    pickup_point_id: String(
+                                                        point.id,
+                                                    ),
+                                                })
+                                            "
+                                            class="text-xs font-medium text-primary underline-offset-4 hover:underline"
+                                        >
+                                            View all
+                                        </Link>
+                                        <a
+                                            :href="printPickupHubUrl(point.id)"
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            class="inline-flex items-center gap-1 text-xs font-medium text-primary underline-offset-4 hover:underline"
+                                        >
+                                            <Printer class="size-3.5" />
+                                            প্রিন্ট
+                                        </a>
+                                    </div>
                                 </td>
                             </tr>
                         </tbody>
@@ -934,12 +972,24 @@ const paginationLabel = (label: string): string =>
                             focus).
                         </p>
                     </div>
-                    <Link
-                        :href="`/admin/events/${props.event.id}`"
-                        class="text-xs font-medium text-primary underline-offset-4 hover:underline"
-                    >
-                        Manage packages
-                    </Link>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <Button variant="outline" size="sm" as-child>
+                            <a
+                                :href="printPackageSummaryUrl"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                            >
+                                <Printer class="size-4" />
+                                প্যাকিং লিস্ট
+                            </a>
+                        </Button>
+                        <Link
+                            :href="`/admin/events/${props.event.id}`"
+                            class="text-xs font-medium text-primary underline-offset-4 hover:underline"
+                        >
+                            Manage packages
+                        </Link>
+                    </div>
                 </div>
                 <div
                     v-if="props.summary.packages.length === 0"

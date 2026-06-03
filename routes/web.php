@@ -4,6 +4,7 @@ use App\Http\Controllers\Admin\ChargeCategoryController;
 use App\Http\Controllers\Admin\ChargeListController;
 use App\Http\Controllers\Admin\DepositListController;
 use App\Http\Controllers\Admin\EventOrderController;
+use App\Http\Controllers\Admin\EventOrderPrintController;
 use App\Http\Controllers\Admin\EventPackageController;
 use App\Http\Controllers\Admin\EventPickupPointController;
 use App\Http\Controllers\Admin\FundCycleController;
@@ -18,11 +19,17 @@ use App\Http\Controllers\MemberController;
 use App\Http\Controllers\MemberFundCycleController;
 use App\Http\Controllers\MyAllocationController;
 use App\Http\Controllers\MyChargeController;
+use App\Http\Controllers\PublicPaymentReceiptController;
 use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Features;
 
 Route::match(['get', 'post'], '/bkash/callback', [BkashCallbackController::class, 'handle'])
     ->name('bkash.callback');
+
+Route::get(
+    'public/orders/{orderNumber}/payments/{payment}/receipt',
+    [PublicPaymentReceiptController::class, 'show'],
+)->name('public.orders.payments.receipt');
 
 Route::inertia('/', 'Welcome', [
     'canRegister' => Features::enabled(Features::registration()),
@@ -69,6 +76,10 @@ Route::middleware(['auth', 'verified', 'admin'])->group(function () {
     Route::post('admin/events/{fundCycleEvent}/orders/{eventOrder}/payments', [EventOrderController::class, 'storePayment'])->name('admin.events.orders.payments.store');
     Route::patch('admin/events/{fundCycleEvent}/orders/{eventOrder}/payments/{eventPayment}', [EventOrderController::class, 'reviewPayment'])->name('admin.events.orders.payments.review');
     Route::patch('admin/events/{fundCycleEvent}/orders/{eventOrder}/status', [EventOrderController::class, 'updateStatus'])->name('admin.events.orders.status.update');
+    Route::get('admin/events/{fundCycleEvent}/prints/pickup', [EventOrderPrintController::class, 'pickupAll'])->name('admin.events.orders.print.pickup-all');
+    Route::get('admin/events/{fundCycleEvent}/prints/pickup/{eventPickupPoint}', [EventOrderPrintController::class, 'pickupHub'])->name('admin.events.orders.print.pickup-hub');
+    Route::get('admin/events/{fundCycleEvent}/prints/package-summary', [EventOrderPrintController::class, 'packageSummary'])->name('admin.events.orders.print.package-summary');
+    Route::get('admin/events/{fundCycleEvent}/orders/{eventOrder}/print/receipt', [EventOrderPrintController::class, 'customerReceipt'])->name('admin.events.orders.print.receipt');
     Route::put('admin/events/{fundCycleEvent}', [FundCycleEventController::class, 'updateFromDetails'])->name('admin.events.update');
     Route::post('admin/events/{fundCycleEvent}/cover', [FundCycleEventController::class, 'uploadCover'])->name('admin.events.cover.store');
     Route::post('admin/events/{fundCycleEvent}/packages', [EventPackageController::class, 'store'])->name('admin.events.packages.store');

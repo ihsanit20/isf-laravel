@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\EventOrder;
+use App\Support\EventOrderTrackingUrl;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -28,7 +29,7 @@ class PublicOrderTrackingController extends Controller
         }
 
         return response()->json([
-            'data' => $this->formatOrder($order),
+            'data' => $this->formatOrder($order, customerPhone: $request->customer_phone),
         ]);
     }
 
@@ -49,17 +50,17 @@ class PublicOrderTrackingController extends Controller
         }
 
         return response()->json([
-            'data' => $this->formatOrder($order),
+            'data' => $this->formatOrder($order, token: $request->token),
         ]);
     }
 
-    private function formatOrder(EventOrder $order): array
+    private function formatOrder(EventOrder $order, ?string $token = null, ?string $customerPhone = null): array
     {
         $order->load([
             'items.package:id,name,package_price',
             'pickupPoint:id,name,area,address,contact_person,phone',
             'statusHistories' => fn ($q) => $q->orderBy('changed_at'),
-            'payments:id,event_order_id,payment_status,payment_method,amount',
+            'payments' => fn ($q) => $q->orderByDesc('id'),
             'fundCycleEvent:id,title,expected_delivery_date',
         ]);
 
@@ -97,6 +98,19 @@ class PublicOrderTrackingController extends Controller
                 'package_price' => (float) $item->package_price,
                 'line_total' => (float) $item->line_total,
             ]),
+            'payments' => $order->payments->map(fn ($payment) => [
+                'id' => $payment->id,
+                'amount' => (float) $payment->amount,
+                'payment_type' => $payment->payment_type?->value,
+                'payment_type_label' => $payment->payment_type?->labelBn() ?? 'পেমেন্ট',
+                'payment_method' => $payment->payment_method,
+                'payment_status' => $payment->payment_status,
+                'transaction_reference' => $payment->transaction_reference,
+                'paid_at' => $payment->paid_at?->toIso8601String(),
+                'receipt_url' => $payment->payment_status === 'verified'
+                    ? EventOrderTrackingUrl::paymentReceiptUrl($order, $payment, $token, $customerPhone)
+                    : null,
+            ])->values(),
             'status_history' => $order->statusHistories->map(fn ($h) => [
                 'status' => $h->status,
                 'note' => $h->note,
