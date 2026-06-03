@@ -2,40 +2,69 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Enums\EventOrderStatus;
 use App\Http\Controllers\Controller;
 use App\Models\EventOrder;
 use App\Models\FundCycleEvent;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class EventOrderController extends Controller
 {
-    public function index(FundCycleEvent $fundCycleEvent): Response
-    {
-        $orders = EventOrder::query()
-            ->where('fund_cycle_event_id', $fundCycleEvent->id)
-            ->with(['payments', 'items'])
-            ->latest('id')
-            ->get()
-            ->map(function (EventOrder $order): array {
-                $latestPayment = $order->payments->sortByDesc('id')->first();
+    private const PAYMENT_STATUSES = ['unpaid', 'pending', 'verified', 'failed'];
 
-                return [
-                    'id' => $order->id,
-                    'order_number' => $order->order_number,
-                    'customer_name' => $order->customer_name,
-                    'customer_phone' => $order->customer_phone,
-                    'status' => $order->status->value,
-                    'status_label' => $order->status->label(),
-                    'total_amount' => (string) $order->total_amount,
-                    'advance_amount' => (string) $order->advance_amount,
-                    'due_amount' => (string) $order->dueAmount(),
-                    'total_quantity' => $order->items->sum('quantity'),
-                    'payment_status' => $latestPayment?->payment_status ?? 'unpaid',
-                    'created_at' => $order->created_at?->format('d M Y, h:i A'),
-                ];
+    public function index(Request $request, FundCycleEvent $fundCycleEvent): Response
+    {
+        $status = $request->string('status')->toString();
+        $paymentStatus = $request->string('payment_status')->toString();
+        $search = trim($request->string('search')->toString());
+        $pickupPointId = $request->integer('pickup_point_id');
+        $fromDate = $request->string('from_date')->toString();
+        $toDate = $request->string('to_date')->toString();
+        $hasDue = $request->boolean('has_due');
+        $perPage = $request->integer('per_page', 15);
+        $perPage = in_array($perPage, [15, 25, 50, 100], true) ? $perPage : 15;
+
+        $validPickupPointIds = $fundCycleEvent->pickupPoints()
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->pluck('id')
+            ->all();
+
+        $ordersQuery = EventOrder::query()
+            ->where('fund_cycle_event_id', $fundCycleEvent->id)
+            ->with(['payments', 'items', 'pickupPoint:id,name,contact_person'])
+            ->when(
+                in_array($status, EventOrderStatus::values(), true),
+                fn (Builder $query) => $query->where('status', $status),
+            )
+            ->when(
+                in_array($paymentStatus, self::PAYMENT_STATUSES, true),
+                fn (Builder $query) => $this->applyPaymentStatusFilter($query, $paymentStatus),
+            )
+            ->when(
+                in_array($pickupPointId, $validPickupPointIds, true),
+                fn (Builder $query) => $query->where('event_pickup_point_id', $pickupPointId),
+            )
+            ->when($fromDate !== '', fn (Builder $query) => $query->whereDate('created_at', '>=', $fromDate))
+            ->when($toDate !== '', fn (Builder $query) => $query->whereDate('created_at', '<=', $toDate))
+            ->when($hasDue, fn (Builder $query) => $query->whereColumn('total_amount', '>', 'advance_amount'))
+            ->when($search !== '', function (Builder $query) use ($search): void {
+                $query->where(function (Builder $subQuery) use ($search): void {
+                    $subQuery
+                        ->where('order_number', 'like', "%{$search}%")
+                        ->orWhere('customer_name', 'like', "%{$search}%")
+                        ->orWhere('customer_phone', 'like', "%{$search}%");
+                });
             })
-            ->values();
+            ->latest('id');
+
+        $pickupPoints = $fundCycleEvent->pickupPoints()
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get(['id', 'name']);
 
         return Inertia::render('admin/EventOrders', [
             'event' => [
@@ -43,7 +72,35 @@ class EventOrderController extends Controller
                 'title' => $fundCycleEvent->title,
                 'slug' => $fundCycleEvent->slug,
             ],
-            'orders' => $orders,
+            'filters' => [
+                'search' => $search,
+                'status' => $status,
+                'payment_status' => $paymentStatus,
+                'pickup_point_id' => in_array($pickupPointId, $validPickupPointIds, true) ? (string) $pickupPointId : '',
+                'from_date' => $fromDate,
+                'to_date' => $toDate,
+                'has_due' => $hasDue,
+                'per_page' => $perPage,
+            ],
+            'filterOptions' => [
+                'statuses' => EventOrderStatus::options(),
+                'payment_statuses' => [
+                    ['value' => 'unpaid', 'label' => 'Unpaid'],
+                    ['value' => 'pending', 'label' => 'Pending'],
+                    ['value' => 'verified', 'label' => 'Verified'],
+                    ['value' => 'failed', 'label' => 'Failed'],
+                ],
+                'pickup_points' => $pickupPoints
+                    ->map(fn ($point): array => [
+                        'id' => $point->id,
+                        'name' => $point->name,
+                    ])
+                    ->values(),
+            ],
+            'orders' => $ordersQuery
+                ->paginate($perPage)
+                ->withQueryString()
+                ->through(fn (EventOrder $order): array => $this->formatOrderListItem($order)),
         ]);
     }
 
@@ -113,5 +170,45 @@ class EventOrderController extends Controller
             ],
         ]);
     }
-}
 
+    private function applyPaymentStatusFilter(Builder $query, string $paymentStatus): void
+    {
+        if ($paymentStatus === 'unpaid') {
+            $query->whereDoesntHave('payments');
+
+            return;
+        }
+
+        $query->whereHas('payments', function (Builder $paymentQuery) use ($paymentStatus): void {
+            $paymentQuery
+                ->where('payment_status', $paymentStatus)
+                ->whereRaw(
+                    'id = (select max(ep.id) from event_payments as ep where ep.event_order_id = event_orders.id)',
+                );
+        });
+    }
+
+    private function formatOrderListItem(EventOrder $order): array
+    {
+        $latestPayment = $order->payments->sortByDesc('id')->first();
+
+        return [
+            'id' => $order->id,
+            'order_number' => $order->order_number,
+            'customer_name' => $order->customer_name,
+            'customer_phone' => $order->customer_phone,
+            'status' => $order->status->value,
+            'status_label' => $order->status->label(),
+            'total_amount' => (string) $order->total_amount,
+            'advance_amount' => (string) $order->advance_amount,
+            'due_amount' => (string) $order->dueAmount(),
+            'total_quantity' => $order->items->sum('quantity'),
+            'payment_status' => $latestPayment?->payment_status ?? 'unpaid',
+            'pickup_point' => $order->pickupPoint ? [
+                'name' => $order->pickupPoint->name,
+                'contact_person' => $order->pickupPoint->contact_person,
+            ] : null,
+            'created_at' => $order->created_at?->format('d M Y, h:i A'),
+        ];
+    }
+}

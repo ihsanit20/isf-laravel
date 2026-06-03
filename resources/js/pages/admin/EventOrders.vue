@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
 import { ArrowLeft, Eye } from 'lucide-vue-next';
+import { computed } from 'vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 
@@ -8,6 +9,11 @@ type EventSummary = {
     id: number;
     title: string;
     slug: string;
+};
+
+type PickupPointSummary = {
+    name: string;
+    contact_person: string | null;
 };
 
 type OrderItem = {
@@ -22,12 +28,49 @@ type OrderItem = {
     due_amount: string;
     total_quantity: number;
     payment_status: string;
+    pickup_point: PickupPointSummary | null;
     created_at: string | null;
+};
+
+type PaginationLink = {
+    url: string | null;
+    label: string;
+    active: boolean;
+};
+
+type PaginatedOrders = {
+    data: OrderItem[];
+    current_page: number;
+    last_page: number;
+    per_page: number;
+    total: number;
+    from: number | null;
+    to: number | null;
+    links: PaginationLink[];
+};
+
+type FilterOptions = {
+    statuses: Array<{ value: string; label: string }>;
+    payment_statuses: Array<{ value: string; label: string }>;
+    pickup_points: Array<{ id: number; name: string }>;
+};
+
+type ActiveFilters = {
+    search: string;
+    status: string;
+    payment_status: string;
+    pickup_point_id: string;
+    from_date: string;
+    to_date: string;
+    has_due: boolean;
+    per_page: number;
 };
 
 type Props = {
     event: EventSummary;
-    orders: OrderItem[];
+    orders: PaginatedOrders;
+    filters: ActiveFilters;
+    filterOptions: FilterOptions;
 };
 
 defineOptions({
@@ -46,6 +89,40 @@ defineOptions({
 });
 
 const props = defineProps<Props>();
+
+const ordersIndexUrl = computed(
+    () => `/admin/events/${props.event.id}/orders`,
+);
+
+const hasActiveFilters = computed(() => {
+    const f = props.filters;
+
+    return !!(
+        f.search ||
+        f.status ||
+        f.payment_status ||
+        f.pickup_point_id ||
+        f.from_date ||
+        f.to_date ||
+        f.has_due
+    );
+});
+
+const emptyMessage = computed(() => {
+    if (props.orders.data.length > 0) {
+        return '';
+    }
+
+    return hasActiveFilters.value
+        ? 'কোনো order মিলেনি। ফিল্টার পরিবর্তন করে আবার চেষ্টা করুন।'
+        : 'এই event-এ এখনো কোন order নেই।';
+});
+
+const paginationLabel = (label: string): string =>
+    label
+        .replace('&laquo;', '«')
+        .replace('&raquo;', '»')
+        .replace(/<\/?[^>]+(>|$)/g, '');
 </script>
 
 <template>
@@ -76,6 +153,114 @@ const props = defineProps<Props>();
         </section>
 
         <section
+            class="rounded-xl border border-sidebar-border/70 bg-background p-4 shadow-sm dark:border-sidebar-border"
+        >
+            <form
+                method="get"
+                :action="ordersIndexUrl"
+                class="grid gap-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5"
+            >
+                <input
+                    name="search"
+                    type="text"
+                    :value="props.filters.search"
+                    placeholder="Search order, name, phone"
+                    class="h-9 rounded-md border border-input bg-transparent px-3 text-sm xl:col-span-2"
+                />
+                <select
+                    name="status"
+                    :value="props.filters.status"
+                    class="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
+                >
+                    <option value="">All status</option>
+                    <option
+                        v-for="status in props.filterOptions.statuses"
+                        :key="status.value"
+                        :value="status.value"
+                    >
+                        {{ status.label }}
+                    </option>
+                </select>
+                <select
+                    name="payment_status"
+                    :value="props.filters.payment_status"
+                    class="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
+                >
+                    <option value="">All payment</option>
+                    <option
+                        v-for="payment in props.filterOptions.payment_statuses"
+                        :key="payment.value"
+                        :value="payment.value"
+                    >
+                        {{ payment.label }}
+                    </option>
+                </select>
+                <select
+                    name="pickup_point_id"
+                    :value="props.filters.pickup_point_id"
+                    class="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
+                >
+                    <option value="">All pickup points</option>
+                    <option
+                        v-for="point in props.filterOptions.pickup_points"
+                        :key="point.id"
+                        :value="point.id"
+                    >
+                        {{ point.name }}
+                    </option>
+                </select>
+                <input
+                    name="from_date"
+                    type="date"
+                    :value="props.filters.from_date"
+                    class="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
+                />
+                <input
+                    name="to_date"
+                    type="date"
+                    :value="props.filters.to_date"
+                    class="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
+                />
+                <label
+                    class="flex h-9 items-center gap-2 rounded-md border border-input px-3 text-sm"
+                >
+                    <input
+                        name="has_due"
+                        type="checkbox"
+                        value="1"
+                        :checked="props.filters.has_due"
+                        class="size-4 rounded border-input"
+                    />
+                    Has due only
+                </label>
+                <select
+                    name="per_page"
+                    :value="props.filters.per_page"
+                    class="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
+                >
+                    <option :value="15">15 per page</option>
+                    <option :value="25">25 per page</option>
+                    <option :value="50">50 per page</option>
+                    <option :value="100">100 per page</option>
+                </select>
+                <div class="flex gap-2 xl:col-span-2">
+                    <Button type="submit" size="sm" class="h-9">
+                        Filter
+                    </Button>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        class="h-9"
+                        as-child
+                    >
+                        <Link :href="ordersIndexUrl">Reset</Link>
+                    </Button>
+                </div>
+            </form>
+        </section>
+
+        <section
             class="overflow-hidden rounded-xl border border-sidebar-border/70 bg-background shadow-sm dark:border-sidebar-border"
         >
             <div class="overflow-x-auto">
@@ -85,6 +270,7 @@ const props = defineProps<Props>();
                             <th class="px-4 py-3 font-medium">Order ID</th>
                             <th class="px-4 py-3 font-medium">Customer</th>
                             <th class="px-4 py-3 font-medium">Phone</th>
+                            <th class="px-4 py-3 font-medium">Pickup Point</th>
                             <th class="px-4 py-3 font-medium">Qty</th>
                             <th class="px-4 py-3 font-medium">Total</th>
                             <th class="px-4 py-3 font-medium">Advance</th>
@@ -96,13 +282,25 @@ const props = defineProps<Props>();
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-sidebar-border/70">
-                        <tr v-for="order in props.orders" :key="order.id">
+                        <tr v-for="order in props.orders.data" :key="order.id">
                             <td class="px-4 py-3 font-medium">
                                 {{ order.order_number }}
                             </td>
                             <td class="px-4 py-3">{{ order.customer_name }}</td>
                             <td class="px-4 py-3 text-muted-foreground">
                                 {{ order.customer_phone }}
+                            </td>
+                            <td class="px-4 py-3 text-muted-foreground">
+                                <template v-if="order.pickup_point">
+                                    <div>{{ order.pickup_point.name }}</div>
+                                    <div
+                                        v-if="order.pickup_point.contact_person"
+                                        class="text-xs"
+                                    >
+                                        {{ order.pickup_point.contact_person }}
+                                    </div>
+                                </template>
+                                <span v-else>-</span>
                             </td>
                             <td class="px-4 py-3 text-muted-foreground">
                                 {{ order.total_quantity }}
@@ -138,18 +336,45 @@ const props = defineProps<Props>();
                                 </Button>
                             </td>
                         </tr>
-                        <tr v-if="props.orders.length === 0">
+                        <tr v-if="props.orders.data.length === 0">
                             <td
-                                colspan="11"
+                                colspan="12"
                                 class="px-4 py-8 text-center text-muted-foreground"
                             >
-                                এই event-এ এখনো কোন order নেই।
+                                {{ emptyMessage }}
                             </td>
                         </tr>
                     </tbody>
                 </table>
             </div>
+
+            <div
+                class="flex flex-col gap-3 border-t border-sidebar-border/70 px-4 py-3 text-sm md:flex-row md:items-center md:justify-between"
+            >
+                <p class="text-muted-foreground">
+                    Showing {{ props.orders.from || 0 }} to
+                    {{ props.orders.to || 0 }} of
+                    {{ props.orders.total.toLocaleString() }} orders
+                </p>
+                <div class="flex flex-wrap items-center gap-2">
+                    <Link
+                        v-for="link in props.orders.links"
+                        :key="link.label"
+                        :href="link.url || ''"
+                        :class="[
+                            'rounded-md border px-3 py-1.5 text-xs',
+                            link.active
+                                ? 'border-foreground bg-foreground text-background'
+                                : 'border-sidebar-border/70 text-muted-foreground',
+                            !link.url
+                                ? 'pointer-events-none opacity-50'
+                                : '',
+                        ]"
+                    >
+                        {{ paginationLabel(link.label) }}
+                    </Link>
+                </div>
+            </div>
         </section>
     </div>
 </template>
-
