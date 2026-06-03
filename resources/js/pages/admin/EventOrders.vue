@@ -16,6 +16,11 @@ type PickupPointSummary = {
     contact_person: string | null;
 };
 
+type PackageLine = {
+    package_name: string;
+    line_label: string;
+};
+
 type OrderItem = {
     id: number;
     order_number: string;
@@ -26,8 +31,7 @@ type OrderItem = {
     total_amount: string;
     advance_amount: string;
     due_amount: string;
-    total_packs: number;
-    quantity_summary: string;
+    package_lines: PackageLine[];
     payment_status: string;
     pickup_point: PickupPointSummary | null;
     created_at: string | null;
@@ -272,7 +276,7 @@ const paginationLabel = (label: string): string =>
                             <th class="px-4 py-3 font-medium">Customer</th>
                             <th class="px-4 py-3 font-medium">Phone</th>
                             <th class="px-4 py-3 font-medium">Pickup Point</th>
-                            <th class="px-4 py-3 font-medium">Quantity</th>
+                            <th class="px-4 py-3 font-medium">Packages</th>
                             <th class="px-4 py-3 font-medium">Total</th>
                             <th class="px-4 py-3 font-medium">Advance</th>
                             <th class="px-4 py-3 font-medium">Due</th>
@@ -304,10 +308,21 @@ const paginationLabel = (label: string): string =>
                                 <span v-else>-</span>
                             </td>
                             <td class="px-4 py-3 text-muted-foreground">
-                                <div>{{ order.quantity_summary || '-' }}</div>
-                                <div class="text-xs">
-                                    {{ order.total_packs }} pack(s)
-                                </div>
+                                <template v-if="order.package_lines.length">
+                                    <div
+                                        v-for="(line, index) in order.package_lines"
+                                        :key="index"
+                                        class="text-xs leading-relaxed"
+                                    >
+                                        <span class="text-foreground">{{
+                                            line.package_name
+                                        }}</span>
+                                        <span class="text-muted-foreground">
+                                            — {{ line.line_label }}
+                                        </span>
+                                    </div>
+                                </template>
+                                <span v-else>-</span>
                             </td>
                             <td class="px-4 py-3 text-muted-foreground">
                                 {{ order.total_amount }}

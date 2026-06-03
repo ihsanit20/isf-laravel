@@ -1,8 +1,11 @@
 <?php
 
 use App\Enums\EventOrderStatus;
+use App\Enums\EventPackageStatus;
+use App\Enums\EventPackageUnitType;
 use App\Enums\FundCycleEventStatus;
 use App\Models\EventOrder;
+use App\Models\EventOrderItem;
 use App\Models\EventPayment;
 use App\Models\EventPickupPoint;
 use App\Models\FundCycle;
@@ -244,6 +247,73 @@ test('event orders list can filter orders with due balance', function () {
                     ->sort()
                     ->values()
                     ->all() === ['FC1E1-001', 'FC1E1-003']),
+        );
+});
+
+test('event orders list shows per-package pack lines', function () {
+    ['event' => $event, 'orders' => $orders] = createEventWithFilterableOrders();
+
+    $pkg3kg = $event->packages()->create([
+        'name' => 'Ghee 3kg',
+        'unit_type' => EventPackageUnitType::Kg->value,
+        'unit_size' => 3,
+        'package_price' => 1500,
+        'advance_percent' => 0,
+        'min_qty_per_order' => 1,
+        'status' => EventPackageStatus::Active->value,
+    ]);
+
+    $pkg5kg = $event->packages()->create([
+        'name' => 'Ghee 5kg',
+        'unit_type' => EventPackageUnitType::Kg->value,
+        'unit_size' => 5,
+        'package_price' => 2400,
+        'advance_percent' => 0,
+        'min_qty_per_order' => 1,
+        'status' => EventPackageStatus::Active->value,
+    ]);
+
+    EventOrderItem::query()->create([
+        'event_order_id' => $orders['pending_unpaid']->id,
+        'event_package_id' => $pkg3kg->id,
+        'quantity' => 2,
+        'unit_type' => EventPackageUnitType::Kg->value,
+        'unit_size' => 3,
+        'package_price' => 1500,
+        'line_total' => 3000,
+    ]);
+
+    EventOrderItem::query()->create([
+        'event_order_id' => $orders['pending_unpaid']->id,
+        'event_package_id' => $pkg5kg->id,
+        'quantity' => 4,
+        'unit_type' => EventPackageUnitType::Kg->value,
+        'unit_size' => 5,
+        'package_price' => 2400,
+        'line_total' => 9600,
+    ]);
+
+    $admin = User::factory()->create(['role' => 'admin']);
+
+    actingAs($admin)
+        ->get(route('admin.events.orders.index', [
+            'fundCycleEvent' => $event,
+            'search' => 'FC1E1-001',
+        ]))
+        ->assertOk()
+        ->assertInertia(
+            fn (Assert $page) => $page
+                ->has('orders.data', 1)
+                ->where('orders.data.0.package_lines', [
+                    [
+                        'package_name' => 'Ghee 3kg',
+                        'line_label' => '2 × 3 kg = 6 kg',
+                    ],
+                    [
+                        'package_name' => 'Ghee 5kg',
+                        'line_label' => '4 × 5 kg = 20 kg',
+                    ],
+                ]),
         );
 });
 
