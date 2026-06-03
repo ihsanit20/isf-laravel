@@ -9,7 +9,60 @@ type EventSummary = {
     id: number;
     title: string;
     slug: string;
+    order_open_at: string | null;
+    order_close_at: string | null;
+    expected_delivery_date: string | null;
 };
+
+type OrderSummary = {
+    orders: {
+        total: number;
+        today: number;
+        last_7_days: number;
+        by_status: Record<string, number>;
+    };
+    money: {
+        total_order_amount: string;
+        total_advance_amount: string;
+        total_due_amount: string;
+        orders_with_due_count: number;
+    };
+    payments: {
+        unpaid: number;
+        pending: number;
+        verified: number;
+        failed: number;
+        verified_amount: string;
+    };
+    pickup_points: Array<{
+        id: number;
+        name: string;
+        order_count: number;
+        by_status: Record<string, number>;
+        packages: Array<{
+            id: number;
+            name: string;
+            quantity: number;
+            unit_label: string;
+        }>;
+        total_due_amount: string;
+    }>;
+    packages: Array<{
+        id: number;
+        name: string;
+        sold_qty: number;
+        stock_qty: number | null;
+        remaining_qty: number | null;
+        order_count: number;
+        by_status: Record<string, number>;
+        pack_count: number;
+        physical_label: string | null;
+        pack_line_label: string | null;
+        is_low_stock: boolean;
+    }>;
+};
+
+type StatusCounts = Record<string, number>;
 
 type PickupPointSummary = {
     name: string;
@@ -59,7 +112,10 @@ type FilterOptions = {
     pickup_points: Array<{ id: number; name: string }>;
 };
 
+type OrderTab = 'orders' | 'pickup' | 'packages';
+
 type ActiveFilters = {
+    tab: OrderTab;
     search: string;
     status: string;
     payment_status: string;
@@ -72,6 +128,7 @@ type ActiveFilters = {
 
 type Props = {
     event: EventSummary;
+    summary: OrderSummary;
     orders: PaginatedOrders;
     filters: ActiveFilters;
     filterOptions: FilterOptions;
@@ -95,6 +152,92 @@ defineOptions({
 const props = defineProps<Props>();
 
 const ordersIndexUrl = computed(() => `/admin/events/${props.event.id}/orders`);
+
+const orderTabs: Array<{ key: OrderTab; label: string }> = [
+    { key: 'orders', label: 'Order List' },
+    { key: 'pickup', label: 'Pickup Points' },
+    { key: 'packages', label: 'Package Stock' },
+];
+
+const activeTab = computed(() => props.filters.tab);
+
+const buildOrdersUrl = (
+    overrides: Record<string, string | number | boolean> = {},
+): string => {
+    const params = new URLSearchParams();
+    params.set('tab', 'orders');
+
+    const values: Record<string, string | number | boolean> = {
+        search: props.filters.search,
+        status: props.filters.status,
+        payment_status: props.filters.payment_status,
+        pickup_point_id: props.filters.pickup_point_id,
+        from_date: props.filters.from_date,
+        to_date: props.filters.to_date,
+        per_page: props.filters.per_page,
+        ...overrides,
+    };
+
+    if (props.filters.has_due && overrides.has_due !== false) {
+        params.set('has_due', '1');
+    }
+
+    Object.entries(values).forEach(([key, value]) => {
+        if (value === '' || value === false) {
+            return;
+        }
+
+        params.set(key, String(value));
+    });
+
+    return `${ordersIndexUrl.value}?${params.toString()}`;
+};
+
+const tabUrl = (tab: OrderTab): string => {
+    if (tab === 'orders') {
+        return buildOrdersUrl();
+    }
+
+    return `${ordersIndexUrl.value}?tab=${tab}`;
+};
+
+const filterUrl = (params: Record<string, string>): string =>
+    buildOrdersUrl(params);
+
+const money = (amount: string | number): string => {
+    const value =
+        typeof amount === 'string' ? Number.parseFloat(amount) : amount;
+
+    return `${Number.isFinite(value) ? value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'} BDT`;
+};
+
+const statusCards = computed(() => [
+    { key: 'pending', label: 'Pending' },
+    { key: 'confirmed', label: 'Confirmed' },
+    { key: 'delivered', label: 'Delivered' },
+    { key: 'cancelled', label: 'Cancelled' },
+]);
+
+type PaymentStatusKey = 'unpaid' | 'pending' | 'verified' | 'failed';
+
+const paymentCards: Array<{ key: PaymentStatusKey; label: string }> = [
+    { key: 'unpaid', label: 'Unpaid' },
+    { key: 'pending', label: 'Pending' },
+    { key: 'verified', label: 'Verified' },
+    { key: 'failed', label: 'Failed' },
+];
+
+const paymentStatusCount = (status: PaymentStatusKey): number =>
+    props.summary.payments[status];
+
+const lowStockPackages = computed(() =>
+    props.summary.packages.filter((pkg) => pkg.is_low_stock),
+);
+
+const statusColumns = computed(() => props.filterOptions.statuses);
+
+const statusCount = (counts: StatusCounts, status: string): number =>
+    counts[status] ?? 0;
 
 const hasActiveFilters = computed(() => {
     const f = props.filters;
@@ -140,253 +283,655 @@ const paginationLabel = (label: string): string =>
                         {{ props.event.title }} - Orders
                     </h1>
                     <p class="mt-2 text-sm text-muted-foreground">
-                        Showing only orders for this event.
+                        Event-wide summary. Use tabs below for the order list,
+                        pickup breakdown, or package stock.
                     </p>
+                    <dl
+                        class="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground"
+                    >
+                        <div v-if="props.event.order_open_at">
+                            <dt class="inline font-medium text-foreground">
+                                Orders open:
+                            </dt>
+                            <dd class="inline">
+                                {{ props.event.order_open_at }}
+                            </dd>
+                        </div>
+                        <div v-if="props.event.order_close_at">
+                            <dt class="inline font-medium text-foreground">
+                                Orders close:
+                            </dt>
+                            <dd class="inline">
+                                {{ props.event.order_close_at }}
+                            </dd>
+                        </div>
+                        <div v-if="props.event.expected_delivery_date">
+                            <dt class="inline font-medium text-foreground">
+                                Expected delivery:
+                            </dt>
+                            <dd class="inline">
+                                {{ props.event.expected_delivery_date }}
+                            </dd>
+                        </div>
+                    </dl>
                 </div>
-                <Button variant="outline" size="sm" as-child>
-                    <Link href="/admin/events">
-                        <ArrowLeft class="size-4" />
-                        Back to Events
-                    </Link>
+                <div class="flex flex-wrap gap-2">
+                    <Button variant="outline" size="sm" as-child>
+                        <Link :href="`/admin/events/${props.event.id}`">
+                            Event Details
+                        </Link>
+                    </Button>
+                    <Button variant="outline" size="sm" as-child>
+                        <Link href="/admin/events">
+                            <ArrowLeft class="size-4" />
+                            Back to Events
+                        </Link>
+                    </Button>
+                </div>
+            </div>
+        </section>
+
+        <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+            <div
+                class="rounded-xl border border-sidebar-border/70 bg-background p-4 shadow-sm dark:border-sidebar-border"
+            >
+                <p class="text-xs text-muted-foreground">Total Orders</p>
+                <p class="mt-2 text-2xl font-semibold text-foreground">
+                    {{ props.summary.orders.total.toLocaleString() }}
+                </p>
+                <p class="mt-2 text-xs text-muted-foreground">
+                    Today: {{ props.summary.orders.today }} · Last 7 days:
+                    {{ props.summary.orders.last_7_days }}
+                </p>
+            </div>
+            <Link
+                v-for="card in statusCards"
+                :key="card.key"
+                :href="filterUrl({ status: card.key })"
+                class="rounded-xl border border-sidebar-border/70 bg-background p-4 shadow-sm transition-colors hover:bg-muted/30 dark:border-sidebar-border"
+            >
+                <p class="text-xs text-muted-foreground">{{ card.label }}</p>
+                <p class="mt-2 text-2xl font-semibold text-foreground">
+                    {{
+                        (
+                            props.summary.orders.by_status[card.key] ?? 0
+                        ).toLocaleString()
+                    }}
+                </p>
+            </Link>
+        </section>
+
+        <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <div
+                class="rounded-xl border border-sidebar-border/70 bg-background p-4 shadow-sm dark:border-sidebar-border"
+            >
+                <p class="text-xs text-muted-foreground">Total Order Value</p>
+                <p class="mt-2 text-2xl font-semibold text-foreground">
+                    {{ money(props.summary.money.total_order_amount) }}
+                </p>
+            </div>
+            <div
+                class="rounded-xl border border-sidebar-border/70 bg-background p-4 shadow-sm dark:border-sidebar-border"
+            >
+                <p class="text-xs text-muted-foreground">Advance Recorded</p>
+                <p class="mt-2 text-2xl font-semibold text-foreground">
+                    {{ money(props.summary.money.total_advance_amount) }}
+                </p>
+            </div>
+            <Link
+                :href="filterUrl({ has_due: '1' })"
+                class="rounded-xl border border-sidebar-border/70 bg-background p-4 shadow-sm transition-colors hover:bg-muted/30 dark:border-sidebar-border"
+            >
+                <p class="text-xs text-muted-foreground">Total Due</p>
+                <p class="mt-2 text-2xl font-semibold text-amber-600">
+                    {{ money(props.summary.money.total_due_amount) }}
+                </p>
+                <p class="mt-2 text-xs text-muted-foreground">
+                    {{ props.summary.money.orders_with_due_count }} orders with
+                    due
+                </p>
+            </Link>
+            <div
+                class="rounded-xl border border-sidebar-border/70 bg-background p-4 shadow-sm dark:border-sidebar-border"
+            >
+                <p class="text-xs text-muted-foreground">Verified Payments</p>
+                <p class="mt-2 text-2xl font-semibold text-foreground">
+                    {{ money(props.summary.payments.verified_amount) }}
+                </p>
+                <p class="mt-2 text-xs text-muted-foreground">
+                    Collected via verified payment records
+                </p>
+            </div>
+        </section>
+
+        <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <Link
+                v-for="card in paymentCards"
+                :key="card.key"
+                :href="filterUrl({ payment_status: card.key })"
+                class="rounded-xl border border-sidebar-border/70 bg-background p-4 shadow-sm transition-colors hover:bg-muted/30 dark:border-sidebar-border"
+            >
+                <p class="text-xs text-muted-foreground">
+                    Payment · {{ card.label }}
+                </p>
+                <p class="mt-2 text-2xl font-semibold text-foreground">
+                    {{ paymentStatusCount(card.key).toLocaleString() }}
+                </p>
+            </Link>
+        </section>
+
+        <section
+            class="rounded-xl border border-sidebar-border/70 bg-background shadow-sm dark:border-sidebar-border"
+        >
+            <div
+                class="flex flex-wrap gap-2 border-b border-sidebar-border/70 p-4"
+            >
+                <Button
+                    v-for="tab in orderTabs"
+                    :key="tab.key"
+                    size="sm"
+                    :variant="activeTab === tab.key ? 'default' : 'outline'"
+                    as-child
+                >
+                    <Link :href="tabUrl(tab.key)">{{ tab.label }}</Link>
                 </Button>
             </div>
-        </section>
 
-        <section
-            class="rounded-xl border border-sidebar-border/70 bg-background p-4 shadow-sm dark:border-sidebar-border"
-        >
-            <form
-                method="get"
-                :action="ordersIndexUrl"
-                class="grid gap-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5"
-            >
-                <input
-                    name="search"
-                    type="text"
-                    :value="props.filters.search"
-                    placeholder="Search order, name, phone"
-                    class="h-9 rounded-md border border-input bg-transparent px-3 text-sm xl:col-span-2"
-                />
-                <select
-                    name="status"
-                    :value="props.filters.status"
-                    class="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
+            <div v-if="activeTab === 'orders'" class="space-y-4 p-4">
+                <form
+                    method="get"
+                    :action="ordersIndexUrl"
+                    class="grid gap-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5"
                 >
-                    <option value="">All status</option>
-                    <option
-                        v-for="status in props.filterOptions.statuses"
-                        :key="status.value"
-                        :value="status.value"
-                    >
-                        {{ status.label }}
-                    </option>
-                </select>
-                <select
-                    name="payment_status"
-                    :value="props.filters.payment_status"
-                    class="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
-                >
-                    <option value="">All payment</option>
-                    <option
-                        v-for="payment in props.filterOptions.payment_statuses"
-                        :key="payment.value"
-                        :value="payment.value"
-                    >
-                        {{ payment.label }}
-                    </option>
-                </select>
-                <select
-                    name="pickup_point_id"
-                    :value="props.filters.pickup_point_id"
-                    class="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
-                >
-                    <option value="">All pickup points</option>
-                    <option
-                        v-for="point in props.filterOptions.pickup_points"
-                        :key="point.id"
-                        :value="point.id"
-                    >
-                        {{ point.name }}
-                    </option>
-                </select>
-                <input
-                    name="from_date"
-                    type="date"
-                    :value="props.filters.from_date"
-                    class="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
-                />
-                <input
-                    name="to_date"
-                    type="date"
-                    :value="props.filters.to_date"
-                    class="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
-                />
-                <label
-                    class="flex h-9 items-center gap-2 rounded-md border border-input px-3 text-sm"
-                >
+                    <input type="hidden" name="tab" value="orders" />
                     <input
-                        name="has_due"
-                        type="checkbox"
-                        value="1"
-                        :checked="props.filters.has_due"
-                        class="size-4 rounded border-input"
+                        name="search"
+                        type="text"
+                        :value="props.filters.search"
+                        placeholder="Search order, name, phone"
+                        class="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
                     />
-                    Has due only
-                </label>
-                <select
-                    name="per_page"
-                    :value="props.filters.per_page"
-                    class="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
-                >
-                    <option :value="15">15 per page</option>
-                    <option :value="25">25 per page</option>
-                    <option :value="50">50 per page</option>
-                    <option :value="100">100 per page</option>
-                </select>
-                <div class="flex gap-2 xl:col-span-2">
-                    <Button type="submit" size="sm" class="h-9">
-                        Filter
-                    </Button>
-                    <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        class="h-9"
-                        as-child
+                    <select
+                        name="status"
+                        :value="props.filters.status"
+                        class="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
                     >
-                        <Link :href="ordersIndexUrl">Reset</Link>
-                    </Button>
-                </div>
-            </form>
-        </section>
+                        <option value="">All status</option>
+                        <option
+                            v-for="status in props.filterOptions.statuses"
+                            :key="status.value"
+                            :value="status.value"
+                        >
+                            {{ status.label }}
+                        </option>
+                    </select>
+                    <select
+                        name="payment_status"
+                        :value="props.filters.payment_status"
+                        class="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
+                    >
+                        <option value="">All payment</option>
+                        <option
+                            v-for="payment in props.filterOptions
+                                .payment_statuses"
+                            :key="payment.value"
+                            :value="payment.value"
+                        >
+                            {{ payment.label }}
+                        </option>
+                    </select>
+                    <select
+                        name="pickup_point_id"
+                        :value="props.filters.pickup_point_id"
+                        class="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
+                    >
+                        <option value="">All pickup points</option>
+                        <option
+                            v-for="point in props.filterOptions.pickup_points"
+                            :key="point.id"
+                            :value="point.id"
+                        >
+                            {{ point.name }}
+                        </option>
+                    </select>
+                    <input
+                        name="from_date"
+                        type="date"
+                        :value="props.filters.from_date"
+                        class="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
+                    />
+                    <input
+                        name="to_date"
+                        type="date"
+                        :value="props.filters.to_date"
+                        class="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
+                    />
+                    <label
+                        class="flex h-9 items-center gap-2 rounded-md border border-input px-3 text-sm"
+                    >
+                        <input
+                            name="has_due"
+                            type="checkbox"
+                            value="1"
+                            :checked="props.filters.has_due"
+                            class="size-4 rounded border-input"
+                        />
+                        Has due only
+                    </label>
+                    <select
+                        name="per_page"
+                        :value="props.filters.per_page"
+                        class="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
+                    >
+                        <option :value="15">15 per page</option>
+                        <option :value="25">25 per page</option>
+                        <option :value="50">50 per page</option>
+                        <option :value="100">100 per page</option>
+                    </select>
+                    <div class="flex gap-2 xl:col-span-2">
+                        <Button type="submit" size="sm" class="h-9">
+                            Filter
+                        </Button>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            class="h-9"
+                            as-child
+                        >
+                            <Link :href="tabUrl('orders')">Reset</Link>
+                        </Button>
+                    </div>
+                </form>
 
-        <section
-            class="overflow-hidden rounded-xl border border-sidebar-border/70 bg-background shadow-sm dark:border-sidebar-border"
-        >
-            <div class="overflow-x-auto">
-                <table
-                    class="min-w-full divide-y divide-sidebar-border/70 text-sm"
+                <div
+                    class="overflow-x-auto rounded-lg border border-sidebar-border/70"
                 >
-                    <thead class="bg-muted/40 text-left">
-                        <tr>
-                            <th class="px-4 py-3 font-medium">Order ID</th>
-                            <th class="px-4 py-3 font-medium">Customer</th>
-                            <th class="px-4 py-3 font-medium">Phone</th>
-                            <th class="px-4 py-3 font-medium">Pickup Point</th>
-                            <th class="px-4 py-3 font-medium">Packages</th>
-                            <th class="px-4 py-3 font-medium">Total</th>
-                            <th class="px-4 py-3 font-medium">Advance</th>
-                            <th class="px-4 py-3 font-medium">Due</th>
-                            <th class="px-4 py-3 font-medium">Payment</th>
-                            <th class="px-4 py-3 font-medium">Status</th>
-                            <th class="px-4 py-3 font-medium">Created At</th>
-                            <th class="px-4 py-3 font-medium">Action</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-sidebar-border/70">
-                        <tr v-for="order in props.orders.data" :key="order.id">
-                            <td class="px-4 py-3 font-medium">
-                                {{ order.order_number }}
-                            </td>
-                            <td class="px-4 py-3">{{ order.customer_name }}</td>
-                            <td class="px-4 py-3 text-muted-foreground">
-                                {{ order.customer_phone }}
-                            </td>
-                            <td class="px-4 py-3 text-muted-foreground">
-                                <template v-if="order.pickup_point">
-                                    <div>{{ order.pickup_point.name }}</div>
-                                    <div
-                                        v-if="order.pickup_point.contact_person"
-                                        class="text-xs"
-                                    >
-                                        {{ order.pickup_point.contact_person }}
-                                    </div>
-                                </template>
-                                <span v-else>-</span>
-                            </td>
-                            <td class="px-3 py-2 text-muted-foreground">
-                                <p
-                                    v-if="order.package_lines.length"
-                                    class="m-0 leading-none tracking-tight"
-                                >
-                                    <span
-                                        v-for="(
-                                            line, index
-                                        ) in order.package_lines"
-                                        :key="index"
-                                        class="block whitespace-nowrap"
-                                        >{{ line.line_label }}</span
-                                    >
-                                </p>
-                                <span v-else>-</span>
-                            </td>
-                            <td class="px-4 py-3 text-muted-foreground">
-                                {{ order.total_amount }}
-                            </td>
-                            <td class="px-4 py-3 text-muted-foreground">
-                                {{ order.advance_amount }}
-                            </td>
-                            <td class="px-4 py-3 font-semibold text-amber-600">
-                                {{ order.due_amount }}
-                            </td>
-                            <td class="px-4 py-3 text-muted-foreground">
-                                {{ order.payment_status }}
-                            </td>
-                            <td class="px-4 py-3">
-                                <Badge variant="outline">{{
-                                    order.status_label
-                                }}</Badge>
-                            </td>
-                            <td class="px-4 py-3 text-muted-foreground">
-                                {{ order.created_at || '-' }}
-                            </td>
-                            <td class="px-4 py-3">
-                                <Button variant="outline" size="sm" as-child>
-                                    <Link
-                                        :href="`/admin/events/${props.event.id}/orders/${order.id}`"
-                                    >
-                                        <Eye class="size-4" />
-                                        Details
-                                    </Link>
-                                </Button>
-                            </td>
-                        </tr>
-                        <tr v-if="props.orders.data.length === 0">
-                            <td
-                                colspan="12"
-                                class="px-4 py-8 text-center text-muted-foreground"
+                    <table
+                        class="min-w-full divide-y divide-sidebar-border/70 text-sm"
+                    >
+                        <thead class="bg-muted/40 text-left">
+                            <tr>
+                                <th class="px-4 py-3 font-medium">Order ID</th>
+                                <th class="px-4 py-3 font-medium">Customer</th>
+                                <th class="px-4 py-3 font-medium">Phone</th>
+                                <th class="px-4 py-3 font-medium">
+                                    Pickup Point
+                                </th>
+                                <th class="px-4 py-3 font-medium">Packages</th>
+                                <th class="px-4 py-3 font-medium">Total</th>
+                                <th class="px-4 py-3 font-medium">Advance</th>
+                                <th class="px-4 py-3 font-medium">Due</th>
+                                <th class="px-4 py-3 font-medium">Payment</th>
+                                <th class="px-4 py-3 font-medium">Status</th>
+                                <th class="px-4 py-3 font-medium">
+                                    Created At
+                                </th>
+                                <th class="px-4 py-3 font-medium">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-sidebar-border/70">
+                            <tr
+                                v-for="order in props.orders.data"
+                                :key="order.id"
                             >
-                                {{ emptyMessage }}
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
+                                <td class="px-4 py-3 font-medium">
+                                    {{ order.order_number }}
+                                </td>
+                                <td class="px-4 py-3">
+                                    {{ order.customer_name }}
+                                </td>
+                                <td class="px-4 py-3 text-muted-foreground">
+                                    {{ order.customer_phone }}
+                                </td>
+                                <td class="px-4 py-3 text-muted-foreground">
+                                    <template v-if="order.pickup_point">
+                                        <div>{{ order.pickup_point.name }}</div>
+                                        <div
+                                            v-if="
+                                                order.pickup_point
+                                                    .contact_person
+                                            "
+                                            class="text-xs"
+                                        >
+                                            {{
+                                                order.pickup_point
+                                                    .contact_person
+                                            }}
+                                        </div>
+                                    </template>
+                                    <span v-else>-</span>
+                                </td>
+                                <td class="px-3 py-2 text-muted-foreground">
+                                    <p
+                                        v-if="order.package_lines.length"
+                                        class="m-0 leading-none tracking-tight"
+                                    >
+                                        <span
+                                            v-for="(
+                                                line, index
+                                            ) in order.package_lines"
+                                            :key="index"
+                                            class="block whitespace-nowrap"
+                                            >{{ line.line_label }}</span
+                                        >
+                                    </p>
+                                    <span v-else>-</span>
+                                </td>
+                                <td class="px-4 py-3 text-muted-foreground">
+                                    {{ order.total_amount }}
+                                </td>
+                                <td class="px-4 py-3 text-muted-foreground">
+                                    {{ order.advance_amount }}
+                                </td>
+                                <td
+                                    class="px-4 py-3 font-semibold text-amber-600"
+                                >
+                                    {{ order.due_amount }}
+                                </td>
+                                <td class="px-4 py-3 text-muted-foreground">
+                                    {{ order.payment_status }}
+                                </td>
+                                <td class="px-4 py-3">
+                                    <Badge variant="outline">{{
+                                        order.status_label
+                                    }}</Badge>
+                                </td>
+                                <td class="px-4 py-3 text-muted-foreground">
+                                    {{ order.created_at || '-' }}
+                                </td>
+                                <td class="px-4 py-3">
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        as-child
+                                    >
+                                        <Link
+                                            :href="`/admin/events/${props.event.id}/orders/${order.id}`"
+                                        >
+                                            <Eye class="size-4" />
+                                            Details
+                                        </Link>
+                                    </Button>
+                                </td>
+                            </tr>
+                            <tr v-if="props.orders.data.length === 0">
+                                <td
+                                    colspan="12"
+                                    class="px-4 py-8 text-center text-muted-foreground"
+                                >
+                                    {{ emptyMessage }}
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <div
+                        class="flex flex-col gap-3 border-t border-sidebar-border/70 px-4 py-3 text-sm md:flex-row md:items-center md:justify-between"
+                    >
+                        <p class="text-muted-foreground">
+                            Showing {{ props.orders.from || 0 }} to
+                            {{ props.orders.to || 0 }} of
+                            {{ props.orders.total.toLocaleString() }} orders
+                        </p>
+                        <div class="flex flex-wrap items-center gap-2">
+                            <Link
+                                v-for="link in props.orders.links"
+                                :key="link.label"
+                                :href="link.url || ''"
+                                :class="[
+                                    'rounded-md border px-3 py-1.5 text-xs',
+                                    link.active
+                                        ? 'border-foreground bg-foreground text-background'
+                                        : 'border-sidebar-border/70 text-muted-foreground',
+                                    !link.url
+                                        ? 'pointer-events-none opacity-50'
+                                        : '',
+                                ]"
+                            >
+                                {{ paginationLabel(link.label) }}
+                            </Link>
+                        </div>
+                    </div>
+                </div>
             </div>
 
-            <div
-                class="flex flex-col gap-3 border-t border-sidebar-border/70 px-4 py-3 text-sm md:flex-row md:items-center md:justify-between"
-            >
-                <p class="text-muted-foreground">
-                    Showing {{ props.orders.from || 0 }} to
-                    {{ props.orders.to || 0 }} of
-                    {{ props.orders.total.toLocaleString() }} orders
+            <div v-else-if="activeTab === 'pickup'" class="p-4">
+                <h2 class="text-sm font-semibold tracking-tight">
+                    Orders by Pickup Point
+                </h2>
+                <p class="mt-1 text-sm text-muted-foreground">
+                    Orders and package quantities per pickup hub, with status
+                    counts.
                 </p>
-                <div class="flex flex-wrap items-center gap-2">
-                    <Link
-                        v-for="link in props.orders.links"
-                        :key="link.label"
-                        :href="link.url || ''"
-                        :class="[
-                            'rounded-md border px-3 py-1.5 text-xs',
-                            link.active
-                                ? 'border-foreground bg-foreground text-background'
-                                : 'border-sidebar-border/70 text-muted-foreground',
-                            !link.url ? 'pointer-events-none opacity-50' : '',
-                        ]"
+                <div
+                    v-if="props.summary.pickup_points.length === 0"
+                    class="mt-6 text-center text-sm text-muted-foreground"
+                >
+                    No pickup points configured for this event.
+                </div>
+                <div v-else class="mt-4 overflow-x-auto">
+                    <table
+                        class="min-w-full divide-y divide-sidebar-border/70 text-sm"
                     >
-                        {{ paginationLabel(link.label) }}
+                        <thead class="bg-muted/40 text-left">
+                            <tr>
+                                <th class="px-3 py-2 font-medium">
+                                    Pickup Point
+                                </th>
+                                <th class="px-3 py-2 font-medium">Packages</th>
+                                <th class="px-3 py-2 font-medium">Total</th>
+                                <th
+                                    v-for="status in statusColumns"
+                                    :key="status.value"
+                                    class="px-3 py-2 font-medium"
+                                >
+                                    {{ status.label }}
+                                </th>
+                                <th class="px-3 py-2 font-medium">Total Due</th>
+                                <th class="px-3 py-2 font-medium">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-sidebar-border/70">
+                            <tr
+                                v-for="point in props.summary.pickup_points"
+                                :key="point.id"
+                            >
+                                <td class="px-3 py-2 font-medium">
+                                    {{ point.name }}
+                                </td>
+                                <td
+                                    class="px-3 py-2 align-top text-muted-foreground"
+                                >
+                                    <ul
+                                        v-if="point.packages.length > 0"
+                                        class="m-0 list-none space-y-1 p-0 text-xs"
+                                    >
+                                        <li
+                                            v-for="pkg in point.packages"
+                                            :key="pkg.id"
+                                        >
+                                            <span
+                                                class="font-medium text-foreground"
+                                            >
+                                                {{ pkg.name }}
+                                            </span>
+                                            · {{ pkg.quantity }} pack{{
+                                                pkg.quantity === 1 ? '' : 's'
+                                            }}
+                                            <span
+                                                v-if="pkg.unit_label"
+                                                class="text-muted-foreground"
+                                            >
+                                                ({{ pkg.unit_label }})
+                                            </span>
+                                        </li>
+                                    </ul>
+                                    <span v-else class="text-xs">—</span>
+                                </td>
+                                <td class="px-3 py-2 text-muted-foreground">
+                                    {{ point.order_count.toLocaleString() }}
+                                </td>
+                                <td
+                                    v-for="status in statusColumns"
+                                    :key="`${point.id}-${status.value}`"
+                                    class="px-3 py-2"
+                                >
+                                    <Link
+                                        v-if="
+                                            statusCount(
+                                                point.by_status,
+                                                status.value,
+                                            ) > 0
+                                        "
+                                        :href="
+                                            filterUrl({
+                                                pickup_point_id: String(
+                                                    point.id,
+                                                ),
+                                                status: status.value,
+                                            })
+                                        "
+                                        class="text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                                    >
+                                        {{
+                                            statusCount(
+                                                point.by_status,
+                                                status.value,
+                                            ).toLocaleString()
+                                        }}
+                                    </Link>
+                                    <span v-else class="text-muted-foreground">
+                                        0
+                                    </span>
+                                </td>
+                                <td
+                                    class="px-3 py-2 font-medium text-amber-600"
+                                >
+                                    {{ money(point.total_due_amount) }}
+                                </td>
+                                <td class="px-3 py-2">
+                                    <Link
+                                        :href="
+                                            filterUrl({
+                                                pickup_point_id: String(
+                                                    point.id,
+                                                ),
+                                            })
+                                        "
+                                        class="text-xs font-medium text-primary underline-offset-4 hover:underline"
+                                    >
+                                        View all
+                                    </Link>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div v-else-if="activeTab === 'packages'" class="p-4">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                        <h2 class="text-sm font-semibold tracking-tight">
+                            Package Stock Snapshot
+                        </h2>
+                        <p class="mt-1 text-sm text-muted-foreground">
+                            Stock levels and how many orders (by status) include
+                            each package.
+                        </p>
+                    </div>
+                    <Link
+                        :href="`/admin/events/${props.event.id}`"
+                        class="text-xs font-medium text-primary underline-offset-4 hover:underline"
+                    >
+                        Manage packages
                     </Link>
                 </div>
+                <div
+                    v-if="props.summary.packages.length === 0"
+                    class="mt-6 text-center text-sm text-muted-foreground"
+                >
+                    No packages configured for this event.
+                </div>
+                <div v-else class="mt-4 overflow-x-auto">
+                    <table
+                        class="min-w-full divide-y divide-sidebar-border/70 text-sm"
+                    >
+                        <thead class="bg-muted/40 text-left">
+                            <tr>
+                                <th class="px-3 py-2 font-medium">Package</th>
+                                <th class="px-3 py-2 font-medium">Ordered</th>
+                                <th class="px-3 py-2 font-medium">Stock</th>
+                                <th class="px-3 py-2 font-medium">Orders</th>
+                                <th
+                                    v-for="status in statusColumns"
+                                    :key="status.value"
+                                    class="px-3 py-2 font-medium"
+                                >
+                                    {{ status.label }}
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-sidebar-border/70">
+                            <tr
+                                v-for="pkg in props.summary.packages"
+                                :key="pkg.id"
+                                :class="
+                                    pkg.is_low_stock ? 'bg-amber-500/5' : ''
+                                "
+                            >
+                                <td class="px-3 py-2 font-medium">
+                                    {{ pkg.name }}
+                                </td>
+                                <td class="px-3 py-2 text-muted-foreground">
+                                    <template v-if="pkg.pack_count > 0">
+                                        <div
+                                            class="font-medium text-foreground"
+                                        >
+                                            {{ pkg.physical_label }}
+                                        </div>
+                                        <div class="text-xs">
+                                            {{ pkg.pack_line_label }}
+                                        </div>
+                                    </template>
+                                    <span v-else>—</span>
+                                </td>
+                                <td class="px-3 py-2 text-muted-foreground">
+                                    Sold: {{ pkg.sold_qty }}
+                                    <template v-if="pkg.stock_qty !== null">
+                                        · Left:
+                                        {{ pkg.remaining_qty ?? 0 }} /
+                                        {{ pkg.stock_qty }}
+                                    </template>
+                                    <template v-else> · No cap</template>
+                                </td>
+                                <td class="px-3 py-2 text-muted-foreground">
+                                    {{ pkg.order_count.toLocaleString() }}
+                                </td>
+                                <td
+                                    v-for="status in statusColumns"
+                                    :key="`${pkg.id}-${status.value}`"
+                                    class="px-3 py-2 text-muted-foreground"
+                                >
+                                    {{
+                                        statusCount(
+                                            pkg.by_status,
+                                            status.value,
+                                        ).toLocaleString()
+                                    }}
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <p
+                    v-if="lowStockPackages.length > 0"
+                    class="mt-3 text-xs text-amber-600"
+                >
+                    Low stock (≤5 remaining):
+                    {{ lowStockPackages.map((pkg) => pkg.name).join(', ') }}
+                </p>
             </div>
         </section>
     </div>

@@ -132,10 +132,39 @@ test('admins can visit event orders list with filters and pagination props', fun
                 ->component('admin/EventOrders')
                 ->has('orders.data', 3)
                 ->where('orders.total', 3)
+                ->has('summary')
+                ->where('summary.orders.total', 3)
+                ->where('summary.orders.by_status.pending', 2)
+                ->where('summary.orders.by_status.confirmed', 1)
+                ->where('summary.orders.by_status.cancelled', 0)
+                ->where('summary.orders.by_status.delivered', 0)
+                ->where('summary.money.total_order_amount', '2300.00')
+                ->where('summary.money.total_advance_amount', '800.00')
+                ->where('summary.money.total_due_amount', '1500.00')
+                ->where('summary.money.orders_with_due_count', 2)
+                ->where('summary.payments.unpaid', 1)
+                ->where('summary.payments.pending', 1)
+                ->where('summary.payments.verified', 1)
+                ->where('summary.payments.failed', 0)
+                ->where('summary.payments.verified_amount', '500.00')
+                ->has('summary.pickup_points', 2)
+                ->where('summary.pickup_points.0.name', 'Hub A')
+                ->where('summary.pickup_points.0.order_count', 1)
+                ->where('summary.pickup_points.0.by_status.pending', 1)
+                ->where('summary.pickup_points.0.by_status.confirmed', 0)
+                ->where('summary.pickup_points.0.total_due_amount', '800.00')
+                ->where('summary.pickup_points.1.name', 'Hub B')
+                ->where('summary.pickup_points.1.order_count', 1)
+                ->where('summary.pickup_points.1.by_status.confirmed', 1)
+                ->where('summary.pickup_points.1.by_status.pending', 0)
+                ->where('summary.pickup_points.1.total_due_amount', '0.00')
                 ->has('filters')
+                ->where('filters.tab', 'orders')
                 ->has('filterOptions.statuses', 4)
                 ->has('filterOptions.payment_statuses', 4)
-                ->has('filterOptions.pickup_points', 2),
+                ->has('filterOptions.pickup_points', 2)
+                ->where('event.order_open_at', fn ($value) => $value !== null && $value !== '')
+                ->where('event.order_close_at', fn ($value) => $value !== null && $value !== ''),
         );
 })->with(['admin', 'super_admin']);
 
@@ -165,6 +194,53 @@ test('event orders list includes pickup point name and contact person', function
                 ->has('orders.data', 1)
                 ->where('orders.data.0.pickup_point.name', 'Hub A')
                 ->where('orders.data.0.pickup_point.contact_person', 'Karim Ahmed'),
+        );
+});
+
+test('event orders page can open pickup and packages tabs', function () {
+    ['event' => $event] = createEventWithFilterableOrders();
+
+    $admin = User::factory()->create(['role' => 'admin']);
+
+    actingAs($admin)
+        ->get(route('admin.events.orders.index', [
+            'fundCycleEvent' => $event,
+            'tab' => 'pickup',
+        ]))
+        ->assertOk()
+        ->assertInertia(
+            fn (Assert $page) => $page
+                ->where('filters.tab', 'pickup')
+                ->has('summary.pickup_points', 2),
+        );
+
+    actingAs($admin)
+        ->get(route('admin.events.orders.index', [
+            'fundCycleEvent' => $event,
+            'tab' => 'packages',
+        ]))
+        ->assertOk()
+        ->assertInertia(
+            fn (Assert $page) => $page->where('filters.tab', 'packages'),
+        );
+});
+
+test('event orders summary stays event-wide when list is filtered', function () {
+    ['event' => $event] = createEventWithFilterableOrders();
+
+    $admin = User::factory()->create(['role' => 'admin']);
+
+    actingAs($admin)
+        ->get(route('admin.events.orders.index', [
+            'fundCycleEvent' => $event,
+            'status' => 'confirmed',
+        ]))
+        ->assertOk()
+        ->assertInertia(
+            fn (Assert $page) => $page
+                ->has('orders.data', 1)
+                ->where('summary.orders.total', 3)
+                ->where('summary.orders.by_status.confirmed', 1),
         );
 });
 
@@ -247,6 +323,143 @@ test('event orders list can filter orders with due balance', function () {
                     ->sort()
                     ->values()
                     ->all() === ['FC1E1-001', 'FC1E1-003']),
+        );
+});
+
+test('pickup point summary includes package quantities per hub', function () {
+    ['event' => $event, 'pickupA' => $pickupA, 'orders' => $orders] = createEventWithFilterableOrders();
+
+    $pkg = $event->packages()->create([
+        'name' => 'Oil 1kg',
+        'unit_type' => EventPackageUnitType::Kg->value,
+        'unit_size' => 1,
+        'package_price' => 200,
+        'advance_percent' => 0,
+        'min_qty_per_order' => 1,
+        'status' => EventPackageStatus::Active->value,
+    ]);
+
+    EventOrderItem::query()->create([
+        'event_order_id' => $orders['pending_unpaid']->id,
+        'event_package_id' => $pkg->id,
+        'quantity' => 3,
+        'unit_type' => EventPackageUnitType::Kg->value,
+        'unit_size' => 1,
+        'package_price' => 200,
+        'line_total' => 600,
+    ]);
+
+    $admin = User::factory()->create(['role' => 'admin']);
+
+    actingAs($admin)
+        ->get(route('admin.events.orders.index', [
+            'fundCycleEvent' => $event,
+            'tab' => 'pickup',
+        ]))
+        ->assertOk()
+        ->assertInertia(
+            fn (Assert $page) => $page
+                ->where('summary.pickup_points.0.id', $pickupA->id)
+                ->where('summary.pickup_points.0.packages', [
+                    [
+                        'id' => $pkg->id,
+                        'name' => 'Oil 1kg',
+                        'quantity' => 3,
+                        'unit_label' => '1 kg',
+                    ],
+                ])
+                ->where('summary.pickup_points.1.packages', []),
+        );
+});
+
+test('event orders summary includes package order counts by status', function () {
+    ['event' => $event, 'orders' => $orders] = createEventWithFilterableOrders();
+
+    $pkg = $event->packages()->create([
+        'name' => 'Rice 5kg',
+        'unit_type' => EventPackageUnitType::Kg->value,
+        'unit_size' => 5,
+        'package_price' => 500,
+        'advance_percent' => 0,
+        'min_qty_per_order' => 1,
+        'status' => EventPackageStatus::Active->value,
+    ]);
+
+    EventOrderItem::query()->create([
+        'event_order_id' => $orders['pending_unpaid']->id,
+        'event_package_id' => $pkg->id,
+        'quantity' => 1,
+        'unit_type' => EventPackageUnitType::Kg->value,
+        'unit_size' => 5,
+        'package_price' => 500,
+        'line_total' => 500,
+    ]);
+
+    EventOrderItem::query()->create([
+        'event_order_id' => $orders['confirmed_verified']->id,
+        'event_package_id' => $pkg->id,
+        'quantity' => 2,
+        'unit_type' => EventPackageUnitType::Kg->value,
+        'unit_size' => 5,
+        'package_price' => 500,
+        'line_total' => 1000,
+    ]);
+
+    $admin = User::factory()->create(['role' => 'admin']);
+
+    actingAs($admin)
+        ->get(route('admin.events.orders.index', [
+            'fundCycleEvent' => $event,
+            'tab' => 'packages',
+        ]))
+        ->assertOk()
+        ->assertInertia(
+            fn (Assert $page) => $page
+                ->where('summary.packages.0.name', 'Rice 5kg')
+                ->where('summary.packages.0.order_count', 2)
+                ->where('summary.packages.0.pack_count', 3)
+                ->where('summary.packages.0.physical_label', '15 kg')
+                ->where('summary.packages.0.pack_line_label', '3 × 5 kg = 15 kg')
+                ->where('summary.packages.0.by_status.pending', 1)
+                ->where('summary.packages.0.by_status.confirmed', 1)
+                ->where('summary.packages.0.by_status.delivered', 0),
+        );
+});
+
+test('event orders summary cards include package physical totals', function () {
+    ['event' => $event, 'orders' => $orders] = createEventWithFilterableOrders();
+
+    $pkg = $event->packages()->create([
+        'name' => 'Ghee 3kg',
+        'unit_type' => EventPackageUnitType::Kg->value,
+        'unit_size' => 3,
+        'package_price' => 1500,
+        'advance_percent' => 0,
+        'min_qty_per_order' => 1,
+        'status' => EventPackageStatus::Active->value,
+    ]);
+
+    EventOrderItem::query()->create([
+        'event_order_id' => $orders['pending_unpaid']->id,
+        'event_package_id' => $pkg->id,
+        'quantity' => 2,
+        'unit_type' => EventPackageUnitType::Kg->value,
+        'unit_size' => 3,
+        'package_price' => 1500,
+        'line_total' => 3000,
+    ]);
+
+    $admin = User::factory()->create(['role' => 'admin']);
+
+    actingAs($admin)
+        ->get(route('admin.events.orders.index', $event))
+        ->assertOk()
+        ->assertInertia(
+            fn (Assert $page) => $page
+                ->where('summary.packages.0.name', 'Ghee 3kg')
+                ->where('summary.packages.0.pack_count', 2)
+                ->where('summary.packages.0.physical_label', '6 kg')
+                ->where('summary.packages.0.pack_line_label', '2 × 3 kg = 6 kg'),
         );
 });
 
