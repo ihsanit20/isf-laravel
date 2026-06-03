@@ -2,6 +2,7 @@
 
 use App\Enums\EventOrderStatus;
 use App\Enums\EventPackageStatus;
+use App\Enums\EventPaymentType;
 use App\Enums\FundCycleEventStatus;
 use App\Models\EventOrder;
 use App\Models\EventPayment;
@@ -106,7 +107,18 @@ test('bkash init returns redirect url and creates pending payment', function () 
         'bkash_payment_id' => 'TR0001',
         'payment_status' => 'pending',
         'payment_method' => 'bkash',
+        'payment_type' => EventPaymentType::Advance->value,
     ]);
+});
+
+test('bkash init-due rejects pending orders', function () {
+    $order = createPendingEventOrder();
+
+    $response = postJson("/api/v1/orders/{$order->order_number}/bkash/init-due", [
+        'customer_phone' => $order->customer_phone,
+    ]);
+
+    $response->assertUnprocessable();
 });
 
 test('bkash callback confirms order on successful execute', function () {

@@ -1,8 +1,12 @@
 <script setup lang="ts">
-import { Head, Link } from '@inertiajs/vue3';
-import { ArrowLeft } from 'lucide-vue-next';
+import { Head, Link, useForm } from '@inertiajs/vue3';
+import { ArrowLeft, Banknote, RefreshCw } from 'lucide-vue-next';
+import { ref } from 'vue';
+import EventOrderRecordPaymentDialog from '@/components/admin/EventOrderRecordPaymentDialog.vue';
+import EventOrderStatusUpdateDialog from '@/components/admin/EventOrderStatusUpdateDialog.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 
 type EventSummary = {
     id: number;
@@ -30,11 +34,16 @@ type OrderLine = {
 type Payment = {
     id: number;
     amount: string;
+    payment_type: string | null;
+    payment_type_label: string;
     payment_method: string | null;
     payment_status: string;
     transaction_reference: string | null;
+    note: string | null;
     paid_at: string | null;
     verified_at: string | null;
+    verified_by: string | null;
+    can_verify: boolean;
 };
 
 type StatusHistory = {
@@ -43,6 +52,16 @@ type StatusHistory = {
     note: string | null;
     changed_at: string | null;
     changed_by: string | null;
+};
+
+type StatusOption = {
+    value: string;
+    label: string;
+};
+
+type PaymentMethodOption = {
+    value: string;
+    label: string;
 };
 
 type OrderDetails = {
@@ -56,6 +75,9 @@ type OrderDetails = {
     total_amount: string;
     advance_amount: string;
     due_amount: string;
+    verified_paid_amount: string;
+    can_record_payment: boolean;
+    can_update_status: boolean;
     created_at: string | null;
     confirmed_at: string | null;
     pickup_point: PickupPoint | null;
@@ -67,28 +89,57 @@ type OrderDetails = {
 type Props = {
     event: EventSummary;
     order: OrderDetails;
+    statusOptions: StatusOption[];
+    paymentMethodOptions: PaymentMethodOption[];
 };
 
 defineOptions({
     layout: (props: Props) => ({
         breadcrumbs: [
-            {
-                title: 'Events',
-                href: '/admin/events',
-            },
+            { title: 'Events', href: '/admin/events' },
             {
                 title: 'Order List',
                 href: `/admin/events/${props.event.id}/orders`,
             },
-            {
-                title: 'Order Details',
-                href: '#',
-            },
+            { title: 'Order Details', href: '#' },
         ],
     }),
 });
 
 const props = defineProps<Props>();
+
+const baseUrl = `/admin/events/${props.event.id}/orders/${props.order.id}`;
+
+const isStatusDialogOpen = ref(false);
+const isPaymentDialogOpen = ref(false);
+
+const rejectingPaymentId = ref<number | null>(null);
+
+const rejectForm = useForm({
+    status: 'failed' as const,
+    rejection_reason: '',
+});
+
+const verifyPayment = (paymentId: number) => {
+    useForm({ status: 'verified' }).patch(`${baseUrl}/payments/${paymentId}`, {
+        preserveScroll: true,
+    });
+};
+
+const openReject = (paymentId: number) => {
+    rejectingPaymentId.value = paymentId;
+    rejectForm.reset();
+};
+
+const submitReject = (paymentId: number) => {
+    rejectForm.patch(`${baseUrl}/payments/${paymentId}`, {
+        preserveScroll: true,
+        onSuccess: () => {
+            rejectingPaymentId.value = null;
+            rejectForm.reset();
+        },
+    });
+};
 </script>
 
 <template>
@@ -107,39 +158,75 @@ const props = defineProps<Props>();
                         Event: {{ props.event.title }}
                     </p>
                 </div>
-                <Button variant="outline" size="sm" as-child>
-                    <Link :href="`/admin/events/${props.event.id}/orders`">
-                        <ArrowLeft class="size-4" />
-                        Back to Order List
-                    </Link>
-                </Button>
+                <div class="flex flex-wrap items-center gap-2">
+                    <Button
+                        v-if="props.order.can_update_status"
+                        variant="outline"
+                        size="sm"
+                        @click="isStatusDialogOpen = true"
+                    >
+                        <RefreshCw class="size-4" />
+                        Update status
+                    </Button>
+                    <Button
+                        v-if="props.order.can_record_payment"
+                        variant="outline"
+                        size="sm"
+                        @click="isPaymentDialogOpen = true"
+                    >
+                        <Banknote class="size-4" />
+                        Record payment
+                    </Button>
+                    <Button variant="outline" size="sm" as-child>
+                        <Link :href="`/admin/events/${props.event.id}/orders`">
+                            <ArrowLeft class="size-4" />
+                            Back to Order List
+                        </Link>
+                    </Button>
+                </div>
             </div>
         </section>
 
-        <section class="grid gap-4 md:grid-cols-3">
-            <div class="rounded-xl border border-emerald-300/60 bg-emerald-50 p-5">
-                <div class="text-xs font-semibold tracking-wide text-emerald-700 uppercase">
-                    Total Amount
-                </div>
-                <div class="mt-2 text-2xl font-bold text-emerald-800">
+        <section class="grid gap-4 md:grid-cols-4">
+            <div
+                class="rounded-xl border border-emerald-300/60 bg-emerald-50 p-5 dark:bg-emerald-950/20"
+            >
+                <p class="text-xs font-semibold uppercase text-emerald-700">
+                    Total
+                </p>
+                <p class="mt-2 text-2xl font-bold text-emerald-800">
                     {{ props.order.total_amount }}
-                </div>
+                </p>
             </div>
-            <div class="rounded-xl border border-blue-300/60 bg-blue-50 p-5">
-                <div class="text-xs font-semibold tracking-wide text-blue-700 uppercase">
-                    Advance Paid/Required
-                </div>
-                <div class="mt-2 text-2xl font-bold text-blue-800">
+            <div
+                class="rounded-xl border border-blue-300/60 bg-blue-50 p-5 dark:bg-blue-950/20"
+            >
+                <p class="text-xs font-semibold uppercase text-blue-700">
+                    Advance required
+                </p>
+                <p class="mt-2 text-2xl font-bold text-blue-800">
                     {{ props.order.advance_amount }}
-                </div>
+                </p>
             </div>
-            <div class="rounded-xl border border-amber-300/60 bg-amber-50 p-5">
-                <div class="text-xs font-semibold tracking-wide text-amber-700 uppercase">
-                    Due Amount
-                </div>
-                <div class="mt-2 text-2xl font-bold text-amber-800">
+            <div
+                class="rounded-xl border border-indigo-300/60 bg-indigo-50 p-5 dark:bg-indigo-950/20"
+            >
+                <p class="text-xs font-semibold uppercase text-indigo-700">
+                    Verified paid
+                </p>
+                <p class="mt-2 text-2xl font-bold text-indigo-800">
+                    {{ props.order.verified_paid_amount }}
+                </p>
+            </div>
+            <div
+                class="rounded-xl border border-amber-300/60 bg-amber-50 p-5 dark:bg-amber-950/20"
+            >
+                <p class="text-xs font-semibold uppercase text-amber-700">
+                    Due
+                </p>
+                <p class="mt-2 text-2xl font-bold text-amber-800">
                     {{ props.order.due_amount }}
-                </div>
+                </p>
             </div>
         </section>
 
@@ -149,7 +236,9 @@ const props = defineProps<Props>();
                 <div class="mt-3 space-y-2 text-sm">
                     <div class="flex justify-between gap-3">
                         <span class="text-muted-foreground">Status</span>
-                        <Badge variant="outline">{{ props.order.status_label }}</Badge>
+                        <Badge variant="outline">{{
+                            props.order.status_label
+                        }}</Badge>
                     </div>
                     <div class="flex justify-between gap-3">
                         <span class="text-muted-foreground">Customer</span>
@@ -160,27 +249,11 @@ const props = defineProps<Props>();
                         <span>{{ props.order.customer_phone }}</span>
                     </div>
                     <div class="flex justify-between gap-3">
-                        <span class="text-muted-foreground">Address</span>
-                        <span>{{ props.order.customer_address || '-' }}</span>
-                    </div>
-                    <div class="flex justify-between gap-3">
-                        <span class="text-muted-foreground">Total</span>
-                        <span>{{ props.order.total_amount }}</span>
-                    </div>
-                    <div class="flex justify-between gap-3">
-                        <span class="text-muted-foreground">Advance</span>
-                        <span>{{ props.order.advance_amount }}</span>
-                    </div>
-                    <div class="flex justify-between gap-3">
-                        <span class="text-muted-foreground">Due</span>
-                        <span>{{ props.order.due_amount }}</span>
-                    </div>
-                    <div class="flex justify-between gap-3">
-                        <span class="text-muted-foreground">Created At</span>
+                        <span class="text-muted-foreground">Created</span>
                         <span>{{ props.order.created_at || '-' }}</span>
                     </div>
                     <div class="flex justify-between gap-3">
-                        <span class="text-muted-foreground">Confirmed At</span>
+                        <span class="text-muted-foreground">Confirmed</span>
                         <span>{{ props.order.confirmed_at || '-' }}</span>
                     </div>
                 </div>
@@ -195,25 +268,17 @@ const props = defineProps<Props>();
                             <span>{{ props.order.pickup_point.name || '-' }}</span>
                         </div>
                         <div class="flex justify-between gap-3">
-                            <span class="text-muted-foreground">Area</span>
-                            <span>{{ props.order.pickup_point.area || '-' }}</span>
-                        </div>
-                        <div class="flex justify-between gap-3">
-                            <span class="text-muted-foreground">Address</span>
-                            <span>{{ props.order.pickup_point.address || '-' }}</span>
-                        </div>
-                        <div class="flex justify-between gap-3">
                             <span class="text-muted-foreground">Contact</span>
-                            <span>{{ props.order.pickup_point.contact_person || '-' }}</span>
+                            <span>{{
+                                props.order.pickup_point.contact_person || '-'
+                            }}</span>
                         </div>
                         <div class="flex justify-between gap-3">
                             <span class="text-muted-foreground">Phone</span>
                             <span>{{ props.order.pickup_point.phone || '-' }}</span>
                         </div>
                     </template>
-                    <p v-else class="text-muted-foreground">
-                        Pickup point information is not available.
-                    </p>
+                    <p v-else class="text-muted-foreground">Not set</p>
                 </div>
             </div>
         </section>
@@ -230,7 +295,7 @@ const props = defineProps<Props>();
                         <tr>
                             <th class="px-4 py-3 font-medium">Package</th>
                             <th class="px-4 py-3 font-medium">Quantity</th>
-                            <th class="px-4 py-3 font-medium">Package Price</th>
+                            <th class="px-4 py-3 font-medium">Price</th>
                             <th class="px-4 py-3 font-medium">Line Total</th>
                         </tr>
                     </thead>
@@ -240,11 +305,6 @@ const props = defineProps<Props>();
                             <td class="px-4 py-3">{{ item.quantity_label }}</td>
                             <td class="px-4 py-3">{{ item.package_price }}</td>
                             <td class="px-4 py-3">{{ item.line_total }}</td>
-                        </tr>
-                        <tr v-if="props.order.items.length === 0">
-                            <td colspan="4" class="px-4 py-6 text-center text-muted-foreground">
-                                No order items found.
-                            </td>
                         </tr>
                     </tbody>
                 </table>
@@ -256,33 +316,71 @@ const props = defineProps<Props>();
                 <div class="border-b border-sidebar-border/70 px-4 py-3">
                     <h2 class="text-base font-semibold">Payments</h2>
                 </div>
-                <div class="p-4">
-                    <div v-if="props.order.payments.length > 0" class="space-y-3 text-sm">
-                        <div
-                            v-for="payment in props.order.payments"
-                            :key="payment.id"
-                            class="rounded-md border border-sidebar-border/70 p-3"
-                        >
-                            <div class="flex justify-between gap-3">
-                                <span class="text-muted-foreground">Amount</span>
-                                <span>{{ payment.amount }}</span>
-                            </div>
-                            <div class="flex justify-between gap-3">
-                                <span class="text-muted-foreground">Method</span>
-                                <span>{{ payment.payment_method || '-' }}</span>
-                            </div>
-                            <div class="flex justify-between gap-3">
-                                <span class="text-muted-foreground">Status</span>
-                                <span>{{ payment.payment_status }}</span>
-                            </div>
-                            <div class="flex justify-between gap-3">
-                                <span class="text-muted-foreground">Txn Ref</span>
-                                <span>{{ payment.transaction_reference || '-' }}</span>
-                            </div>
+                <div class="space-y-3 p-4">
+                    <div
+                        v-for="payment in props.order.payments"
+                        :key="payment.id"
+                        class="rounded-md border border-sidebar-border/70 p-3 text-sm"
+                    >
+                        <div class="flex justify-between gap-3 font-medium">
+                            <span>{{ payment.payment_type_label }}</span>
+                            <span>{{ payment.amount }}</span>
                         </div>
+                        <div class="mt-2 space-y-1 text-muted-foreground">
+                            <div>
+                                {{ payment.payment_method || '-' }} ·
+                                {{ payment.payment_status }}
+                            </div>
+                            <div v-if="payment.transaction_reference">
+                                Ref: {{ payment.transaction_reference }}
+                            </div>
+                            <div v-if="payment.verified_by">
+                                Verified by {{ payment.verified_by }}
+                            </div>
+                            <div v-if="payment.note">{{ payment.note }}</div>
+                        </div>
+                        <div
+                            v-if="payment.can_verify"
+                            class="mt-3 flex flex-wrap gap-2"
+                        >
+                            <Button
+                                size="sm"
+                                @click="verifyPayment(payment.id)"
+                            >
+                                Verify
+                            </Button>
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                @click="openReject(payment.id)"
+                            >
+                                Reject
+                            </Button>
+                        </div>
+                        <form
+                            v-if="rejectingPaymentId === payment.id"
+                            class="mt-3 space-y-2"
+                            @submit.prevent="submitReject(payment.id)"
+                        >
+                            <Input
+                                v-model="rejectForm.rejection_reason"
+                                placeholder="Rejection reason"
+                            />
+                            <Button
+                                type="submit"
+                                size="sm"
+                                variant="destructive"
+                                :disabled="rejectForm.processing"
+                            >
+                                Confirm reject
+                            </Button>
+                        </form>
                     </div>
-                    <p v-else class="text-sm text-muted-foreground">
-                        No payment records found.
+                    <p
+                        v-if="props.order.payments.length === 0"
+                        class="text-sm text-muted-foreground"
+                    >
+                        No payments yet.
                     </p>
                 </div>
             </div>
@@ -291,39 +389,36 @@ const props = defineProps<Props>();
                 <div class="border-b border-sidebar-border/70 px-4 py-3">
                     <h2 class="text-base font-semibold">Status History</h2>
                 </div>
-                <div class="p-4">
+                <div class="space-y-3 p-4">
                     <div
-                        v-if="props.order.status_histories.length > 0"
-                        class="space-y-3 text-sm"
+                        v-for="history in props.order.status_histories"
+                        :key="history.id"
+                        class="rounded-md border border-sidebar-border/70 p-3 text-sm"
                     >
-                        <div
-                            v-for="history in props.order.status_histories"
-                            :key="history.id"
-                            class="rounded-md border border-sidebar-border/70 p-3"
-                        >
-                            <div class="flex justify-between gap-3">
-                                <span class="text-muted-foreground">Status</span>
-                                <span>{{ history.status }}</span>
-                            </div>
-                            <div class="flex justify-between gap-3">
-                                <span class="text-muted-foreground">Changed At</span>
-                                <span>{{ history.changed_at || '-' }}</span>
-                            </div>
-                            <div class="flex justify-between gap-3">
-                                <span class="text-muted-foreground">Changed By</span>
-                                <span>{{ history.changed_by || 'System' }}</span>
-                            </div>
-                            <div class="mt-2 text-muted-foreground" v-if="history.note">
-                                {{ history.note }}
-                            </div>
+                        <div class="font-medium">{{ history.status }}</div>
+                        <div class="mt-1 text-muted-foreground">
+                            {{ history.changed_at || '-' }} ·
+                            {{ history.changed_by || 'System' }}
                         </div>
+                        <p v-if="history.note" class="mt-2 text-muted-foreground">
+                            {{ history.note }}
+                        </p>
                     </div>
-                    <p v-else class="text-sm text-muted-foreground">
-                        No status history found.
-                    </p>
                 </div>
             </div>
         </section>
+
+        <EventOrderStatusUpdateDialog
+            v-model:is-open="isStatusDialogOpen"
+            :event-id="props.event.id"
+            :order="props.order"
+            :status-options="props.statusOptions"
+        />
+        <EventOrderRecordPaymentDialog
+            v-model:is-open="isPaymentDialogOpen"
+            :event-id="props.event.id"
+            :order="props.order"
+            :payment-method-options="props.paymentMethodOptions"
+        />
     </div>
 </template>
-

@@ -66,6 +66,9 @@ Route::middleware(['auth', 'verified', 'admin'])->group(function () {
     Route::get('admin/events/{fundCycleEvent}', [FundCycleEventController::class, 'show'])->name('admin.events.show');
     Route::get('admin/events/{fundCycleEvent}/orders', [EventOrderController::class, 'index'])->name('admin.events.orders.index');
     Route::get('admin/events/{fundCycleEvent}/orders/{eventOrder}', [EventOrderController::class, 'show'])->name('admin.events.orders.show');
+    Route::post('admin/events/{fundCycleEvent}/orders/{eventOrder}/payments', [EventOrderController::class, 'storePayment'])->name('admin.events.orders.payments.store');
+    Route::patch('admin/events/{fundCycleEvent}/orders/{eventOrder}/payments/{eventPayment}', [EventOrderController::class, 'reviewPayment'])->name('admin.events.orders.payments.review');
+    Route::patch('admin/events/{fundCycleEvent}/orders/{eventOrder}/status', [EventOrderController::class, 'updateStatus'])->name('admin.events.orders.status.update');
     Route::put('admin/events/{fundCycleEvent}', [FundCycleEventController::class, 'updateFromDetails'])->name('admin.events.update');
     Route::post('admin/events/{fundCycleEvent}/cover', [FundCycleEventController::class, 'uploadCover'])->name('admin.events.cover.store');
     Route::post('admin/events/{fundCycleEvent}/packages', [EventPackageController::class, 'store'])->name('admin.events.packages.store');

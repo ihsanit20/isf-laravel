@@ -4,10 +4,17 @@ namespace App\Http\Controllers\Admin;
 
 use App\Enums\EventOrderStatus;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\ReviewEventOrderPaymentRequest;
+use App\Http\Requests\Admin\StoreEventOrderPaymentRequest;
+use App\Http\Requests\Admin\UpdateEventOrderStatusRequest;
 use App\Models\EventOrder;
+use App\Models\EventPayment;
 use App\Models\FundCycleEvent;
+use App\Services\EventOrderPaymentService;
+use App\Services\EventOrderStatusService;
 use App\Services\EventOrderSummaryService;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -20,6 +27,8 @@ class EventOrderController extends Controller
 
     public function __construct(
         private readonly EventOrderSummaryService $eventOrderSummaryService,
+        private readonly EventOrderPaymentService $eventOrderPayments,
+        private readonly EventOrderStatusService $eventOrderStatuses,
     ) {}
 
     public function index(Request $request, FundCycleEvent $fundCycleEvent): Response
@@ -59,7 +68,10 @@ class EventOrderController extends Controller
             )
             ->when($fromDate !== '', fn (Builder $query) => $query->whereDate('created_at', '>=', $fromDate))
             ->when($toDate !== '', fn (Builder $query) => $query->whereDate('created_at', '<=', $toDate))
-            ->when($hasDue, fn (Builder $query) => $query->whereColumn('total_amount', '>', 'advance_amount'))
+            ->when(
+                $hasDue,
+                fn (Builder $query) => $query->whereRaw(EventOrder::dueAmountSqlExpression().' > 0'),
+            )
             ->when($search !== '', function (Builder $query) use ($search): void {
                 $query->where(function (Builder $subQuery) use ($search): void {
                     $subQuery
@@ -111,6 +123,8 @@ class EventOrderController extends Controller
                     ])
                     ->values(),
             ],
+            'statusOptions' => EventOrderStatus::options(),
+            'paymentMethodOptions' => $this->paymentMethodOptions(),
             'orders' => $ordersQuery
                 ->paginate($perPage)
                 ->withQueryString()
@@ -125,9 +139,11 @@ class EventOrderController extends Controller
         $eventOrder->load([
             'items.package:id,name',
             'pickupPoint:id,name,area,address,contact_person,phone',
-            'payments' => fn ($query) => $query->latest('id'),
+            'payments' => fn ($query) => $query->with('verifiedBy:id,name')->latest('id'),
             'statusHistories.changedBy:id,name',
         ]);
+
+        $dueAmount = $eventOrder->dueAmount();
 
         return Inertia::render('admin/EventOrderDetails', [
             'event' => [
@@ -145,7 +161,11 @@ class EventOrderController extends Controller
                 'status_label' => $eventOrder->status->label(),
                 'total_amount' => (string) $eventOrder->total_amount,
                 'advance_amount' => (string) $eventOrder->advance_amount,
-                'due_amount' => (string) $eventOrder->dueAmount(),
+                'due_amount' => (string) $dueAmount,
+                'verified_paid_amount' => (string) $eventOrder->totalVerifiedPaid(),
+                'can_record_payment' => $dueAmount > 0
+                    && ! in_array($eventOrder->status, [EventOrderStatus::Cancelled, EventOrderStatus::Delivered], true),
+                'can_update_status' => $eventOrder->status !== EventOrderStatus::Cancelled,
                 'created_at' => $eventOrder->created_at?->format('d M Y, h:i A'),
                 'confirmed_at' => $eventOrder->confirmed_at?->format('d M Y, h:i A'),
                 'pickup_point' => $eventOrder->pickupPoint ? [
@@ -170,11 +190,16 @@ class EventOrderController extends Controller
                 'payments' => $eventOrder->payments->map(fn ($payment): array => [
                     'id' => $payment->id,
                     'amount' => (string) $payment->amount,
+                    'payment_type' => $payment->payment_type?->value,
+                    'payment_type_label' => $payment->payment_type?->label() ?? 'Payment',
                     'payment_method' => $payment->payment_method,
                     'payment_status' => $payment->payment_status,
                     'transaction_reference' => $payment->transaction_reference,
+                    'note' => $payment->note,
                     'paid_at' => $payment->paid_at?->format('d M Y, h:i A'),
                     'verified_at' => $payment->verified_at?->format('d M Y, h:i A'),
+                    'verified_by' => $payment->verifiedBy?->name,
+                    'can_verify' => $payment->payment_status === 'pending',
                 ])->values(),
                 'status_histories' => $eventOrder->statusHistories
                     ->sortByDesc('changed_at')
@@ -187,7 +212,70 @@ class EventOrderController extends Controller
                         'changed_by' => $history->changedBy?->name,
                     ]),
             ],
+            'statusOptions' => EventOrderStatus::options(),
+            'paymentMethodOptions' => $this->paymentMethodOptions(),
         ]);
+    }
+
+    public function storePayment(
+        StoreEventOrderPaymentRequest $request,
+        FundCycleEvent $fundCycleEvent,
+        EventOrder $eventOrder,
+    ): RedirectResponse {
+        abort_unless($eventOrder->fund_cycle_event_id === $fundCycleEvent->id, 404);
+
+        $this->eventOrderPayments->recordManualPayment(
+            $eventOrder,
+            (float) $request->validated('amount'),
+            $request->string('payment_method')->toString(),
+            $request->string('transaction_reference')->toString() ?: null,
+            $request->string('note')->toString() ?: null,
+        );
+
+        return back();
+    }
+
+    public function reviewPayment(
+        ReviewEventOrderPaymentRequest $request,
+        FundCycleEvent $fundCycleEvent,
+        EventOrder $eventOrder,
+        EventPayment $eventPayment,
+    ): RedirectResponse {
+        abort_unless($eventOrder->fund_cycle_event_id === $fundCycleEvent->id, 404);
+        abort_unless($eventPayment->event_order_id === $eventOrder->id, 404);
+
+        $status = $request->string('status')->toString();
+        $user = $request->user();
+
+        if ($status === 'verified') {
+            $this->eventOrderPayments->verifyPayment($eventPayment, $user);
+        } else {
+            $this->eventOrderPayments->rejectPayment(
+                $eventPayment,
+                $user,
+                $request->string('rejection_reason')->toString() ?: null,
+            );
+        }
+
+        return back();
+    }
+
+    public function updateStatus(
+        UpdateEventOrderStatusRequest $request,
+        FundCycleEvent $fundCycleEvent,
+        EventOrder $eventOrder,
+    ): RedirectResponse {
+        abort_unless($eventOrder->fund_cycle_event_id === $fundCycleEvent->id, 404);
+
+        $this->eventOrderStatuses->update(
+            $eventOrder,
+            EventOrderStatus::from($request->string('status')->toString()),
+            $request->string('note')->toString(),
+            $request->user(),
+            $request->boolean('allow_delivered_with_due'),
+        );
+
+        return back();
     }
 
     private function applyPaymentStatusFilter(Builder $query, string $paymentStatus): void
@@ -207,9 +295,22 @@ class EventOrderController extends Controller
         });
     }
 
+    /**
+     * @return array<int, array{value: string, label: string}>
+     */
+    private function paymentMethodOptions(): array
+    {
+        return [
+            ['value' => 'cash', 'label' => 'Cash'],
+            ['value' => 'bank', 'label' => 'Bank'],
+            ['value' => 'other', 'label' => 'Other'],
+        ];
+    }
+
     private function formatOrderListItem(EventOrder $order): array
     {
         $latestPayment = $order->payments->sortByDesc('id')->first();
+        $dueAmount = $order->dueAmount();
 
         return [
             'id' => $order->id,
@@ -220,7 +321,10 @@ class EventOrderController extends Controller
             'status_label' => $order->status->label(),
             'total_amount' => (string) $order->total_amount,
             'advance_amount' => (string) $order->advance_amount,
-            'due_amount' => (string) $order->dueAmount(),
+            'due_amount' => (string) $dueAmount,
+            'can_record_payment' => $dueAmount > 0
+                && ! in_array($order->status, [EventOrderStatus::Cancelled, EventOrderStatus::Delivered], true),
+            'can_update_status' => $order->status !== EventOrderStatus::Cancelled,
             'package_lines' => $order->items->map(fn ($item): array => [
                 'line_label' => $item->packageSizeLineLabel(),
             ])->values(),

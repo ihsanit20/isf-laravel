@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 #[Fillable([
@@ -83,15 +84,42 @@ class EventOrder extends Model
         return $token;
     }
 
+    public static function verifiedPaidSubquery(): string
+    {
+        return "(SELECT COALESCE(SUM(amount), 0) FROM event_payments WHERE event_order_id = event_orders.id AND payment_status = 'verified')";
+    }
+
+    public static function dueAmountSqlExpression(): string
+    {
+        $subquery = self::verifiedPaidSubquery();
+
+        return match (DB::connection()->getDriverName()) {
+            'sqlite' => "MAX(0, event_orders.total_amount - {$subquery})",
+            default => "GREATEST(0, event_orders.total_amount - {$subquery})",
+        };
+    }
+
+    public function totalVerifiedPaid(): float
+    {
+        return round((float) $this->payments()
+            ->where('payment_status', 'verified')
+            ->sum('amount'), 2);
+    }
+
     public function dueAmount(): float
     {
-        return max(0, round((float) $this->total_amount - (float) $this->advance_amount, 2));
+        return max(0, round((float) $this->total_amount - $this->totalVerifiedPaid(), 2));
     }
 
     public function hasVerifiedAdvancePayment(): bool
     {
         return $this->payments()
             ->where('payment_status', 'verified')
+            ->where(function ($query): void {
+                $query
+                    ->where('payment_type', 'advance')
+                    ->orWhereNull('payment_type');
+            })
             ->exists();
     }
 

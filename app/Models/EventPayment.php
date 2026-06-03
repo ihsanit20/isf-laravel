@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\EventPaymentType;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -9,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 #[Fillable([
     'event_order_id',
     'amount',
+    'payment_type',
     'payment_method',
     'bkash_payment_id',
     'merchant_invoice',
@@ -24,6 +26,7 @@ class EventPayment extends Model
     protected function casts(): array
     {
         return [
+            'payment_type' => EventPaymentType::class,
             'amount' => 'decimal:2',
             'paid_at' => 'datetime',
             'verified_at' => 'datetime',

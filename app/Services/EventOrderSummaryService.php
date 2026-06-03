@@ -31,15 +31,13 @@ class EventOrderSummaryService
             ->groupBy('status')
             ->pluck('aggregate_count', 'status');
 
+        $dueExpression = EventOrder::dueAmountSqlExpression();
+
         $moneyRow = $baseQuery()
             ->selectRaw('COALESCE(SUM(total_amount), 0) as total_order_amount')
             ->selectRaw('COALESCE(SUM(advance_amount), 0) as total_advance_amount')
-            ->selectRaw(
-                'COALESCE(SUM(CASE WHEN total_amount > advance_amount THEN total_amount - advance_amount ELSE 0 END), 0) as total_due_amount',
-            )
-            ->selectRaw(
-                'COALESCE(SUM(CASE WHEN total_amount > advance_amount THEN 1 ELSE 0 END), 0) as orders_with_due_count',
-            )
+            ->selectRaw("COALESCE(SUM({$dueExpression}), 0) as total_due_amount")
+            ->selectRaw("COALESCE(SUM(CASE WHEN {$dueExpression} > 0 THEN 1 ELSE 0 END), 0) as orders_with_due_count")
             ->first();
 
         $pickupPoints = $fundCycleEvent->pickupPoints()
@@ -50,9 +48,7 @@ class EventOrderSummaryService
         $pickupAggregates = $baseQuery()
             ->selectRaw('event_pickup_point_id')
             ->selectRaw('COUNT(*) as order_count')
-            ->selectRaw(
-                'COALESCE(SUM(CASE WHEN total_amount > advance_amount THEN total_amount - advance_amount ELSE 0 END), 0) as total_due_amount',
-            )
+            ->selectRaw("COALESCE(SUM({$dueExpression}), 0) as total_due_amount")
             ->groupBy('event_pickup_point_id')
             ->get()
             ->keyBy('event_pickup_point_id');
@@ -136,6 +132,7 @@ class EventOrderSummaryService
                         ->sum('amount'),
                 ),
             ],
+            'focus' => $this->buildFocusSummary($eventId, $statusCounts),
             'pickup_points' => $this->formatPickupBreakdown(
                 $pickupPoints,
                 $pickupAggregates,
@@ -341,6 +338,62 @@ class EventOrderSummaryService
             })
             ->values()
             ->all();
+    }
+
+    /**
+     * @param  Collection<string, int|string>  $statusCounts
+     * @return array<string, int|string>
+     */
+    private function buildFocusSummary(int $eventId, Collection $statusCounts): array
+    {
+        $dueExpression = EventOrder::dueAmountSqlExpression();
+
+        $confirmedQuery = EventOrder::query()
+            ->where('fund_cycle_event_id', $eventId)
+            ->where('status', EventOrderStatus::Confirmed);
+
+        $confirmedMoney = (clone $confirmedQuery)
+            ->selectRaw('COALESCE(SUM(total_amount), 0) as total_amount')
+            ->selectRaw('COALESCE(SUM(advance_amount), 0) as advance_amount')
+            ->selectRaw("COALESCE(SUM({$dueExpression}), 0) as total_due_amount")
+            ->selectRaw("COALESCE(SUM(CASE WHEN {$dueExpression} > 0 THEN 1 ELSE 0 END), 0) as orders_with_due_count")
+            ->first();
+
+        $verifiedPaymentCount = $this->countByPaymentStatus($eventId, 'verified');
+
+        $confirmedWithVerifiedPayment = EventOrder::query()
+            ->where('fund_cycle_event_id', $eventId)
+            ->where('status', EventOrderStatus::Confirmed)
+            ->whereHas('payments', function (Builder $paymentQuery): void {
+                $paymentQuery
+                    ->where('payment_status', 'verified')
+                    ->whereRaw(
+                        'id = (select max(ep.id) from event_payments as ep where ep.event_order_id = event_orders.id)',
+                    );
+            })
+            ->count();
+
+        return [
+            'verified_amount' => $this->formatMoney(
+                EventPayment::query()
+                    ->where('payment_status', 'verified')
+                    ->whereHas(
+                        'order',
+                        fn (Builder $query) => $query->where('fund_cycle_event_id', $eventId),
+                    )
+                    ->sum('amount'),
+            ),
+            'confirmed_order_count' => (int) ($statusCounts[EventOrderStatus::Confirmed->value] ?? 0),
+            'confirmed_order_amount' => $this->formatMoney($confirmedMoney->total_amount ?? 0),
+            'confirmed_due_amount' => $this->formatMoney($confirmedMoney->total_due_amount ?? 0),
+            'confirmed_orders_with_due_count' => (int) ($confirmedMoney->orders_with_due_count ?? 0),
+            'confirmed_advance_amount' => $this->formatMoney($confirmedMoney->advance_amount ?? 0),
+            'confirmed_verified_payment_count' => (int) $confirmedWithVerifiedPayment,
+            'verified_payment_count' => $verifiedPaymentCount,
+            'pending_order_count' => (int) ($statusCounts[EventOrderStatus::Pending->value] ?? 0),
+            'delivered_order_count' => (int) ($statusCounts[EventOrderStatus::Delivered->value] ?? 0),
+            'cancelled_order_count' => (int) ($statusCounts[EventOrderStatus::Cancelled->value] ?? 0),
+        ];
     }
 
     private function formatMoney(float|int|string|null $amount): string

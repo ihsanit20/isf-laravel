@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\EventOrderStatus;
+use App\Enums\EventPaymentType;
 use App\Models\EventOrder;
 use App\Models\EventPayment;
 use Illuminate\Http\Request;
@@ -39,46 +40,67 @@ class EventBkashPaymentService
     /**
      * @return array{redirect_url: string}
      */
-    public function initiate(EventOrder $order): array
+    public function initiateAdvance(EventOrder $order): array
     {
         if ($order->status !== EventOrderStatus::Pending) {
-            throw new \InvalidArgumentException('This order cannot accept payment.');
+            throw new \InvalidArgumentException('This order cannot accept advance payment.');
         }
 
         if ((float) $order->advance_amount <= 0) {
             throw new \InvalidArgumentException('No advance payment is required for this order.');
         }
 
-        $merchantInvoice = $this->merchantInvoiceFor($order);
+        if ($order->hasVerifiedAdvancePayment()) {
+            throw new \InvalidArgumentException('Advance payment is already verified for this order.');
+        }
 
-        $response = $this->createPayment(
+        return $this->createBkashPayment(
+            $order,
             (float) $order->advance_amount,
-            $merchantInvoice,
-            $this->callbackUrl(),
+            EventPaymentType::Advance,
         );
+    }
 
-        EventPayment::query()->create([
-            'event_order_id' => $order->id,
-            'amount' => $order->advance_amount,
-            'payment_method' => 'bkash',
-            'payment_status' => 'pending',
-            'bkash_payment_id' => $response->paymentID,
-            'merchant_invoice' => $merchantInvoice,
-        ]);
+    /**
+     * @return array{redirect_url: string}
+     */
+    public function initiateDue(EventOrder $order): array
+    {
+        if ($order->status !== EventOrderStatus::Confirmed) {
+            throw new \InvalidArgumentException('Due payment is only available for confirmed orders.');
+        }
 
-        return [
-            'redirect_url' => $response->bkashURL,
-        ];
+        $dueAmount = $order->dueAmount();
+
+        if ($dueAmount <= 0) {
+            throw new \InvalidArgumentException('This order has no due balance.');
+        }
+
+        if ($order->payments()->where('payment_status', 'pending')->exists()) {
+            throw new \InvalidArgumentException('A payment is already pending for this order.');
+        }
+
+        return $this->createBkashPayment($order, $dueAmount, EventPaymentType::Due);
+    }
+
+    /**
+     * @deprecated Use initiateAdvance()
+     *
+     * @return array{redirect_url: string}
+     */
+    public function initiate(EventOrder $order): array
+    {
+        return $this->initiateAdvance($order);
     }
 
     public function handleCallback(Request $request): Response
     {
         $paymentId = $request->input('paymentID');
         $status = $request->input('status');
-        $orderNumber = $request->input('order_number', '');
+        $orderNumber = $request->string('order_number')->toString();
 
         if (! $paymentId) {
-            return redirect($this->frontendRedirect('failed', $orderNumber ?: ''));
+            return redirect($this->frontendRedirect('failed', $orderNumber));
         }
 
         $payment = EventPayment::query()
@@ -88,13 +110,14 @@ class EventBkashPaymentService
             ->first();
 
         if (! $payment || ! $payment->order) {
-            return redirect($this->frontendRedirect('failed', $orderNumber ?: ''));
+            return redirect($this->frontendRedirect('failed', $orderNumber));
         }
 
         $order = $payment->order;
         $orderNumber = $order->order_number;
+        $paymentType = $payment->payment_type ?? EventPaymentType::Advance;
 
-        if ($order->status === EventOrderStatus::Confirmed) {
+        if ($payment->payment_status === 'verified') {
             return redirect($this->frontendRedirect('success', $orderNumber, $order->customer_phone));
         }
 
@@ -126,13 +149,68 @@ class EventBkashPaymentService
         }
 
         $paidAmount = (float) ($response->amount ?? 0);
-        if (round($paidAmount, 2) !== round((float) $order->advance_amount, 2)) {
-            $this->markPaymentFailed($payment, 'Paid amount does not match advance amount.');
+        if (round($paidAmount, 2) !== round((float) $payment->amount, 2)) {
+            $this->markPaymentFailed($payment, 'Paid amount does not match expected amount.');
 
             return redirect($this->frontendRedirect('failed', $orderNumber, $order->customer_phone));
         }
 
         $trxId = (string) ($response->trxID ?? '');
+
+        if ($paymentType === EventPaymentType::Due) {
+            $this->verifyDuePayment($payment, $trxId);
+
+            return redirect($this->frontendRedirect('success', $orderNumber, $order->customer_phone));
+        }
+
+        return $this->completeAdvanceCallback($order, $payment, $trxId, $orderNumber);
+    }
+
+    public function confirmOrderWithoutPayment(EventOrder $order): void
+    {
+        $this->orderConfirmation->confirm(
+            $order,
+            'Order confirmed (no advance payment required).',
+        );
+    }
+
+    /**
+     * @return array{redirect_url: string}
+     */
+    private function createBkashPayment(EventOrder $order, float $amount, EventPaymentType $paymentType): array
+    {
+        $merchantInvoice = $this->merchantInvoiceFor($order, $paymentType);
+
+        $response = $this->createPayment(
+            $amount,
+            $merchantInvoice,
+            $this->callbackUrl(),
+        );
+
+        EventPayment::query()->create([
+            'event_order_id' => $order->id,
+            'amount' => $amount,
+            'payment_type' => $paymentType,
+            'payment_method' => 'bkash',
+            'payment_status' => 'pending',
+            'bkash_payment_id' => $response->paymentID,
+            'merchant_invoice' => $merchantInvoice,
+        ]);
+
+        return [
+            'redirect_url' => $response->bkashURL,
+        ];
+    }
+
+    private function completeAdvanceCallback(
+        EventOrder $order,
+        EventPayment $payment,
+        string $trxId,
+        string $orderNumber,
+    ): Response {
+        if ($order->status === EventOrderStatus::Confirmed) {
+            return redirect($this->frontendRedirect('success', $orderNumber, $order->customer_phone));
+        }
 
         $confirmed = false;
 
@@ -166,17 +244,32 @@ class EventBkashPaymentService
         return redirect($this->frontendRedirect('success', $orderNumber, $order->customer_phone));
     }
 
-    public function confirmOrderWithoutPayment(EventOrder $order): void
+    private function verifyDuePayment(EventPayment $payment, string $trxId): void
     {
-        $this->orderConfirmation->confirm(
-            $order,
-            'Order confirmed (no advance payment required).',
-        );
+        DB::transaction(function () use ($payment, $trxId): void {
+            $payment->refresh();
+            $order = $payment->order;
+
+            if (! $order || $payment->payment_status === 'verified') {
+                return;
+            }
+
+            $now = now();
+
+            $payment->update([
+                'payment_status' => 'verified',
+                'transaction_reference' => $trxId,
+                'paid_at' => $now,
+                'verified_at' => $now,
+            ]);
+        });
     }
 
-    private function merchantInvoiceFor(EventOrder $order): string
+    private function merchantInvoiceFor(EventOrder $order, EventPaymentType $paymentType): string
     {
-        return 'ISF-'.$order->id.'-'.Str::lower(Str::random(8));
+        $suffix = $paymentType === EventPaymentType::Due ? '-due' : '-adv';
+
+        return 'ISF-'.$order->id.$suffix.'-'.Str::lower(Str::random(8));
     }
 
     private function markPaymentFailed(EventPayment $payment, string $note): void

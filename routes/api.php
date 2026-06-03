@@ -17,6 +17,8 @@ Route::prefix('v1')->group(function () {
     // bKash advance payment
     Route::post('orders/{orderNumber}/bkash/init', [PublicBkashPaymentController::class, 'init'])
         ->name('api.orders.bkash.init');
+    Route::post('orders/{orderNumber}/bkash/init-due', [PublicBkashPaymentController::class, 'initDue'])
+        ->name('api.orders.bkash.init-due');
 
     // Public order tracking
     Route::get('orders/track', [PublicOrderTrackingController::class, 'show'])->name('api.orders.track');

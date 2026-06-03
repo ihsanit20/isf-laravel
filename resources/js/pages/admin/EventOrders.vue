@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
 import { ArrowLeft, Eye } from 'lucide-vue-next';
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
+import EventOrderRecordPaymentDialog from '@/components/admin/EventOrderRecordPaymentDialog.vue';
+import EventOrderStatusUpdateDialog from '@/components/admin/EventOrderStatusUpdateDialog.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 
@@ -33,6 +35,19 @@ type OrderSummary = {
         verified: number;
         failed: number;
         verified_amount: string;
+    };
+    focus: {
+        verified_amount: string;
+        confirmed_order_count: number;
+        confirmed_order_amount: string;
+        confirmed_due_amount: string;
+        confirmed_orders_with_due_count: number;
+        confirmed_advance_amount: string;
+        confirmed_verified_payment_count: number;
+        verified_payment_count: number;
+        pending_order_count: number;
+        delivered_order_count: number;
+        cancelled_order_count: number;
     };
     pickup_points: Array<{
         id: number;
@@ -83,10 +98,22 @@ type OrderItem = {
     total_amount: string;
     advance_amount: string;
     due_amount: string;
+    can_record_payment: boolean;
+    can_update_status: boolean;
     package_lines: PackageLine[];
     payment_status: string;
     pickup_point: PickupPointSummary | null;
     created_at: string | null;
+};
+
+type StatusOption = {
+    value: string;
+    label: string;
+};
+
+type PaymentMethodOption = {
+    value: string;
+    label: string;
 };
 
 type PaginationLink = {
@@ -132,6 +159,8 @@ type Props = {
     orders: PaginatedOrders;
     filters: ActiveFilters;
     filterOptions: FilterOptions;
+    statusOptions: StatusOption[];
+    paymentMethodOptions: PaymentMethodOption[];
 };
 
 defineOptions({
@@ -150,6 +179,20 @@ defineOptions({
 });
 
 const props = defineProps<Props>();
+
+const isStatusDialogOpen = ref(false);
+const isPaymentDialogOpen = ref(false);
+const modalOrder = ref<OrderItem | null>(null);
+
+const openStatusDialog = (order: OrderItem) => {
+    modalOrder.value = order;
+    isStatusDialogOpen.value = true;
+};
+
+const openPaymentDialog = (order: OrderItem) => {
+    modalOrder.value = order;
+    isPaymentDialogOpen.value = true;
+};
 
 const ordersIndexUrl = computed(() => `/admin/events/${props.event.id}/orders`);
 
@@ -211,25 +254,6 @@ const money = (amount: string | number): string => {
     return `${Number.isFinite(value) ? value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'} BDT`;
 };
 
-const statusCards = computed(() => [
-    { key: 'pending', label: 'Pending' },
-    { key: 'confirmed', label: 'Confirmed' },
-    { key: 'delivered', label: 'Delivered' },
-    { key: 'cancelled', label: 'Cancelled' },
-]);
-
-type PaymentStatusKey = 'unpaid' | 'pending' | 'verified' | 'failed';
-
-const paymentCards: Array<{ key: PaymentStatusKey; label: string }> = [
-    { key: 'unpaid', label: 'Unpaid' },
-    { key: 'pending', label: 'Pending' },
-    { key: 'verified', label: 'Verified' },
-    { key: 'failed', label: 'Failed' },
-];
-
-const paymentStatusCount = (status: PaymentStatusKey): number =>
-    props.summary.payments[status];
-
 const lowStockPackages = computed(() =>
     props.summary.packages.filter((pkg) => pkg.is_low_stock),
 );
@@ -283,8 +307,8 @@ const paginationLabel = (label: string): string =>
                         {{ props.event.title }} - Orders
                     </h1>
                     <p class="mt-2 text-sm text-muted-foreground">
-                        Event-wide summary. Use tabs below for the order list,
-                        pickup breakdown, or package stock.
+                        Focus on confirmed orders and verified payments.
+                        Pending and other counts are shown for reference.
                     </p>
                     <dl
                         class="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground"
@@ -331,92 +355,130 @@ const paginationLabel = (label: string): string =>
             </div>
         </section>
 
-        <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+        <section
+            class="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5"
+        >
             <div
-                class="rounded-xl border border-sidebar-border/70 bg-background p-4 shadow-sm dark:border-sidebar-border"
+                class="rounded-xl border-2 border-primary/30 bg-primary/5 p-6 shadow-sm"
             >
-                <p class="text-xs text-muted-foreground">Total Orders</p>
-                <p class="mt-2 text-2xl font-semibold text-foreground">
-                    {{ props.summary.orders.total.toLocaleString() }}
+                <p
+                    class="text-xs font-medium uppercase tracking-wide text-primary"
+                >
+                    Verified collected
                 </p>
-                <p class="mt-2 text-xs text-muted-foreground">
-                    Today: {{ props.summary.orders.today }} · Last 7 days:
-                    {{ props.summary.orders.last_7_days }}
+                <p
+                    class="mt-3 text-3xl font-bold tracking-tight text-foreground"
+                >
+                    {{ money(props.summary.focus.verified_amount) }}
+                </p>
+                <p class="mt-3 text-sm text-muted-foreground">
+                    Verified payment records for this event
                 </p>
             </div>
             <Link
-                v-for="card in statusCards"
-                :key="card.key"
-                :href="filterUrl({ status: card.key })"
-                class="rounded-xl border border-sidebar-border/70 bg-background p-4 shadow-sm transition-colors hover:bg-muted/30 dark:border-sidebar-border"
-            >
-                <p class="text-xs text-muted-foreground">{{ card.label }}</p>
-                <p class="mt-2 text-2xl font-semibold text-foreground">
-                    {{
-                        (
-                            props.summary.orders.by_status[card.key] ?? 0
-                        ).toLocaleString()
-                    }}
-                </p>
-            </Link>
-        </section>
-
-        <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <div
-                class="rounded-xl border border-sidebar-border/70 bg-background p-4 shadow-sm dark:border-sidebar-border"
-            >
-                <p class="text-xs text-muted-foreground">Total Order Value</p>
-                <p class="mt-2 text-2xl font-semibold text-foreground">
-                    {{ money(props.summary.money.total_order_amount) }}
-                </p>
-            </div>
-            <div
-                class="rounded-xl border border-sidebar-border/70 bg-background p-4 shadow-sm dark:border-sidebar-border"
-            >
-                <p class="text-xs text-muted-foreground">Advance Recorded</p>
-                <p class="mt-2 text-2xl font-semibold text-foreground">
-                    {{ money(props.summary.money.total_advance_amount) }}
-                </p>
-            </div>
-            <Link
-                :href="filterUrl({ has_due: '1' })"
-                class="rounded-xl border border-sidebar-border/70 bg-background p-4 shadow-sm transition-colors hover:bg-muted/30 dark:border-sidebar-border"
-            >
-                <p class="text-xs text-muted-foreground">Total Due</p>
-                <p class="mt-2 text-2xl font-semibold text-amber-600">
-                    {{ money(props.summary.money.total_due_amount) }}
-                </p>
-                <p class="mt-2 text-xs text-muted-foreground">
-                    {{ props.summary.money.orders_with_due_count }} orders with
-                    due
-                </p>
-            </Link>
-            <div
-                class="rounded-xl border border-sidebar-border/70 bg-background p-4 shadow-sm dark:border-sidebar-border"
-            >
-                <p class="text-xs text-muted-foreground">Verified Payments</p>
-                <p class="mt-2 text-2xl font-semibold text-foreground">
-                    {{ money(props.summary.payments.verified_amount) }}
-                </p>
-                <p class="mt-2 text-xs text-muted-foreground">
-                    Collected via verified payment records
-                </p>
-            </div>
-        </section>
-
-        <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <Link
-                v-for="card in paymentCards"
-                :key="card.key"
-                :href="filterUrl({ payment_status: card.key })"
-                class="rounded-xl border border-sidebar-border/70 bg-background p-4 shadow-sm transition-colors hover:bg-muted/30 dark:border-sidebar-border"
+                :href="filterUrl({ status: 'confirmed' })"
+                class="rounded-xl border border-sidebar-border/70 bg-background p-6 shadow-sm transition-colors hover:bg-muted/30 dark:border-sidebar-border"
             >
                 <p class="text-xs text-muted-foreground">
-                    Payment · {{ card.label }}
+                    Confirmed order total
                 </p>
-                <p class="mt-2 text-2xl font-semibold text-foreground">
-                    {{ paymentStatusCount(card.key).toLocaleString() }}
+                <p class="mt-3 text-3xl font-semibold text-foreground">
+                    {{ money(props.summary.focus.confirmed_order_amount) }}
                 </p>
+                <p class="mt-3 text-sm text-muted-foreground">
+                    {{ props.summary.focus.confirmed_order_count.toLocaleString() }}
+                    confirmed orders
+                </p>
+            </Link>
+            <Link
+                :href="
+                    filterUrl({ status: 'confirmed', has_due: '1' })
+                "
+                class="rounded-xl border border-sidebar-border/70 bg-background p-6 shadow-sm transition-colors hover:bg-muted/30 dark:border-sidebar-border"
+            >
+                <p class="text-xs text-muted-foreground">Confirmed due</p>
+                <p class="mt-3 text-3xl font-semibold text-amber-600">
+                    {{ money(props.summary.focus.confirmed_due_amount) }}
+                </p>
+                <p class="mt-3 text-sm text-muted-foreground">
+                    {{
+                        props.summary.focus.confirmed_orders_with_due_count.toLocaleString()
+                    }}
+                    confirmed orders with balance due
+                </p>
+            </Link>
+            <Link
+                :href="filterUrl({ status: 'confirmed' })"
+                class="rounded-xl border border-sidebar-border/70 bg-background p-6 shadow-sm transition-colors hover:bg-muted/30 dark:border-sidebar-border"
+            >
+                <p class="text-xs text-muted-foreground">Confirmed orders</p>
+                <p class="mt-3 text-3xl font-semibold text-foreground">
+                    {{
+                        props.summary.focus.confirmed_order_count.toLocaleString()
+                    }}
+                </p>
+                <p class="mt-3 text-sm text-muted-foreground">
+                    {{
+                        props.summary.focus.confirmed_verified_payment_count.toLocaleString()
+                    }}
+                    with verified payment
+                </p>
+            </Link>
+            <Link
+                :href="filterUrl({ payment_status: 'verified' })"
+                class="rounded-xl border border-sidebar-border/70 bg-background p-6 shadow-sm transition-colors hover:bg-muted/30 dark:border-sidebar-border"
+            >
+                <p class="text-xs text-muted-foreground">Verified payments</p>
+                <p class="mt-3 text-3xl font-semibold text-foreground">
+                    {{
+                        props.summary.focus.verified_payment_count.toLocaleString()
+                    }}
+                </p>
+                <p class="mt-3 text-sm text-muted-foreground">
+                    Latest payment status is verified
+                </p>
+            </Link>
+        </section>
+
+        <section
+            class="rounded-xl border border-sidebar-border/70 bg-muted/20 px-4 py-3 text-sm text-muted-foreground dark:border-sidebar-border"
+        >
+            <span class="font-medium text-foreground">Also:</span>
+            <Link
+                :href="filterUrl({ status: 'pending' })"
+                class="ml-2 underline-offset-4 hover:underline"
+            >
+                Pending {{ props.summary.focus.pending_order_count }}
+            </Link>
+            <span class="mx-2">·</span>
+            <Link
+                :href="filterUrl({ status: 'delivered' })"
+                class="underline-offset-4 hover:underline"
+            >
+                Delivered {{ props.summary.focus.delivered_order_count }}
+            </Link>
+            <span class="mx-2">·</span>
+            <span>Cancelled {{ props.summary.focus.cancelled_order_count }}</span>
+            <span class="mx-2">·</span>
+            <Link
+                :href="filterUrl({ payment_status: 'unpaid' })"
+                class="underline-offset-4 hover:underline"
+            >
+                Unpaid {{ props.summary.payments.unpaid }}
+            </Link>
+            <span class="mx-2">·</span>
+            <Link
+                :href="filterUrl({ payment_status: 'pending' })"
+                class="underline-offset-4 hover:underline"
+            >
+                Payment pending {{ props.summary.payments.pending }}
+            </Link>
+            <span class="mx-2">·</span>
+            <Link
+                :href="filterUrl({ has_due: '1' })"
+                class="underline-offset-4 hover:underline"
+            >
+                All due {{ money(props.summary.money.total_due_amount) }}
             </Link>
         </section>
 
@@ -624,18 +686,44 @@ const paginationLabel = (label: string): string =>
                                 <td class="px-4 py-3 text-muted-foreground">
                                     {{ order.advance_amount }}
                                 </td>
-                                <td
-                                    class="px-4 py-3 font-semibold text-amber-600"
-                                >
-                                    {{ order.due_amount }}
+                                <td class="px-4 py-3">
+                                    <Button
+                                        v-if="order.can_record_payment"
+                                        variant="link"
+                                        class="h-auto p-0 font-semibold text-amber-600 hover:text-amber-700"
+                                        :title="`Record payment for ${order.order_number}`"
+                                        @click="openPaymentDialog(order)"
+                                    >
+                                        {{ order.due_amount }}
+                                    </Button>
+                                    <span
+                                        v-else
+                                        class="font-semibold text-amber-600"
+                                    >
+                                        {{ order.due_amount }}
+                                    </span>
                                 </td>
                                 <td class="px-4 py-3 text-muted-foreground">
                                     {{ order.payment_status }}
                                 </td>
                                 <td class="px-4 py-3">
-                                    <Badge variant="outline">{{
-                                        order.status_label
-                                    }}</Badge>
+                                    <button
+                                        v-if="order.can_update_status"
+                                        type="button"
+                                        class="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                        :title="`Update status for ${order.order_number}`"
+                                        @click="openStatusDialog(order)"
+                                    >
+                                        <Badge
+                                            variant="outline"
+                                            class="cursor-pointer transition-colors hover:bg-muted"
+                                        >
+                                            {{ order.status_label }}
+                                        </Badge>
+                                    </button>
+                                    <Badge v-else variant="outline">
+                                        {{ order.status_label }}
+                                    </Badge>
                                 </td>
                                 <td class="px-4 py-3 text-muted-foreground">
                                     {{ order.created_at || '-' }}
@@ -934,5 +1022,18 @@ const paginationLabel = (label: string): string =>
                 </p>
             </div>
         </section>
+
+        <EventOrderStatusUpdateDialog
+            v-model:is-open="isStatusDialogOpen"
+            :event-id="props.event.id"
+            :order="modalOrder"
+            :status-options="props.statusOptions"
+        />
+        <EventOrderRecordPaymentDialog
+            v-model:is-open="isPaymentDialogOpen"
+            :event-id="props.event.id"
+            :order="modalOrder"
+            :payment-method-options="props.paymentMethodOptions"
+        />
     </div>
 </template>

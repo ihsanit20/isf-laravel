@@ -45,7 +45,7 @@ class PublicBkashPaymentController extends Controller
         }
 
         try {
-            $result = $this->bkashPayments->initiate($order);
+            $result = $this->bkashPayments->initiateAdvance($order);
         } catch (\InvalidArgumentException $e) {
             return response()->json(['message' => $e->getMessage()], 422);
         } catch (\Throwable $e) {
@@ -56,6 +56,45 @@ class PublicBkashPaymentController extends Controller
 
         return response()->json([
             'message' => 'bKash payment initiated.',
+            'data' => $result,
+        ]);
+    }
+
+    public function initDue(Request $request, string $orderNumber): JsonResponse
+    {
+        $validated = $request->validate([
+            'customer_phone' => ['required', 'string', 'max:20'],
+        ]);
+
+        $order = EventOrder::query()
+            ->where('order_number', $orderNumber)
+            ->where('customer_phone', $validated['customer_phone'])
+            ->first();
+
+        if (! $order) {
+            return response()->json([
+                'message' => 'No order found with the given order number and phone.',
+            ], 404);
+        }
+
+        if ($order->status !== EventOrderStatus::Confirmed) {
+            return response()->json([
+                'message' => 'Due payment is only available for confirmed orders.',
+            ], 422);
+        }
+
+        try {
+            $result = $this->bkashPayments->initiateDue($order);
+        } catch (\InvalidArgumentException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'message' => 'Unable to start bKash payment. Please try again later.',
+            ], 502);
+        }
+
+        return response()->json([
+            'message' => 'bKash due payment initiated.',
             'data' => $result,
         ]);
     }
