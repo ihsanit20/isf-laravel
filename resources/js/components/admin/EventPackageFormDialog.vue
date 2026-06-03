@@ -26,11 +26,18 @@ type PackageStatusOption = {
     label: string;
 };
 
+type PackageUnitTypeOption = {
+    value: string;
+    label: string;
+};
+
 type EditablePackage = {
     id: number;
     name: string;
     description: string | null;
-    unit_price: string;
+    unit_type: string;
+    unit_size: string;
+    package_price: string;
     advance_percent: string;
     min_qty_per_order: number;
     max_qty_per_order: number | null;
@@ -43,6 +50,7 @@ type Props = {
     eventId: number;
     mode: 'create' | 'edit';
     packageStatuses: PackageStatusOption[];
+    packageUnitTypes: PackageUnitTypeOption[];
     eventPackage?: EditablePackage | null;
 };
 
@@ -54,7 +62,9 @@ const isEditing = computed(() => props.mode === 'edit' && !!props.eventPackage);
 const form = useForm<{
     name: string;
     description: string;
-    unit_price: string;
+    unit_type: string;
+    unit_size: string;
+    package_price: string;
     advance_percent: string;
     min_qty_per_order: string;
     max_qty_per_order: string;
@@ -64,7 +74,9 @@ const form = useForm<{
 }>({
     name: '',
     description: '',
-    unit_price: '',
+    unit_type: props.packageUnitTypes[0]?.value ?? 'piece',
+    unit_size: '1',
+    package_price: '',
     advance_percent: '0',
     min_qty_per_order: '1',
     max_qty_per_order: '',
@@ -79,7 +91,9 @@ const resetFormState = () => {
             ? {
                   name: props.eventPackage.name,
                   description: props.eventPackage.description ?? '',
-                  unit_price: props.eventPackage.unit_price,
+                  unit_type: props.eventPackage.unit_type,
+                  unit_size: props.eventPackage.unit_size,
+                  package_price: props.eventPackage.package_price,
                   advance_percent: props.eventPackage.advance_percent,
                   min_qty_per_order: String(
                       props.eventPackage.min_qty_per_order,
@@ -98,7 +112,9 @@ const resetFormState = () => {
             : {
                   name: '',
                   description: '',
-                  unit_price: '',
+                  unit_type: props.packageUnitTypes[0]?.value ?? 'piece',
+                  unit_size: '1',
+                  package_price: '',
                   advance_percent: '0',
                   min_qty_per_order: '1',
                   max_qty_per_order: '',
@@ -121,7 +137,9 @@ const submit = () => {
     const payload = {
         name: form.name,
         description: form.description || null,
-        unit_price: form.unit_price,
+        unit_type: form.unit_type,
+        unit_size: form.unit_size,
+        package_price: form.package_price,
         advance_percent: form.advance_percent,
         min_qty_per_order: form.min_qty_per_order,
         max_qty_per_order: form.max_qty_per_order || null,
@@ -210,20 +228,58 @@ watch(
                     <InputError :message="form.errors.description" />
                 </div>
 
+                <!-- Unit type + size -->
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="grid gap-1.5">
+                        <Label for="pkg-unit-type">Unit Type</Label>
+                        <Select
+                            v-model="form.unit_type"
+                            :disabled="form.processing"
+                        >
+                            <SelectTrigger id="pkg-unit-type">
+                                <SelectValue placeholder="Select unit" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem
+                                    v-for="u in props.packageUnitTypes"
+                                    :key="u.value"
+                                    :value="u.value"
+                                >
+                                    {{ u.label }}
+                                </SelectItem>
+                            </SelectContent>
+                        </Select>
+                        <InputError :message="form.errors.unit_type" />
+                    </div>
+                    <div class="grid gap-1.5">
+                        <Label for="pkg-unit-size">Unit Size (per pack)</Label>
+                        <Input
+                            id="pkg-unit-size"
+                            v-model="form.unit_size"
+                            type="number"
+                            min="0.001"
+                            step="any"
+                            placeholder="e.g. 1 or 500"
+                            :disabled="form.processing"
+                        />
+                        <InputError :message="form.errors.unit_size" />
+                    </div>
+                </div>
+
                 <!-- Price + Advance -->
                 <div class="grid grid-cols-2 gap-4">
                     <div class="grid gap-1.5">
-                        <Label for="pkg-price">Unit Price (৳)</Label>
+                        <Label for="pkg-price">Package Price (৳)</Label>
                         <Input
                             id="pkg-price"
-                            v-model="form.unit_price"
+                            v-model="form.package_price"
                             type="number"
                             min="0"
                             step="0.01"
                             placeholder="0.00"
                             :disabled="form.processing"
                         />
-                        <InputError :message="form.errors.unit_price" />
+                        <InputError :message="form.errors.package_price" />
                     </div>
                     <div class="grid gap-1.5">
                         <Label for="pkg-advance">Advance % </Label>

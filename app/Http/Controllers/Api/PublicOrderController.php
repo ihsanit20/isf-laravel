@@ -79,15 +79,17 @@ class PublicOrderController extends Controller
                 ], 422);
             }
 
-            $unitPrice = (float) $pkg->unit_price;
-            $lineTotal = round($unitPrice * $qty, 2);
+            $packagePrice = (float) $pkg->package_price;
+            $lineTotal = round($packagePrice * $qty, 2);
             $totalAmount += $lineTotal;
             $advancePercents[] = (float) $pkg->advance_percent;
 
             $lineItems[] = [
                 'event_package_id' => $pkg->id,
                 'quantity' => $qty,
-                'unit_price' => $unitPrice,
+                'unit_type' => $pkg->unit_type->value,
+                'unit_size' => $pkg->unit_size,
+                'package_price' => $packagePrice,
                 'line_total' => $lineTotal,
             ];
         }

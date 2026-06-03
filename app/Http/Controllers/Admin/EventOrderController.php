@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Enums\EventOrderStatus;
+use App\Enums\EventPackageUnitType;
 use App\Http\Controllers\Controller;
 use App\Models\EventOrder;
 use App\Models\FundCycleEvent;
@@ -145,7 +146,12 @@ class EventOrderController extends Controller
                     'id' => $item->id,
                     'package_name' => $item->package?->name ?? '-',
                     'quantity' => $item->quantity,
-                    'unit_price' => (string) $item->unit_price,
+                    'unit_type' => $item->unit_type?->value,
+                    'unit_size' => $item->unit_size !== null ? (string) $item->unit_size : null,
+                    'unit_label' => $item->unitLabel(),
+                    'quantity_label' => $item->quantityLabel(),
+                    'physical_quantity' => $item->physicalQuantity(),
+                    'package_price' => (string) $item->package_price,
                     'line_total' => (string) $item->line_total,
                 ])->values(),
                 'payments' => $eventOrder->payments->map(fn ($payment): array => [
@@ -191,6 +197,13 @@ class EventOrderController extends Controller
     private function formatOrderListItem(EventOrder $order): array
     {
         $latestPayment = $order->payments->sortByDesc('id')->first();
+        $totalsByUnit = EventPackageUnitType::totalsByUnitType(
+            $order->items->map(fn ($item): array => [
+                'unit_type' => $item->unit_type?->value ?? EventPackageUnitType::Piece->value,
+                'unit_size' => $item->unit_size ?? 1,
+                'quantity' => $item->quantity,
+            ]),
+        );
 
         return [
             'id' => $order->id,
@@ -202,7 +215,8 @@ class EventOrderController extends Controller
             'total_amount' => (string) $order->total_amount,
             'advance_amount' => (string) $order->advance_amount,
             'due_amount' => (string) $order->dueAmount(),
-            'total_quantity' => $order->items->sum('quantity'),
+            'total_packs' => $order->items->sum('quantity'),
+            'quantity_summary' => EventPackageUnitType::formatTotalsSummary($totalsByUnit),
             'payment_status' => $latestPayment?->payment_status ?? 'unpaid',
             'pickup_point' => $order->pickupPoint ? [
                 'name' => $order->pickupPoint->name,

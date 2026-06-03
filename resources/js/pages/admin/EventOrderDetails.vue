@@ -22,7 +22,8 @@ type OrderLine = {
     id: number;
     package_name: string;
     quantity: number;
-    unit_price: string;
+    quantity_label: string;
+    package_price: string;
     line_total: string;
 };
 
@@ -229,15 +230,15 @@ const props = defineProps<Props>();
                         <tr>
                             <th class="px-4 py-3 font-medium">Package</th>
                             <th class="px-4 py-3 font-medium">Quantity</th>
-                            <th class="px-4 py-3 font-medium">Unit Price</th>
+                            <th class="px-4 py-3 font-medium">Package Price</th>
                             <th class="px-4 py-3 font-medium">Line Total</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-sidebar-border/70">
                         <tr v-for="item in props.order.items" :key="item.id">
                             <td class="px-4 py-3">{{ item.package_name }}</td>
-                            <td class="px-4 py-3">{{ item.quantity }}</td>
-                            <td class="px-4 py-3">{{ item.unit_price }}</td>
+                            <td class="px-4 py-3">{{ item.quantity_label }}</td>
+                            <td class="px-4 py-3">{{ item.package_price }}</td>
                             <td class="px-4 py-3">{{ item.line_total }}</td>
                         </tr>
                         <tr v-if="props.order.items.length === 0">

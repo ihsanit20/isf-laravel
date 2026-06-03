@@ -32,7 +32,11 @@ type EventPackage = {
     id: number;
     name: string;
     description: string | null;
-    unit_price: string;
+    unit_type: string;
+    unit_type_label: string;
+    unit_size: string;
+    unit_label: string;
+    package_price: string;
     advance_percent: string;
     min_qty_per_order: number;
     max_qty_per_order: number | null;
@@ -86,6 +90,7 @@ type Props = {
     event: EventDetails;
     eventStatuses: EventStatusOption[];
     packageStatuses: PackageStatusOption[];
+    packageUnitTypes: PackageStatusOption[];
 };
 
 defineOptions({
@@ -533,7 +538,10 @@ const deletePickupPoint = (point: EventPickupPoint) => {
                                 Name
                             </th>
                             <th class="px-4 py-3 text-right font-medium">
-                                Price
+                                Unit
+                            </th>
+                            <th class="px-4 py-3 text-right font-medium">
+                                Package Price
                             </th>
                             <th class="px-4 py-3 text-right font-medium">
                                 Advance
@@ -570,8 +578,13 @@ const deletePickupPoint = (point: EventPickupPoint) => {
                                     {{ pkg.description }}
                                 </p>
                             </td>
+                            <td
+                                class="px-4 py-3 text-right text-muted-foreground tabular-nums"
+                            >
+                                {{ pkg.unit_label }}
+                            </td>
                             <td class="px-4 py-3 text-right tabular-nums">
-                                ৳{{ Number(pkg.unit_price).toLocaleString() }}
+                                ৳{{ Number(pkg.package_price).toLocaleString() }}
                             </td>
                             <td class="px-4 py-3 text-right tabular-nums">
                                 {{ pkg.advance_percent }}%
@@ -764,6 +777,7 @@ const deletePickupPoint = (point: EventPickupPoint) => {
             :event-id="props.event.id"
             :mode="editingPackage ? 'edit' : 'create'"
             :package-statuses="props.packageStatuses"
+            :package-unit-types="props.packageUnitTypes"
             :event-package="editingPackage"
         />
 

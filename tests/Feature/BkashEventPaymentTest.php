@@ -198,7 +198,7 @@ test('order with zero advance is confirmed on placement', function () {
 
     $package = $event->packages()->create([
         'name' => 'Basic',
-        'unit_price' => 100,
+        'package_price' => 100,
         'advance_percent' => 0,
         'min_qty_per_order' => 1,
         'status' => EventPackageStatus::Active->value,
@@ -249,7 +249,7 @@ test('order numbers encode fund cycle id event id and per-event sequence', funct
 
     $package = $event->packages()->create([
         'name' => 'Pkg',
-        'unit_price' => 200,
+        'package_price' => 200,
         'advance_percent' => 50,
         'min_qty_per_order' => 1,
         'status' => EventPackageStatus::Active->value,

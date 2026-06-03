@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\EventPackageStatus;
+use App\Enums\EventPackageUnitType;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -12,7 +13,9 @@ use Illuminate\Database\Eloquent\SoftDeletes;
     'fund_cycle_event_id',
     'name',
     'description',
-    'unit_price',
+    'unit_type',
+    'unit_size',
+    'package_price',
     'advance_percent',
     'min_qty_per_order',
     'max_qty_per_order',
@@ -29,7 +32,9 @@ class EventPackage extends Model
     {
         return [
             'status' => EventPackageStatus::class,
-            'unit_price' => 'decimal:2',
+            'unit_type' => EventPackageUnitType::class,
+            'unit_size' => 'decimal:3',
+            'package_price' => 'decimal:2',
             'advance_percent' => 'decimal:2',
         ];
     }
@@ -46,5 +51,10 @@ class EventPackage extends Model
         }
 
         return max(0, $this->stock_qty - $this->sold_qty);
+    }
+
+    public function unitLabel(): string
+    {
+        return $this->unit_type->formatSize($this->unit_size);
     }
 }

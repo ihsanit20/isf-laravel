@@ -2,16 +2,17 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Enums\EventPackageStatus;
+use App\Enums\EventPackageUnitType;
 use App\Enums\FundCycleEventStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreFundCycleEventRequest;
-use App\Http\Requests\Admin\UploadFundCycleEventBannerRequest;
 use App\Http\Requests\Admin\UpdateFundCycleEventRequest;
+use App\Http\Requests\Admin\UploadFundCycleEventBannerRequest;
 use App\Models\EventPackage;
 use App\Models\EventPickupPoint;
 use App\Models\FundCycle;
 use App\Models\FundCycleEvent;
-use App\Enums\EventPackageStatus;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -38,7 +39,7 @@ class FundCycleEventController extends Controller
                 ->latest('order_open_at')
                 ->latest('id')
                 ->get()
-                ->map(fn(FundCycleEvent $event): array => [
+                ->map(fn (FundCycleEvent $event): array => [
                     'id' => $event->id,
                     'title' => $event->title,
                     'slug' => $event->slug,
@@ -75,7 +76,7 @@ class FundCycleEventController extends Controller
                 ->latest('order_open_at')
                 ->latest('id')
                 ->get()
-                ->map(fn(FundCycleEvent $event): array => [
+                ->map(fn (FundCycleEvent $event): array => [
                     'id' => $event->id,
                     'title' => $event->title,
                     'slug' => $event->slug,
@@ -102,13 +103,14 @@ class FundCycleEventController extends Controller
     {
         $fundCycleEvent->load([
             'fundCycle:id,name,status,start_date,lock_date,maturity_date,settlement_date',
-            'packages' => fn($q) => $q->orderBy('sort_order')->orderBy('id'),
-            'pickupPoints' => fn($q) => $q->orderBy('sort_order')->orderBy('id'),
+            'packages' => fn ($q) => $q->orderBy('sort_order')->orderBy('id'),
+            'pickupPoints' => fn ($q) => $q->orderBy('sort_order')->orderBy('id'),
         ]);
 
         return Inertia::render('admin/EventDetails', [
             'eventStatuses' => FundCycleEventStatus::options(),
             'packageStatuses' => EventPackageStatus::options(),
+            'packageUnitTypes' => EventPackageUnitType::options(),
             'event' => [
                 'id' => $fundCycleEvent->id,
                 'title' => $fundCycleEvent->title,
@@ -135,11 +137,15 @@ class FundCycleEventController extends Controller
                     'settlement_date' => $fundCycleEvent->fundCycle?->settlement_date?->format('Y-m-d'),
                 ],
                 'packages' => $fundCycleEvent->packages
-                    ->map(fn(EventPackage $pkg): array => [
+                    ->map(fn (EventPackage $pkg): array => [
                         'id' => $pkg->id,
                         'name' => $pkg->name,
                         'description' => $pkg->description,
-                        'unit_price' => $pkg->unit_price,
+                        'unit_type' => $pkg->unit_type->value,
+                        'unit_type_label' => $pkg->unit_type->label(),
+                        'unit_size' => (string) $pkg->unit_size,
+                        'unit_label' => $pkg->unitLabel(),
+                        'package_price' => $pkg->package_price,
                         'advance_percent' => $pkg->advance_percent,
                         'min_qty_per_order' => $pkg->min_qty_per_order,
                         'max_qty_per_order' => $pkg->max_qty_per_order,
@@ -152,7 +158,7 @@ class FundCycleEventController extends Controller
                     ])
                     ->values(),
                 'pickup_points' => $fundCycleEvent->pickupPoints
-                    ->map(fn(EventPickupPoint $point): array => [
+                    ->map(fn (EventPickupPoint $point): array => [
                         'id' => $point->id,
                         'name' => $point->name,
                         'area' => $point->area,
@@ -228,11 +234,11 @@ class FundCycleEventController extends Controller
 
         while (
             FundCycleEvent::query()
-            ->when($ignoreId !== null, fn($query) => $query->where('id', '!=', $ignoreId))
-            ->where('slug', $slug)
-            ->exists()
+                ->when($ignoreId !== null, fn ($query) => $query->where('id', '!=', $ignoreId))
+                ->where('slug', $slug)
+                ->exists()
         ) {
-            $slug = $baseSlug . '-' . $counter;
+            $slug = $baseSlug.'-'.$counter;
             $counter++;
         }
 

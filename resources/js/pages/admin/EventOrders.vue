@@ -26,7 +26,8 @@ type OrderItem = {
     total_amount: string;
     advance_amount: string;
     due_amount: string;
-    total_quantity: number;
+    total_packs: number;
+    quantity_summary: string;
     payment_status: string;
     pickup_point: PickupPointSummary | null;
     created_at: string | null;
@@ -271,7 +272,7 @@ const paginationLabel = (label: string): string =>
                             <th class="px-4 py-3 font-medium">Customer</th>
                             <th class="px-4 py-3 font-medium">Phone</th>
                             <th class="px-4 py-3 font-medium">Pickup Point</th>
-                            <th class="px-4 py-3 font-medium">Qty</th>
+                            <th class="px-4 py-3 font-medium">Quantity</th>
                             <th class="px-4 py-3 font-medium">Total</th>
                             <th class="px-4 py-3 font-medium">Advance</th>
                             <th class="px-4 py-3 font-medium">Due</th>
@@ -303,7 +304,10 @@ const paginationLabel = (label: string): string =>
                                 <span v-else>-</span>
                             </td>
                             <td class="px-4 py-3 text-muted-foreground">
-                                {{ order.total_quantity }}
+                                <div>{{ order.quantity_summary || '-' }}</div>
+                                <div class="text-xs">
+                                    {{ order.total_packs }} pack(s)
+                                </div>
                             </td>
                             <td class="px-4 py-3 text-muted-foreground">
                                 {{ order.total_amount }}

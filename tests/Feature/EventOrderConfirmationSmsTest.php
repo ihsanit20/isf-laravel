@@ -45,7 +45,7 @@ function createPublishedEventWithPackage(): array
 
     $package = $event->packages()->create([
         'name' => 'Pkg',
-        'unit_price' => 1000,
+        'package_price' => 1000,
         'advance_percent' => 0,
         'min_qty_per_order' => 1,
         'status' => EventPackageStatus::Active->value,

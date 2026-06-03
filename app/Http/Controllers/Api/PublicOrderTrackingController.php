@@ -56,7 +56,7 @@ class PublicOrderTrackingController extends Controller
     private function formatOrder(EventOrder $order): array
     {
         $order->load([
-            'items.package:id,name,unit_price',
+            'items.package:id,name,package_price',
             'pickupPoint:id,name,area,address,contact_person,phone',
             'statusHistories' => fn ($q) => $q->orderBy('changed_at'),
             'payments:id,event_order_id,payment_status,payment_method,amount',
@@ -89,7 +89,12 @@ class PublicOrderTrackingController extends Controller
             'items' => $order->items->map(fn ($item) => [
                 'package_name' => $item->package->name,
                 'quantity' => $item->quantity,
-                'unit_price' => (float) $item->unit_price,
+                'unit_type' => $item->unit_type?->value,
+                'unit_size' => $item->unit_size !== null ? (float) $item->unit_size : null,
+                'unit_label' => $item->unitLabel(),
+                'quantity_label' => $item->quantityLabel(),
+                'physical_quantity' => $item->physicalQuantity(),
+                'package_price' => (float) $item->package_price,
                 'line_total' => (float) $item->line_total,
             ]),
             'status_history' => $order->statusHistories->map(fn ($h) => [
