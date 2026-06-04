@@ -163,7 +163,7 @@ const decodePaginationLabel = (label: string): string => {
             </div>
         </section>
 
-        <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <div
                 class="rounded-xl border border-sidebar-border/70 bg-background p-4 shadow-sm dark:border-sidebar-border"
             >
@@ -185,33 +185,47 @@ const decodePaginationLabel = (label: string): string => {
                     </span>
                 </div>
             </div>
+
             <div
-                class="rounded-xl border border-sidebar-border/70 bg-background p-4 shadow-sm dark:border-sidebar-border md:col-span-2 xl:col-span-1"
+                class="rounded-xl border border-sidebar-border/70 bg-background p-4 shadow-sm dark:border-sidebar-border"
             >
-                <p class="text-xs text-muted-foreground">
-                    Current Balance
-                </p>
-                <p class="text-xs text-muted-foreground">
+                <p class="text-xs text-muted-foreground">Current Balance</p>
+                <p class="mt-0.5 text-xs text-muted-foreground">
                     Cash in joint bank account (wallet)
                 </p>
                 <p class="mt-2 text-2xl font-semibold text-foreground">
                     {{ money(props.summary.current_balance) }}
                 </p>
-                <dl class="mt-3 space-y-1 text-xs text-muted-foreground">
+                <p class="mt-3 text-sm text-muted-foreground">
+                    {{ props.summary.pending_count.toLocaleString() }} pending
+                    · {{ money(props.summary.pending_amount) }}
+                </p>
+            </div>
+
+            <div
+                class="rounded-xl border border-sidebar-border/70 bg-background p-4 shadow-sm dark:border-sidebar-border"
+            >
+                <p class="text-xs font-medium text-foreground">
+                    Balance breakdown
+                </p>
+                <p class="mt-0.5 text-xs text-muted-foreground">
+                    Verified deposits minus outflows
+                </p>
+                <dl class="mt-3 space-y-2 text-sm">
                     <div class="flex justify-between gap-2">
-                        <dt>Verified deposits</dt>
-                        <dd class="font-medium text-foreground">
+                        <dt class="text-muted-foreground">Verified deposits</dt>
+                        <dd class="font-medium tabular-nums text-foreground">
                             +{{ money(props.summary.verified_amount) }}
                         </dd>
                     </div>
                     <div class="flex justify-between gap-2">
-                        <dt>General expenses</dt>
-                        <dd class="font-medium text-foreground">
+                        <dt class="text-muted-foreground">General expenses</dt>
+                        <dd class="font-medium tabular-nums text-foreground">
                             −{{ money(props.summary.total_general_expense) }}
                         </dd>
                     </div>
                     <div class="flex justify-between gap-2">
-                        <dt>
+                        <dt class="text-muted-foreground">
                             <Link
                                 href="/admin/events"
                                 class="text-primary underline underline-offset-4"
@@ -219,7 +233,7 @@ const decodePaginationLabel = (label: string): string => {
                                 Event bank withdrawals
                             </Link>
                         </dt>
-                        <dd class="font-medium text-foreground">
+                        <dd class="font-medium tabular-nums text-foreground">
                             −{{
                                 money(
                                     props.summary.total_event_bank_withdrawals,
@@ -228,19 +242,18 @@ const decodePaginationLabel = (label: string): string => {
                         </dd>
                     </div>
                     <div class="flex justify-between gap-2">
-                        <dt>Charge settlements</dt>
-                        <dd class="font-medium text-foreground">
+                        <dt class="text-muted-foreground">
+                            Charge settlements
+                        </dt>
+                        <dd class="font-medium tabular-nums text-foreground">
                             −{{
                                 money(props.summary.total_charge_settlements)
                             }}
                         </dd>
                     </div>
                 </dl>
-                <div class="mt-3 text-sm text-muted-foreground">
-                    ({{ props.summary.pending_count.toLocaleString() }})
-                    Pending: {{ money(props.summary.pending_amount) }}
-                </div>
             </div>
+
             <div
                 class="rounded-xl border border-sidebar-border/70 bg-background p-4 shadow-sm dark:border-sidebar-border"
             >

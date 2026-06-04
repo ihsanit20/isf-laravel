@@ -13,6 +13,7 @@ use App\Http\Requests\Admin\UploadFundCycleEventBannerRequest;
 use App\Models\EventBankWithdrawal;
 use App\Models\EventExpense;
 use App\Models\EventPackage;
+use App\Models\EventPayment;
 use App\Models\EventPickupPoint;
 use App\Models\FundCycle;
 use App\Models\FundCycleEvent;
@@ -119,9 +120,21 @@ class FundCycleEventController extends Controller
 
         $expenses = $fundCycleEvent->expenses;
         $bankWithdrawals = $fundCycleEvent->bankWithdrawals;
+        $payments = EventPayment::query()
+            ->whereHas('order', fn ($query) => $query->where('fund_cycle_event_id', $fundCycleEvent->id))
+            ->with([
+                'order:id,order_number,customer_name',
+                'verifiedBy:id,name',
+            ])
+            ->orderByDesc('paid_at')
+            ->orderByDesc('id')
+            ->get();
         $totalWithdrawn = (int) $bankWithdrawals->sum('amount');
         $totalLoggedExpenses = (int) $expenses->sum('amount');
         $cycleWithdrawalBudget = $this->withdrawalBudget->forCycle($fundCycleEvent->fund_cycle_id);
+        $verifiedPayments = $payments->where('payment_status', 'verified');
+        $pendingPayments = $payments->where('payment_status', 'pending');
+        $failedPayments = $payments->where('payment_status', 'failed');
 
         return Inertia::render('admin/EventDetails', [
             'eventStatuses' => FundCycleEventStatus::options(),
@@ -226,8 +239,44 @@ class FundCycleEventController extends Controller
                     'is_over_logged' => $totalLoggedExpenses > $totalWithdrawn,
                 ],
                 'cycle_withdrawal_budget' => $cycleWithdrawalBudget,
+                'payments' => $payments
+                    ->map(fn (EventPayment $payment): array => [
+                        'id' => $payment->id,
+                        'order_id' => $payment->event_order_id,
+                        'order_number' => $payment->order?->order_number,
+                        'customer_name' => $payment->order?->customer_name,
+                        'amount' => (int) $payment->amount,
+                        'payment_type' => $payment->payment_type?->value,
+                        'payment_type_label' => $payment->payment_type?->label() ?? 'Payment',
+                        'payment_method' => $payment->payment_method,
+                        'payment_status' => $payment->payment_status,
+                        'payment_status_label' => $this->paymentStatusLabel($payment->payment_status),
+                        'transaction_reference' => $payment->transaction_reference,
+                        'note' => $payment->note,
+                        'paid_at' => $payment->paid_at?->format('d M Y, h:i A'),
+                        'verified_at' => $payment->verified_at?->format('d M Y, h:i A'),
+                        'verified_by_name' => $payment->verifiedBy?->name,
+                    ])
+                    ->values(),
+                'payment_summary' => [
+                    'entry_count' => $payments->count(),
+                    'verified_amount' => (int) $verifiedPayments->sum('amount'),
+                    'verified_count' => $verifiedPayments->count(),
+                    'pending_count' => $pendingPayments->count(),
+                    'failed_count' => $failedPayments->count(),
+                ],
             ],
         ]);
+    }
+
+    private function paymentStatusLabel(string $status): string
+    {
+        return match ($status) {
+            'verified' => 'Verified',
+            'pending' => 'Pending',
+            'failed' => 'Failed',
+            default => ucfirst($status),
+        };
     }
 
     public function updateFromDetails(

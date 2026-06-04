@@ -3,6 +3,7 @@ import { Head, Link, useForm, router, usePage } from '@inertiajs/vue3';
 import {
     Banknote,
     CalendarDays,
+    CreditCard,
     ChevronDown,
     Clock3,
     FileText,
@@ -115,6 +116,32 @@ type CycleWithdrawalBudget = {
     remaining_amount: number;
 };
 
+type EventPaymentLog = {
+    id: number;
+    order_id: number;
+    order_number: string | null;
+    customer_name: string | null;
+    amount: number;
+    payment_type: string | null;
+    payment_type_label: string;
+    payment_method: string | null;
+    payment_status: string;
+    payment_status_label: string;
+    transaction_reference: string | null;
+    note: string | null;
+    paid_at: string | null;
+    verified_at: string | null;
+    verified_by_name: string | null;
+};
+
+type EventPaymentSummary = {
+    entry_count: number;
+    verified_amount: number;
+    verified_count: number;
+    pending_count: number;
+    failed_count: number;
+};
+
 type EventDetails = {
     id: number;
     title: string;
@@ -136,6 +163,8 @@ type EventDetails = {
     withdrawal_summary: WithdrawalSummary;
     float_summary: FloatSummary;
     cycle_withdrawal_budget: CycleWithdrawalBudget;
+    payments: EventPaymentLog[];
+    payment_summary: EventPaymentSummary;
     fund_cycle: {
         id: number;
         name: string | null;
@@ -183,13 +212,20 @@ const isWithdrawalDialogOpen = ref(false);
 const editingWithdrawal = ref<EventBankWithdrawal | null>(null);
 const isDescriptionExpanded = ref(false);
 
-type DetailTab = 'details' | 'packages' | 'pickup' | 'withdrawals' | 'costs';
+type DetailTab =
+    | 'details'
+    | 'packages'
+    | 'pickup'
+    | 'payments'
+    | 'withdrawals'
+    | 'costs';
 
 const page = usePage();
 const validTabs: DetailTab[] = [
     'details',
     'packages',
     'pickup',
+    'payments',
     'withdrawals',
     'costs',
 ];
@@ -234,6 +270,11 @@ const detailTabs = computed(() => [
         key: 'pickup' as const,
         label: 'Pickup Points',
         count: props.event.pickup_points.length,
+    },
+    {
+        key: 'payments' as const,
+        label: 'Payments',
+        count: props.event.payment_summary.entry_count,
     },
     {
         key: 'withdrawals' as const,
@@ -291,6 +332,27 @@ const formatDateTime = (value: string | null): string => {
 };
 
 const money = (amount: number): string => `${amount.toLocaleString()} BDT`;
+
+const paymentStatusVariant = (
+    status: string,
+): 'default' | 'secondary' | 'destructive' | 'outline' => {
+    if (status === 'verified') {
+        return 'default';
+    }
+
+    if (status === 'pending') {
+        return 'secondary';
+    }
+
+    if (status === 'failed') {
+        return 'destructive';
+    }
+
+    return 'outline';
+};
+
+const orderShowUrl = (orderId: number): string =>
+    `/admin/events/${props.event.id}/orders/${orderId}`;
 
 const formatDate = (value: string | null): string => {
     const parsed = parseDateValue(value);
@@ -979,6 +1041,158 @@ const deleteExpense = (expense: EventExpense) => {
                     </tbody>
                 </table>
             </div>
+            </div>
+
+            <div v-else-if="activeTab === 'payments'" class="p-6">
+                <div
+                    class="mb-4 rounded-xl border border-sidebar-border/70 bg-muted/30 p-4 text-sm"
+                >
+                    <p class="font-medium text-foreground">Payment summary</p>
+                    <p class="mt-1 text-muted-foreground">
+                        Total entries:
+                        {{ props.event.payment_summary.entry_count }}
+                        · Verified:
+                        {{
+                            money(
+                                props.event.payment_summary.verified_amount,
+                            )
+                        }}
+                        ({{ props.event.payment_summary.verified_count }})
+                        · Pending:
+                        {{ props.event.payment_summary.pending_count }}
+                        · Failed:
+                        {{ props.event.payment_summary.failed_count }}
+                    </p>
+                </div>
+
+                <div
+                    class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+                >
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <CreditCard class="size-4 text-muted-foreground" />
+                            <h2 class="text-base font-semibold">
+                                Customer Payments
+                            </h2>
+                            <Badge variant="secondary" class="ml-1">
+                                {{
+                                    props.event.payment_summary.entry_count
+                                }}
+                            </Badge>
+                        </div>
+                        <p class="mt-1 text-sm text-muted-foreground">
+                            Advance and due payments recorded for orders on
+                            this event. Verify or record new payments from the
+                            order page.
+                        </p>
+                    </div>
+                    <Button size="sm" variant="outline" class="shrink-0" as-child>
+                        <Link :href="`/admin/events/${props.event.id}/orders`">
+                            View Orders
+                        </Link>
+                    </Button>
+                </div>
+
+                <div
+                    v-if="props.event.payments.length === 0"
+                    class="mt-6 flex flex-col items-center justify-center gap-2 py-12 text-center text-muted-foreground"
+                >
+                    <CreditCard class="size-8 opacity-30" />
+                    <p class="text-sm">No payments logged for this event yet.</p>
+                    <Button size="sm" variant="outline" as-child>
+                        <Link :href="`/admin/events/${props.event.id}/orders`">
+                            Go to Orders
+                        </Link>
+                    </Button>
+                </div>
+
+                <div v-else class="mt-4 overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr
+                                class="border-b border-sidebar-border/70 bg-muted/30 text-xs text-muted-foreground"
+                            >
+                                <th class="px-4 py-2 text-left font-medium">
+                                    Date
+                                </th>
+                                <th class="px-4 py-2 text-right font-medium">
+                                    Amount
+                                </th>
+                                <th class="px-4 py-2 text-left font-medium">
+                                    Order
+                                </th>
+                                <th class="px-4 py-2 text-left font-medium">
+                                    Customer
+                                </th>
+                                <th class="px-4 py-2 text-left font-medium">
+                                    Type
+                                </th>
+                                <th class="px-4 py-2 text-left font-medium">
+                                    Method
+                                </th>
+                                <th class="px-4 py-2 text-left font-medium">
+                                    Status
+                                </th>
+                                <th class="px-4 py-2 text-left font-medium">
+                                    Reference
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-sidebar-border/70">
+                            <tr
+                                v-for="payment in props.event.payments"
+                                :key="payment.id"
+                                class="hover:bg-muted/20"
+                            >
+                                <td class="px-4 py-3 font-medium">
+                                    {{
+                                        payment.paid_at ||
+                                        payment.verified_at ||
+                                        '—'
+                                    }}
+                                </td>
+                                <td class="px-4 py-3 text-right tabular-nums">
+                                    {{ money(payment.amount) }}
+                                </td>
+                                <td class="px-4 py-3">
+                                    <Link
+                                        :href="orderShowUrl(payment.order_id)"
+                                        class="font-medium text-primary hover:underline"
+                                    >
+                                        {{ payment.order_number || '—' }}
+                                    </Link>
+                                </td>
+                                <td class="px-4 py-3 text-muted-foreground">
+                                    {{ payment.customer_name || '—' }}
+                                </td>
+                                <td class="px-4 py-3 text-muted-foreground">
+                                    {{ payment.payment_type_label }}
+                                </td>
+                                <td class="px-4 py-3 text-muted-foreground">
+                                    {{ payment.payment_method || '—' }}
+                                </td>
+                                <td class="px-4 py-3">
+                                    <Badge
+                                        :variant="
+                                            paymentStatusVariant(
+                                                payment.payment_status,
+                                            )
+                                        "
+                                    >
+                                        {{ payment.payment_status_label }}
+                                    </Badge>
+                                </td>
+                                <td
+                                    class="max-w-xs px-4 py-3 text-muted-foreground"
+                                >
+                                    {{
+                                        payment.transaction_reference || '—'
+                                    }}
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
 
             <div v-else-if="activeTab === 'withdrawals'" class="p-6">
