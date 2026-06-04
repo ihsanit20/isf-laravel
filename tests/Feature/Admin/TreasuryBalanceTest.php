@@ -55,7 +55,7 @@ function createTreasuryTestEvents(): array
     return ['event' => $event, 'eventB' => $eventB];
 }
 
-test('deposits page current balance reflects bank outflows not event expenses or allocations', function () {
+test('deposits page current balance reflects bank outflows not event expenses allocations or charge settlements', function () {
     $admin = User::factory()->create(['role' => 'admin']);
 
     DepositSubmission::query()->create([
@@ -144,7 +144,7 @@ test('deposits page current balance reflects bank outflows not event expenses or
             ->where('summary.total_general_expense', 1_000)
             ->where('summary.total_event_bank_withdrawals', 25_000)
             ->where('summary.total_charge_settlements', 500)
-            ->where('summary.current_balance', 73_500));
+            ->where('summary.current_balance', 74_000));
 });
 
 test('admins can record bank withdrawal for an event', function () {

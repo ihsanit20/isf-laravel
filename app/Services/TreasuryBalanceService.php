@@ -52,8 +52,7 @@ class TreasuryBalanceService
             $verifiedAmount
                 - $totalGeneralExpense
                 - $totalEventBankWithdrawals
-                + $totalEventBankDeposits
-                - $totalChargeSettlements,
+                + $totalEventBankDeposits,
         );
 
         return [
