@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\ChargeCategoryController;
 use App\Http\Controllers\Admin\ChargeListController;
 use App\Http\Controllers\Admin\DepositListController;
+use App\Http\Controllers\Admin\EventExpenseController;
 use App\Http\Controllers\Admin\EventOrderController;
 use App\Http\Controllers\Admin\EventOrderPrintController;
 use App\Http\Controllers\Admin\EventPackageController;
@@ -88,6 +89,9 @@ Route::middleware(['auth', 'verified', 'admin'])->group(function () {
     Route::post('admin/events/{fundCycleEvent}/pickup-points', [EventPickupPointController::class, 'store'])->name('admin.events.pickup-points.store');
     Route::put('admin/events/{fundCycleEvent}/pickup-points/{eventPickupPoint}', [EventPickupPointController::class, 'update'])->name('admin.events.pickup-points.update');
     Route::delete('admin/events/{fundCycleEvent}/pickup-points/{eventPickupPoint}', [EventPickupPointController::class, 'destroy'])->name('admin.events.pickup-points.destroy');
+    Route::post('admin/events/{fundCycleEvent}/expenses', [EventExpenseController::class, 'store'])->name('admin.events.expenses.store');
+    Route::put('admin/events/{fundCycleEvent}/expenses/{eventExpense}', [EventExpenseController::class, 'update'])->name('admin.events.expenses.update');
+    Route::delete('admin/events/{fundCycleEvent}/expenses/{eventExpense}', [EventExpenseController::class, 'destroy'])->name('admin.events.expenses.destroy');
     Route::post('admin/fund-cycles', [FundCycleController::class, 'store'])->name('admin.fund-cycles.store');
     Route::put('admin/fund-cycles/{fundCycle}', [FundCycleController::class, 'update'])->name('admin.fund-cycles.update');
     Route::post('admin/fund-cycles/{fundCycle}/allocations', [FundCycleController::class, 'storeAllocation'])->name('admin.fund-cycles.allocations.store');

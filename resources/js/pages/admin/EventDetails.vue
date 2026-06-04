@@ -1,17 +1,20 @@
 <script setup lang="ts">
-import { Head, Link, useForm, router } from '@inertiajs/vue3';
+import { Head, Link, useForm, router, usePage } from '@inertiajs/vue3';
 import {
     CalendarDays,
     ChevronDown,
     Clock3,
+    FileText,
     MapPin,
     Pencil,
     Tag,
     Package,
     Plus,
     Trash2,
+    Wallet,
 } from 'lucide-vue-next';
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
+import EventExpenseFormDialog from '@/components/admin/EventExpenseFormDialog.vue';
 import EventPackageFormDialog from '@/components/admin/EventPackageFormDialog.vue';
 import EventPickupPointFormDialog from '@/components/admin/EventPickupPointFormDialog.vue';
 import FundCycleEventFormDialog from '@/components/admin/FundCycleEventFormDialog.vue';
@@ -59,6 +62,29 @@ type EventPickupPoint = {
     is_active: boolean;
 };
 
+type ExpenseCategoryOption = {
+    value: string;
+    label: string;
+};
+
+type EventExpense = {
+    id: number;
+    expense_date: string;
+    category: string;
+    category_label: string;
+    amount: number;
+    description: string | null;
+    receipt_path: string | null;
+    receipt_url: string | null;
+    created_by_name: string | null;
+    created_at: string | null;
+};
+
+type EventExpenseSummary = {
+    total_amount: number;
+    entry_count: number;
+};
+
 type EventDetails = {
     id: number;
     title: string;
@@ -74,6 +100,8 @@ type EventDetails = {
     updated_at: string | null;
     packages: EventPackage[];
     pickup_points: EventPickupPoint[];
+    expenses: EventExpense[];
+    expense_summary: EventExpenseSummary;
     fund_cycle: {
         id: number;
         name: string | null;
@@ -91,6 +119,7 @@ type Props = {
     eventStatuses: EventStatusOption[];
     packageStatuses: PackageStatusOption[];
     packageUnitTypes: PackageStatusOption[];
+    expenseCategories: ExpenseCategoryOption[];
 };
 
 defineOptions({
@@ -114,7 +143,62 @@ const isPackageDialogOpen = ref(false);
 const editingPackage = ref<EventPackage | null>(null);
 const isPickupPointDialogOpen = ref(false);
 const editingPickupPoint = ref<EventPickupPoint | null>(null);
+const isExpenseDialogOpen = ref(false);
+const editingExpense = ref<EventExpense | null>(null);
 const isDescriptionExpanded = ref(false);
+
+type DetailTab = 'details' | 'packages' | 'pickup' | 'costs';
+
+const page = usePage();
+const validTabs: DetailTab[] = ['details', 'packages', 'pickup', 'costs'];
+const activeTab = ref<DetailTab>('details');
+
+const setActiveTab = (tab: DetailTab) => {
+    activeTab.value = tab;
+
+    const url = new URL(page.url, window.location.origin);
+
+    if (tab === 'details') {
+        url.searchParams.delete('tab');
+    } else {
+        url.searchParams.set('tab', tab);
+    }
+
+    window.history.replaceState({}, '', `${url.pathname}${url.search}`);
+};
+
+watch(
+    () => page.url,
+    () => {
+        const tab = new URL(page.url, window.location.origin).searchParams.get(
+            'tab',
+        );
+
+        if (tab && validTabs.includes(tab as DetailTab)) {
+            activeTab.value = tab as DetailTab;
+        }
+    },
+    { immediate: true },
+);
+
+const detailTabs = computed(() => [
+    { key: 'details' as const, label: 'Details' },
+    {
+        key: 'packages' as const,
+        label: 'Packages',
+        count: props.event.packages.length,
+    },
+    {
+        key: 'pickup' as const,
+        label: 'Pickup Points',
+        count: props.event.pickup_points.length,
+    },
+    {
+        key: 'costs' as const,
+        label: 'Event Costs',
+        count: props.event.expense_summary.entry_count,
+    },
+]);
 const coverInputRef = ref<HTMLInputElement | null>(null);
 const coverForm = useForm<{
     cover_image: File | null;
@@ -158,6 +242,8 @@ const formatDateTime = (value: string | null): string => {
         hour12: true,
     }).format(parsed);
 };
+
+const money = (amount: number): string => `${amount.toLocaleString()} BDT`;
 
 const formatDate = (value: string | null): string => {
     const parsed = parseDateValue(value);
@@ -217,6 +303,7 @@ const submitCover = () => {
 };
 
 const openAddPackage = () => {
+    activeTab.value = 'packages';
     editingPackage.value = null;
     isPackageDialogOpen.value = true;
 };
@@ -241,6 +328,7 @@ const deletePackage = (pkg: EventPackage) => {
 };
 
 const openAddPickupPoint = () => {
+    activeTab.value = 'pickup';
     editingPickupPoint.value = null;
     isPickupPointDialogOpen.value = true;
 };
@@ -256,6 +344,29 @@ const deletePickupPoint = (point: EventPickupPoint) => {
     }
 
     router.delete(`/admin/events/${props.event.id}/pickup-points/${point.id}`, {
+        preserveScroll: true,
+    });
+};
+
+const openAddExpense = () => {
+    activeTab.value = 'costs';
+    editingExpense.value = null;
+    isExpenseDialogOpen.value = true;
+};
+
+const openEditExpense = (expense: EventExpense) => {
+    editingExpense.value = expense;
+    isExpenseDialogOpen.value = true;
+};
+
+const deleteExpense = (expense: EventExpense) => {
+    const label = expense.description || expense.category_label;
+
+    if (!confirm(`"${label}" খরচের এন্ট্রি মুছে ফেলবেন?`)) {
+        return;
+    }
+
+    router.delete(`/admin/events/${props.event.id}/expenses/${expense.id}`, {
         preserveScroll: true,
     });
 };
@@ -300,6 +411,11 @@ const deletePickupPoint = (point: EventPickupPoint) => {
                     </div>
 
                     <div class="flex flex-wrap gap-2 md:justify-end">
+                        <Button variant="outline" as-child>
+                            <Link :href="`/admin/events/${props.event.id}/orders`">
+                                Order List
+                            </Link>
+                        </Button>
                         <Button @click="isEditDialogOpen = true">
                             <Pencil class="size-4" />
                             Edit Event
@@ -369,6 +485,41 @@ const deletePickupPoint = (point: EventPickupPoint) => {
                         {{ coverForm.errors.cover_image }}
                     </p>
                 </div>
+            </div>
+        </section>
+
+        <section
+            class="overflow-hidden rounded-xl border border-sidebar-border/70 bg-background shadow-sm dark:border-sidebar-border"
+        >
+            <div
+                class="flex flex-wrap gap-2 border-b border-sidebar-border/70 px-4 py-3"
+            >
+                <Button
+                    v-for="tab in detailTabs"
+                    :key="tab.key"
+                    size="sm"
+                    :variant="activeTab === tab.key ? 'default' : 'outline'"
+                    @click="setActiveTab(tab.key)"
+                >
+                    {{ tab.label }}
+                    <Badge
+                        v-if="tab.count !== undefined"
+                        variant="secondary"
+                        class="ml-1.5 text-xs"
+                    >
+                        {{ tab.count }}
+                    </Badge>
+                </Button>
+            </div>
+
+            <div
+                v-if="activeTab === 'details'"
+                class="space-y-6 p-6"
+            >
+                <div class="flex items-center gap-2">
+                    <FileText class="size-5 text-muted-foreground" />
+                    <h2 class="text-base font-semibold">Event Details</h2>
+                </div>
 
                 <div class="grid gap-4 text-sm md:grid-cols-2">
                     <div class="rounded-xl border border-sidebar-border/70 p-4">
@@ -424,7 +575,7 @@ const deletePickupPoint = (point: EventPickupPoint) => {
                     </div>
                 </div>
 
-                <div class="">
+                <div>
                     <div class="text-xs text-muted-foreground">Description</div>
                     <p
                         class="mt-3 text-sm leading-7 whitespace-pre-line text-foreground/90"
@@ -498,12 +649,8 @@ const deletePickupPoint = (point: EventPickupPoint) => {
                     </div>
                 </div>
             </div>
-        </section>
 
-        <!-- Packages Section -->
-        <section
-            class="rounded-xl border border-sidebar-border/70 bg-background p-6 shadow-sm dark:border-sidebar-border"
-        >
+            <div v-else-if="activeTab === 'packages'" class="p-6">
             <div class="flex items-center justify-between">
                 <div class="flex items-center gap-2">
                     <Package class="size-5 text-muted-foreground" />
@@ -643,14 +790,11 @@ const deletePickupPoint = (point: EventPickupPoint) => {
                     </tbody>
                 </table>
             </div>
-        </section>
+            </div>
 
-        <!-- ── Pickup Points section ── -->
-        <section
-            class="overflow-hidden rounded-xl border border-sidebar-border/70 bg-background shadow-sm dark:border-sidebar-border"
-        >
+            <div v-else-if="activeTab === 'pickup'" class="p-6">
             <div
-                class="flex items-center justify-between border-b border-sidebar-border/70 px-6 py-4"
+                class="flex items-center justify-between"
             >
                 <div class="flex items-center gap-2">
                     <MapPin class="size-4 text-muted-foreground" />
@@ -761,6 +905,148 @@ const deletePickupPoint = (point: EventPickupPoint) => {
                     </tbody>
                 </table>
             </div>
+            </div>
+
+            <div v-else-if="activeTab === 'costs'" class="p-6">
+            <div
+                class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+            >
+                <div>
+                    <div class="flex items-center gap-2">
+                        <Wallet class="size-4 text-muted-foreground" />
+                        <h2 class="text-base font-semibold">Event Costs</h2>
+                        <Badge variant="secondary" class="ml-1">
+                            {{ props.event.expense_summary.entry_count }}
+                        </Badge>
+                    </div>
+                    <p class="mt-1 text-sm text-muted-foreground">
+                        Track each expense for this event (operational
+                        investment).
+                    </p>
+                    <p
+                        v-if="props.event.expense_summary.entry_count > 0"
+                        class="mt-2 text-sm font-medium text-foreground"
+                    >
+                        Total:
+                        {{ money(props.event.expense_summary.total_amount) }}
+                        ·
+                        {{ props.event.expense_summary.entry_count }}
+                        {{
+                            props.event.expense_summary.entry_count === 1
+                                ? 'entry'
+                                : 'entries'
+                        }}
+                    </p>
+                </div>
+                <Button size="sm" class="shrink-0" @click="openAddExpense">
+                    <Plus class="size-4" />
+                    Add Cost
+                </Button>
+            </div>
+
+            <div
+                v-if="props.event.expenses.length === 0"
+                class="flex flex-col items-center justify-center gap-2 py-12 text-center text-muted-foreground"
+            >
+                <Wallet class="size-8 opacity-30" />
+                <p class="text-sm">No costs logged yet.</p>
+                <Button size="sm" variant="outline" @click="openAddExpense">
+                    Add the first cost
+                </Button>
+            </div>
+
+            <div v-else class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr
+                            class="border-b border-sidebar-border/70 bg-muted/30 text-xs text-muted-foreground"
+                        >
+                            <th class="px-4 py-2 text-left font-medium">
+                                Date
+                            </th>
+                            <th class="px-4 py-2 text-left font-medium">
+                                Category
+                            </th>
+                            <th class="px-4 py-2 text-right font-medium">
+                                Amount
+                            </th>
+                            <th class="px-4 py-2 text-left font-medium">
+                                Description
+                            </th>
+                            <th class="px-4 py-2 text-left font-medium">
+                                Receipt
+                            </th>
+                            <th class="px-4 py-2 text-left font-medium">
+                                Added By
+                            </th>
+                            <th class="px-4 py-2 text-right font-medium">
+                                Actions
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-sidebar-border/70">
+                        <tr
+                            v-for="expense in props.event.expenses"
+                            :key="expense.id"
+                            class="hover:bg-muted/20"
+                        >
+                            <td class="px-4 py-3 font-medium">
+                                {{ formatDate(expense.expense_date) }}
+                            </td>
+                            <td class="px-4 py-3 text-muted-foreground">
+                                {{ expense.category_label }}
+                            </td>
+                            <td class="px-4 py-3 text-right tabular-nums">
+                                {{ money(expense.amount) }}
+                            </td>
+                            <td
+                                class="max-w-xs px-4 py-3 text-muted-foreground"
+                            >
+                                {{ expense.description || '—' }}
+                            </td>
+                            <td class="px-4 py-3">
+                                <a
+                                    v-if="expense.receipt_url"
+                                    :href="expense.receipt_url"
+                                    target="_blank"
+                                    class="text-primary underline underline-offset-4"
+                                >
+                                    View
+                                </a>
+                                <span v-else class="text-muted-foreground"
+                                    >—</span
+                                >
+                            </td>
+                            <td class="px-4 py-3 text-muted-foreground">
+                                {{ expense.created_by_name || '—' }}
+                            </td>
+                            <td class="px-4 py-3 text-right">
+                                <div
+                                    class="flex items-center justify-end gap-1"
+                                >
+                                    <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        class="h-7 px-2"
+                                        @click="openEditExpense(expense)"
+                                    >
+                                        <Pencil class="size-3.5" />
+                                    </Button>
+                                    <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        class="h-7 px-2 text-destructive hover:text-destructive"
+                                        @click="deleteExpense(expense)"
+                                    >
+                                        <Trash2 class="size-3.5" />
+                                    </Button>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            </div>
         </section>
 
         <FundCycleEventFormDialog
@@ -786,6 +1072,14 @@ const deletePickupPoint = (point: EventPickupPoint) => {
             :event-id="props.event.id"
             :mode="editingPickupPoint ? 'edit' : 'create'"
             :pickup-point="editingPickupPoint"
+        />
+
+        <EventExpenseFormDialog
+            v-model:isOpen="isExpenseDialogOpen"
+            :event-id="props.event.id"
+            :mode="editingExpense ? 'edit' : 'create'"
+            :expense-categories="props.expenseCategories"
+            :event-expense="editingExpense"
         />
     </div>
 </template>

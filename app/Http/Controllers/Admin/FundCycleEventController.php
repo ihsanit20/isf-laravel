@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Enums\EventExpenseCategory;
 use App\Enums\EventPackageStatus;
 use App\Enums\EventPackageUnitType;
 use App\Enums\FundCycleEventStatus;
@@ -9,6 +10,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreFundCycleEventRequest;
 use App\Http\Requests\Admin\UpdateFundCycleEventRequest;
 use App\Http\Requests\Admin\UploadFundCycleEventBannerRequest;
+use App\Models\EventExpense;
 use App\Models\EventPackage;
 use App\Models\EventPickupPoint;
 use App\Models\FundCycle;
@@ -105,12 +107,16 @@ class FundCycleEventController extends Controller
             'fundCycle:id,name,status,start_date,lock_date,maturity_date,settlement_date',
             'packages' => fn ($q) => $q->orderBy('sort_order')->orderBy('id'),
             'pickupPoints' => fn ($q) => $q->orderBy('sort_order')->orderBy('id'),
+            'expenses' => fn ($q) => $q->with('createdBy:id,name')->orderByDesc('expense_date')->orderByDesc('id'),
         ]);
+
+        $expenses = $fundCycleEvent->expenses;
 
         return Inertia::render('admin/EventDetails', [
             'eventStatuses' => FundCycleEventStatus::options(),
             'packageStatuses' => EventPackageStatus::options(),
             'packageUnitTypes' => EventPackageUnitType::options(),
+            'expenseCategories' => EventExpenseCategory::options(),
             'event' => [
                 'id' => $fundCycleEvent->id,
                 'title' => $fundCycleEvent->title,
@@ -169,6 +175,24 @@ class FundCycleEventController extends Controller
                         'is_active' => $point->is_active,
                     ])
                     ->values(),
+                'expenses' => $expenses
+                    ->map(fn (EventExpense $expense): array => [
+                        'id' => $expense->id,
+                        'expense_date' => $expense->expense_date?->format('Y-m-d'),
+                        'category' => $expense->category->value,
+                        'category_label' => $expense->category->label(),
+                        'amount' => $expense->amount,
+                        'description' => $expense->description,
+                        'receipt_path' => $expense->receipt_path,
+                        'receipt_url' => $expense->receiptUrl(),
+                        'created_by_name' => $expense->createdBy?->name,
+                        'created_at' => $expense->created_at?->format('d M Y, h:i A'),
+                    ])
+                    ->values(),
+                'expense_summary' => [
+                    'total_amount' => (int) $expenses->sum('amount'),
+                    'entry_count' => $expenses->count(),
+                ],
             ],
         ]);
     }

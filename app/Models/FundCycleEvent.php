@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Support\Facades\Storage;
 
 #[Fillable([
@@ -52,6 +53,11 @@ class FundCycleEvent extends Model
         return $this->hasMany(EventOrder::class);
     }
 
+    public function expenses(): HasMany
+    {
+        return $this->hasMany(EventExpense::class);
+    }
+
     public static function bannerDisk(): string
     {
         return (string) config('filesystems.default', 'local');
@@ -63,7 +69,7 @@ class FundCycleEvent extends Model
             return null;
         }
 
-        /** @var \Illuminate\Filesystem\FilesystemAdapter $disk */
+        /** @var FilesystemAdapter $disk */
         $disk = Storage::disk(self::bannerDisk());
 
         return $disk->url($this->banner_image_path);

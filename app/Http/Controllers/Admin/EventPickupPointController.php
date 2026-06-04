@@ -15,7 +15,10 @@ class EventPickupPointController extends Controller
     {
         $fundCycleEvent->pickupPoints()->create($request->validated());
 
-        return to_route('admin.events.show', $fundCycleEvent);
+        return to_route('admin.events.show', [
+            'fundCycleEvent' => $fundCycleEvent,
+            'tab' => 'pickup',
+        ]);
     }
 
     public function update(
@@ -25,13 +28,19 @@ class EventPickupPointController extends Controller
     ): RedirectResponse {
         $eventPickupPoint->update($request->validated());
 
-        return to_route('admin.events.show', $fundCycleEvent);
+        return to_route('admin.events.show', [
+            'fundCycleEvent' => $fundCycleEvent,
+            'tab' => 'pickup',
+        ]);
     }
 
     public function destroy(FundCycleEvent $fundCycleEvent, EventPickupPoint $eventPickupPoint): RedirectResponse
     {
         $eventPickupPoint->delete();
 
-        return to_route('admin.events.show', $fundCycleEvent);
+        return to_route('admin.events.show', [
+            'fundCycleEvent' => $fundCycleEvent,
+            'tab' => 'pickup',
+        ]);
     }
 }

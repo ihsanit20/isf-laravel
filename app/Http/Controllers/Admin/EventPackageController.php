@@ -15,7 +15,10 @@ class EventPackageController extends Controller
     {
         $fundCycleEvent->packages()->create($request->validated());
 
-        return to_route('admin.events.show', $fundCycleEvent);
+        return to_route('admin.events.show', [
+            'fundCycleEvent' => $fundCycleEvent,
+            'tab' => 'packages',
+        ]);
     }
 
     public function update(
@@ -25,13 +28,19 @@ class EventPackageController extends Controller
     ): RedirectResponse {
         $eventPackage->update($request->validated());
 
-        return to_route('admin.events.show', $fundCycleEvent);
+        return to_route('admin.events.show', [
+            'fundCycleEvent' => $fundCycleEvent,
+            'tab' => 'packages',
+        ]);
     }
 
     public function destroy(FundCycleEvent $fundCycleEvent, EventPackage $eventPackage): RedirectResponse
     {
         $eventPackage->delete();
 
-        return to_route('admin.events.show', $fundCycleEvent);
+        return to_route('admin.events.show', [
+            'fundCycleEvent' => $fundCycleEvent,
+            'tab' => 'packages',
+        ]);
     }
 }
