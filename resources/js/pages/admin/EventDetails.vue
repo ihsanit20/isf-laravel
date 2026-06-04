@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Head, Link, useForm, router, usePage } from '@inertiajs/vue3';
 import {
+    Banknote,
     CalendarDays,
     ChevronDown,
     Clock3,
@@ -14,6 +15,7 @@ import {
     Wallet,
 } from 'lucide-vue-next';
 import { computed, ref, watch } from 'vue';
+import EventBankWithdrawalFormDialog from '@/components/admin/EventBankWithdrawalFormDialog.vue';
 import EventExpenseFormDialog from '@/components/admin/EventExpenseFormDialog.vue';
 import EventPackageFormDialog from '@/components/admin/EventPackageFormDialog.vue';
 import EventPickupPointFormDialog from '@/components/admin/EventPickupPointFormDialog.vue';
@@ -85,6 +87,34 @@ type EventExpenseSummary = {
     entry_count: number;
 };
 
+type EventBankWithdrawal = {
+    id: number;
+    withdrawal_date: string;
+    amount: number;
+    description: string | null;
+    reference_no: string | null;
+    created_by_name: string | null;
+    created_at: string | null;
+};
+
+type WithdrawalSummary = {
+    total_amount: number;
+    entry_count: number;
+};
+
+type FloatSummary = {
+    withdrawn_from_bank: number;
+    logged_expenses: number;
+    remaining_float: number;
+    is_over_logged: boolean;
+};
+
+type CycleWithdrawalBudget = {
+    allocated_amount: number;
+    withdrawn_amount: number;
+    remaining_amount: number;
+};
+
 type EventDetails = {
     id: number;
     title: string;
@@ -102,6 +132,10 @@ type EventDetails = {
     pickup_points: EventPickupPoint[];
     expenses: EventExpense[];
     expense_summary: EventExpenseSummary;
+    bank_withdrawals: EventBankWithdrawal[];
+    withdrawal_summary: WithdrawalSummary;
+    float_summary: FloatSummary;
+    cycle_withdrawal_budget: CycleWithdrawalBudget;
     fund_cycle: {
         id: number;
         name: string | null;
@@ -145,12 +179,20 @@ const isPickupPointDialogOpen = ref(false);
 const editingPickupPoint = ref<EventPickupPoint | null>(null);
 const isExpenseDialogOpen = ref(false);
 const editingExpense = ref<EventExpense | null>(null);
+const isWithdrawalDialogOpen = ref(false);
+const editingWithdrawal = ref<EventBankWithdrawal | null>(null);
 const isDescriptionExpanded = ref(false);
 
-type DetailTab = 'details' | 'packages' | 'pickup' | 'costs';
+type DetailTab = 'details' | 'packages' | 'pickup' | 'withdrawals' | 'costs';
 
 const page = usePage();
-const validTabs: DetailTab[] = ['details', 'packages', 'pickup', 'costs'];
+const validTabs: DetailTab[] = [
+    'details',
+    'packages',
+    'pickup',
+    'withdrawals',
+    'costs',
+];
 const activeTab = ref<DetailTab>('details');
 
 const setActiveTab = (tab: DetailTab) => {
@@ -192,6 +234,11 @@ const detailTabs = computed(() => [
         key: 'pickup' as const,
         label: 'Pickup Points',
         count: props.event.pickup_points.length,
+    },
+    {
+        key: 'withdrawals' as const,
+        label: 'Bank Withdrawal',
+        count: props.event.withdrawal_summary.entry_count,
     },
     {
         key: 'costs' as const,
@@ -346,6 +393,33 @@ const deletePickupPoint = (point: EventPickupPoint) => {
     router.delete(`/admin/events/${props.event.id}/pickup-points/${point.id}`, {
         preserveScroll: true,
     });
+};
+
+const openAddWithdrawal = () => {
+    activeTab.value = 'withdrawals';
+    editingWithdrawal.value = null;
+    isWithdrawalDialogOpen.value = true;
+};
+
+const openEditWithdrawal = (withdrawal: EventBankWithdrawal) => {
+    editingWithdrawal.value = withdrawal;
+    isWithdrawalDialogOpen.value = true;
+};
+
+const deleteWithdrawal = (withdrawal: EventBankWithdrawal) => {
+    const label =
+        withdrawal.description ||
+        withdrawal.reference_no ||
+        money(withdrawal.amount);
+
+    if (!confirm(`"${label}" ব্যাংক উত্তোলন এন্ট্রি মুছে ফেলবেন?`)) {
+        return;
+    }
+
+    router.delete(
+        `/admin/events/${props.event.id}/bank-withdrawals/${withdrawal.id}`,
+        { preserveScroll: true },
+    );
 };
 
 const openAddExpense = () => {
@@ -907,7 +981,238 @@ const deleteExpense = (expense: EventExpense) => {
             </div>
             </div>
 
+            <div v-else-if="activeTab === 'withdrawals'" class="p-6">
+                <div
+                    class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+                >
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <Banknote class="size-4 text-muted-foreground" />
+                            <h2 class="text-base font-semibold">
+                                Bank Withdrawal
+                            </h2>
+                            <Badge variant="secondary" class="ml-1">
+                                {{
+                                    props.event.withdrawal_summary.entry_count
+                                }}
+                            </Badge>
+                        </div>
+                        <p class="mt-1 text-sm text-muted-foreground">
+                            Cash taken from the joint bank account for this
+                            event. Reduces Deposits → Current Balance.
+                        </p>
+                        <p
+                            v-if="
+                                props.event.withdrawal_summary.entry_count > 0
+                            "
+                            class="mt-2 text-sm font-medium text-foreground"
+                        >
+                            Total withdrawn:
+                            {{
+                                money(
+                                    props.event.withdrawal_summary.total_amount,
+                                )
+                            }}
+                        </p>
+                    </div>
+                    <Button
+                        size="sm"
+                        class="shrink-0"
+                        :disabled="
+                            props.event.cycle_withdrawal_budget
+                                .remaining_amount <= 0
+                        "
+                        @click="openAddWithdrawal"
+                    >
+                        <Plus class="size-4" />
+                        Record Withdrawal
+                    </Button>
+                </div>
+
+                <div
+                    class="mt-4 rounded-xl border border-sidebar-border/70 bg-muted/30 p-4 text-sm"
+                >
+                    <p class="font-medium text-foreground">
+                        Fund cycle withdrawal budget
+                    </p>
+                    <p class="mt-1 text-muted-foreground">
+                        Member allocation (this cycle):
+                        {{
+                            money(
+                                props.event.cycle_withdrawal_budget
+                                    .allocated_amount,
+                            )
+                        }}
+                        · Withdrawn from bank (all events in cycle):
+                        {{
+                            money(
+                                props.event.cycle_withdrawal_budget
+                                    .withdrawn_amount,
+                            )
+                        }}
+                        · Remaining:
+                        <span
+                            :class="{
+                                'text-destructive':
+                                    props.event.cycle_withdrawal_budget
+                                        .remaining_amount <= 0,
+                            }"
+                        >
+                            {{
+                                money(
+                                    props.event.cycle_withdrawal_budget
+                                        .remaining_amount,
+                                )
+                            }}
+                        </span>
+                    </p>
+                    <p
+                        v-if="
+                            props.event.cycle_withdrawal_budget
+                                .allocated_amount <= 0
+                        "
+                        class="mt-2 text-xs text-destructive"
+                    >
+                        Record member allocations for this fund cycle before
+                        logging bank withdrawals.
+                    </p>
+                </div>
+
+                <div
+                    v-if="props.event.bank_withdrawals.length === 0"
+                    class="mt-6 flex flex-col items-center justify-center gap-2 py-12 text-center text-muted-foreground"
+                >
+                    <Banknote class="size-8 opacity-30" />
+                    <p class="text-sm">No bank withdrawals logged yet.</p>
+                    <Button
+                        size="sm"
+                        variant="outline"
+                        @click="openAddWithdrawal"
+                    >
+                        Record the first withdrawal
+                    </Button>
+                </div>
+
+                <div v-else class="mt-4 overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr
+                                class="border-b border-sidebar-border/70 bg-muted/30 text-xs text-muted-foreground"
+                            >
+                                <th class="px-4 py-2 text-left font-medium">
+                                    Date
+                                </th>
+                                <th class="px-4 py-2 text-right font-medium">
+                                    Amount
+                                </th>
+                                <th class="px-4 py-2 text-left font-medium">
+                                    Reference
+                                </th>
+                                <th class="px-4 py-2 text-left font-medium">
+                                    Description
+                                </th>
+                                <th class="px-4 py-2 text-left font-medium">
+                                    Added By
+                                </th>
+                                <th class="px-4 py-2 text-right font-medium">
+                                    Actions
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-sidebar-border/70">
+                            <tr
+                                v-for="withdrawal in props.event
+                                    .bank_withdrawals"
+                                :key="withdrawal.id"
+                                class="hover:bg-muted/20"
+                            >
+                                <td class="px-4 py-3 font-medium">
+                                    {{
+                                        formatDate(withdrawal.withdrawal_date)
+                                    }}
+                                </td>
+                                <td class="px-4 py-3 text-right tabular-nums">
+                                    {{ money(withdrawal.amount) }}
+                                </td>
+                                <td class="px-4 py-3 text-muted-foreground">
+                                    {{ withdrawal.reference_no || '—' }}
+                                </td>
+                                <td
+                                    class="max-w-xs px-4 py-3 text-muted-foreground"
+                                >
+                                    {{ withdrawal.description || '—' }}
+                                </td>
+                                <td class="px-4 py-3 text-muted-foreground">
+                                    {{ withdrawal.created_by_name || '—' }}
+                                </td>
+                                <td class="px-4 py-3 text-right">
+                                    <div
+                                        class="flex items-center justify-end gap-1"
+                                    >
+                                        <Button
+                                            size="sm"
+                                            variant="ghost"
+                                            class="h-7 px-2"
+                                            @click="
+                                                openEditWithdrawal(withdrawal)
+                                            "
+                                        >
+                                            <Pencil class="size-3.5" />
+                                        </Button>
+                                        <Button
+                                            size="sm"
+                                            variant="ghost"
+                                            class="h-7 px-2 text-destructive hover:text-destructive"
+                                            @click="
+                                                deleteWithdrawal(withdrawal)
+                                            "
+                                        >
+                                            <Trash2 class="size-3.5" />
+                                        </Button>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
             <div v-else-if="activeTab === 'costs'" class="p-6">
+            <div
+                class="mb-4 rounded-xl border border-sidebar-border/70 bg-muted/30 p-4 text-sm"
+                :class="{
+                    'border-destructive/50 bg-destructive/5':
+                        props.event.float_summary.is_over_logged,
+                }"
+            >
+                <p class="font-medium text-foreground">Event float</p>
+                <p class="mt-1 text-muted-foreground">
+                    Withdrawn from bank:
+                    {{
+                        money(props.event.float_summary.withdrawn_from_bank)
+                    }}
+                    · Logged expenses:
+                    {{ money(props.event.float_summary.logged_expenses) }}
+                    · Remaining float:
+                    <span
+                        :class="{
+                            'text-destructive':
+                                props.event.float_summary.is_over_logged,
+                        }"
+                    >
+                        {{
+                            money(props.event.float_summary.remaining_float)
+                        }}
+                    </span>
+                </p>
+                <p
+                    v-if="props.event.float_summary.is_over_logged"
+                    class="mt-2 text-xs text-destructive"
+                >
+                    Logged expenses exceed bank withdrawals for this event.
+                </p>
+            </div>
+
             <div
                 class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
             >
@@ -920,8 +1225,8 @@ const deleteExpense = (expense: EventExpense) => {
                         </Badge>
                     </div>
                     <p class="mt-1 text-sm text-muted-foreground">
-                        Track each expense for this event (operational
-                        investment).
+                        Petty expenses from the event float (does not reduce
+                        bank Current Balance).
                     </p>
                     <p
                         v-if="props.event.expense_summary.entry_count > 0"
@@ -1072,6 +1377,14 @@ const deleteExpense = (expense: EventExpense) => {
             :event-id="props.event.id"
             :mode="editingPickupPoint ? 'edit' : 'create'"
             :pickup-point="editingPickupPoint"
+        />
+
+        <EventBankWithdrawalFormDialog
+            v-model:isOpen="isWithdrawalDialogOpen"
+            :event-id="props.event.id"
+            :mode="editingWithdrawal ? 'edit' : 'create'"
+            :bank-withdrawal="editingWithdrawal"
+            :cycle-withdrawal-budget="props.event.cycle_withdrawal_budget"
         />
 
         <EventExpenseFormDialog

@@ -158,7 +158,9 @@ watch(
                     {{ isEditing ? 'Edit Event Cost' : 'Add Event Cost' }}
                 </DialogTitle>
                 <DialogDescription>
-                    Record money spent on this event (operational investment).
+                    Operational petty expense from the event float (cash
+                    already withdrawn from the bank). Does not change Deposits
+                    → Current Balance.
                 </DialogDescription>
             </DialogHeader>
 

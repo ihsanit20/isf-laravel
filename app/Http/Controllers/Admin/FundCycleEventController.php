@@ -10,11 +10,13 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreFundCycleEventRequest;
 use App\Http\Requests\Admin\UpdateFundCycleEventRequest;
 use App\Http\Requests\Admin\UploadFundCycleEventBannerRequest;
+use App\Models\EventBankWithdrawal;
 use App\Models\EventExpense;
 use App\Models\EventPackage;
 use App\Models\EventPickupPoint;
 use App\Models\FundCycle;
 use App\Models\FundCycleEvent;
+use App\Services\FundCycleWithdrawalBudgetService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -23,6 +25,10 @@ use Inertia\Response;
 
 class FundCycleEventController extends Controller
 {
+    public function __construct(
+        private readonly FundCycleWithdrawalBudgetService $withdrawalBudget,
+    ) {}
+
     public function index(FundCycle $fundCycle): Response
     {
         return Inertia::render('admin/FundCycleEvents', [
@@ -108,9 +114,14 @@ class FundCycleEventController extends Controller
             'packages' => fn ($q) => $q->orderBy('sort_order')->orderBy('id'),
             'pickupPoints' => fn ($q) => $q->orderBy('sort_order')->orderBy('id'),
             'expenses' => fn ($q) => $q->with('createdBy:id,name')->orderByDesc('expense_date')->orderByDesc('id'),
+            'bankWithdrawals' => fn ($q) => $q->with('createdBy:id,name')->orderByDesc('withdrawal_date')->orderByDesc('id'),
         ]);
 
         $expenses = $fundCycleEvent->expenses;
+        $bankWithdrawals = $fundCycleEvent->bankWithdrawals;
+        $totalWithdrawn = (int) $bankWithdrawals->sum('amount');
+        $totalLoggedExpenses = (int) $expenses->sum('amount');
+        $cycleWithdrawalBudget = $this->withdrawalBudget->forCycle($fundCycleEvent->fund_cycle_id);
 
         return Inertia::render('admin/EventDetails', [
             'eventStatuses' => FundCycleEventStatus::options(),
@@ -190,9 +201,31 @@ class FundCycleEventController extends Controller
                     ])
                     ->values(),
                 'expense_summary' => [
-                    'total_amount' => (int) $expenses->sum('amount'),
+                    'total_amount' => $totalLoggedExpenses,
                     'entry_count' => $expenses->count(),
                 ],
+                'bank_withdrawals' => $bankWithdrawals
+                    ->map(fn (EventBankWithdrawal $withdrawal): array => [
+                        'id' => $withdrawal->id,
+                        'withdrawal_date' => $withdrawal->withdrawal_date?->format('Y-m-d'),
+                        'amount' => $withdrawal->amount,
+                        'description' => $withdrawal->description,
+                        'reference_no' => $withdrawal->reference_no,
+                        'created_by_name' => $withdrawal->createdBy?->name,
+                        'created_at' => $withdrawal->created_at?->format('d M Y, h:i A'),
+                    ])
+                    ->values(),
+                'withdrawal_summary' => [
+                    'total_amount' => $totalWithdrawn,
+                    'entry_count' => $bankWithdrawals->count(),
+                ],
+                'float_summary' => [
+                    'withdrawn_from_bank' => $totalWithdrawn,
+                    'logged_expenses' => $totalLoggedExpenses,
+                    'remaining_float' => $totalWithdrawn - $totalLoggedExpenses,
+                    'is_over_logged' => $totalLoggedExpenses > $totalWithdrawn,
+                ],
+                'cycle_withdrawal_budget' => $cycleWithdrawalBudget,
             ],
         ]);
     }

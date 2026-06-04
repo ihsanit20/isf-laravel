@@ -65,6 +65,8 @@ type Summary = {
     verified_amount: number;
     rejected_amount: number;
     total_general_expense: number;
+    total_event_bank_withdrawals: number;
+    total_charge_settlements: number;
     current_balance: number;
     pending_amount: number;
     pending_count: number;
@@ -184,17 +186,59 @@ const decodePaginationLabel = (label: string): string => {
                 </div>
             </div>
             <div
-                class="rounded-xl border border-sidebar-border/70 bg-background p-4 shadow-sm dark:border-sidebar-border"
+                class="rounded-xl border border-sidebar-border/70 bg-background p-4 shadow-sm dark:border-sidebar-border md:col-span-2 xl:col-span-1"
             >
-                <p class="text-xs text-muted-foreground">Current Balance</p>
+                <p class="text-xs text-muted-foreground">
+                    Current Balance
+                </p>
+                <p class="text-xs text-muted-foreground">
+                    Cash in joint bank account (wallet)
+                </p>
                 <p class="mt-2 text-2xl font-semibold text-foreground">
                     {{ money(props.summary.current_balance) }}
                 </p>
-                <div class="mt-3 flex items-center justify-between text-sm">
-                    <span class="text-muted-foreground">
-                        ({{ props.summary.pending_count.toLocaleString() }})
-                        Pending : {{ money(props.summary.pending_amount) }}
-                    </span>
+                <dl class="mt-3 space-y-1 text-xs text-muted-foreground">
+                    <div class="flex justify-between gap-2">
+                        <dt>Verified deposits</dt>
+                        <dd class="font-medium text-foreground">
+                            +{{ money(props.summary.verified_amount) }}
+                        </dd>
+                    </div>
+                    <div class="flex justify-between gap-2">
+                        <dt>General expenses</dt>
+                        <dd class="font-medium text-foreground">
+                            −{{ money(props.summary.total_general_expense) }}
+                        </dd>
+                    </div>
+                    <div class="flex justify-between gap-2">
+                        <dt>
+                            <Link
+                                href="/admin/events"
+                                class="text-primary underline underline-offset-4"
+                            >
+                                Event bank withdrawals
+                            </Link>
+                        </dt>
+                        <dd class="font-medium text-foreground">
+                            −{{
+                                money(
+                                    props.summary.total_event_bank_withdrawals,
+                                )
+                            }}
+                        </dd>
+                    </div>
+                    <div class="flex justify-between gap-2">
+                        <dt>Charge settlements</dt>
+                        <dd class="font-medium text-foreground">
+                            −{{
+                                money(props.summary.total_charge_settlements)
+                            }}
+                        </dd>
+                    </div>
+                </dl>
+                <div class="mt-3 text-sm text-muted-foreground">
+                    ({{ props.summary.pending_count.toLocaleString() }})
+                    Pending: {{ money(props.summary.pending_amount) }}
                 </div>
             </div>
             <div

@@ -58,6 +58,11 @@ class FundCycleEvent extends Model
         return $this->hasMany(EventExpense::class);
     }
 
+    public function bankWithdrawals(): HasMany
+    {
+        return $this->hasMany(EventBankWithdrawal::class);
+    }
+
     public static function bannerDisk(): string
     {
         return (string) config('filesystems.default', 'local');
