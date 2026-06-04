@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Enums\DepositSubmissionStatus;
 use App\Models\ChargeAllocation;
 use App\Models\DepositSubmission;
+use App\Models\EventBankDeposit;
 use App\Models\EventBankWithdrawal;
 use App\Models\GeneralExpense;
 
@@ -17,6 +18,7 @@ class TreasuryBalanceService
      *     rejected_amount: int,
      *     total_general_expense: int,
      *     total_event_bank_withdrawals: int,
+     *     total_event_bank_deposits: int,
      *     total_charge_settlements: int,
      *     current_balance: int,
      *     pending_amount: int,
@@ -34,6 +36,7 @@ class TreasuryBalanceService
             ->sum('amount');
         $totalGeneralExpense = (int) GeneralExpense::query()->sum('amount');
         $totalEventBankWithdrawals = (int) EventBankWithdrawal::query()->sum('amount');
+        $totalEventBankDeposits = (int) EventBankDeposit::query()->sum('amount');
         $totalChargeSettlements = (int) ChargeAllocation::query()
             ->whereNull('reversed_at')
             ->sum('amount');
@@ -49,6 +52,7 @@ class TreasuryBalanceService
             $verifiedAmount
                 - $totalGeneralExpense
                 - $totalEventBankWithdrawals
+                + $totalEventBankDeposits
                 - $totalChargeSettlements,
         );
 
@@ -58,6 +62,7 @@ class TreasuryBalanceService
             'rejected_amount' => $rejectedAmount,
             'total_general_expense' => $totalGeneralExpense,
             'total_event_bank_withdrawals' => $totalEventBankWithdrawals,
+            'total_event_bank_deposits' => $totalEventBankDeposits,
             'total_charge_settlements' => $totalChargeSettlements,
             'current_balance' => $currentBalance,
             'pending_amount' => $pendingAmount,

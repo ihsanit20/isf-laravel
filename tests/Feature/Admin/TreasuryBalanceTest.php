@@ -151,6 +151,21 @@ test('admins can record bank withdrawal for an event', function () {
     ['event' => $event] = createTreasuryTestEvents();
     $admin = User::factory()->create(['role' => 'admin']);
 
+    $memberUser = User::factory()->create();
+    $member = Member::factory()->for($memberUser, 'manager')->create([
+        'status' => MemberStatus::Approved,
+        'approved_at' => now(),
+        'units' => 1,
+    ]);
+
+    FundCycleAllocation::query()->create([
+        'fund_cycle_id' => $event->fund_cycle_id,
+        'member_id' => $member->id,
+        'amount' => 50_000,
+        'allocated_at' => now(),
+        'created_by_user_id' => $admin->id,
+    ]);
+
     actingAs($admin);
 
     \Pest\Laravel\post(route('admin.events.bank-withdrawals.store', $event), [
@@ -195,6 +210,45 @@ test('event details shows float summary and bank withdrawals', function () {
             ->where('event.float_summary.logged_expenses', 45)
             ->where('event.float_summary.remaining_float', 9_955)
             ->where('event.float_summary.is_over_logged', false));
+});
+
+test('deposits page current balance increases with event bank deposits', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+
+    DepositSubmission::query()->create([
+        'user_id' => User::factory()->create()->id,
+        'amount' => 10_000,
+        'payment_method' => DepositSubmission::PAYMENT_METHOD_BANK_TRANSFER,
+        'reference_no' => 'TREASURY-DEP-01',
+        'deposit_date' => now()->toDateString(),
+        'proof_path' => 'deposit-proofs/treasury-dep-proof.jpg',
+        'status' => DepositSubmissionStatus::Verified,
+        'verified_at' => now(),
+        'verified_by_user_id' => $admin->id,
+    ]);
+
+    ['event' => $event] = createTreasuryTestEvents();
+
+    $event->bankWithdrawals()->create([
+        'withdrawal_date' => '2026-06-02',
+        'amount' => 5_000,
+        'created_by_user_id' => $admin->id,
+    ]);
+
+    $event->bankDeposits()->create([
+        'deposit_date' => '2026-06-10',
+        'amount' => 3_000,
+        'created_by_user_id' => $admin->id,
+    ]);
+
+    actingAs($admin)
+        ->get(route('admin.deposits.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('summary.verified_amount', 10_000)
+            ->where('summary.total_event_bank_withdrawals', 5_000)
+            ->where('summary.total_event_bank_deposits', 3_000)
+            ->where('summary.current_balance', 8_000));
 });
 
 test('cannot update bank withdrawal from another event', function () {

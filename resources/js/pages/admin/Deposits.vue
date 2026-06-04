@@ -66,6 +66,7 @@ type Summary = {
     rejected_amount: number;
     total_general_expense: number;
     total_event_bank_withdrawals: number;
+    total_event_bank_deposits: number;
     total_charge_settlements: number;
     current_balance: number;
     pending_amount: number;
@@ -238,6 +239,21 @@ const decodePaginationLabel = (label: string): string => {
                                 money(
                                     props.summary.total_event_bank_withdrawals,
                                 )
+                            }}
+                        </dd>
+                    </div>
+                    <div class="flex justify-between gap-2">
+                        <dt class="text-muted-foreground">
+                            <Link
+                                href="/admin/events"
+                                class="text-primary underline underline-offset-4"
+                            >
+                                Event bank deposits
+                            </Link>
+                        </dt>
+                        <dd class="font-medium tabular-nums text-foreground">
+                            +{{
+                                money(props.summary.total_event_bank_deposits)
                             }}
                         </dd>
                     </div>

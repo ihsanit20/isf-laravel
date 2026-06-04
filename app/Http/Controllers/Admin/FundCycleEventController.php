@@ -10,6 +10,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreFundCycleEventRequest;
 use App\Http\Requests\Admin\UpdateFundCycleEventRequest;
 use App\Http\Requests\Admin\UploadFundCycleEventBannerRequest;
+use App\Models\EventBankDeposit;
 use App\Models\EventBankWithdrawal;
 use App\Models\EventExpense;
 use App\Models\EventPackage;
@@ -116,10 +117,12 @@ class FundCycleEventController extends Controller
             'pickupPoints' => fn ($q) => $q->orderBy('sort_order')->orderBy('id'),
             'expenses' => fn ($q) => $q->with('createdBy:id,name')->orderByDesc('expense_date')->orderByDesc('id'),
             'bankWithdrawals' => fn ($q) => $q->with('createdBy:id,name')->orderByDesc('withdrawal_date')->orderByDesc('id'),
+            'bankDeposits' => fn ($q) => $q->with('createdBy:id,name')->orderByDesc('deposit_date')->orderByDesc('id'),
         ]);
 
         $expenses = $fundCycleEvent->expenses;
         $bankWithdrawals = $fundCycleEvent->bankWithdrawals;
+        $bankDeposits = $fundCycleEvent->bankDeposits;
         $payments = EventPayment::query()
             ->whereHas('order', fn ($query) => $query->where('fund_cycle_event_id', $fundCycleEvent->id))
             ->with([
@@ -130,11 +133,13 @@ class FundCycleEventController extends Controller
             ->orderByDesc('id')
             ->get();
         $totalWithdrawn = (int) $bankWithdrawals->sum('amount');
+        $totalBankDeposited = (int) $bankDeposits->sum('amount');
         $totalLoggedExpenses = (int) $expenses->sum('amount');
         $cycleWithdrawalBudget = $this->withdrawalBudget->forCycle($fundCycleEvent->fund_cycle_id);
         $verifiedPayments = $payments->where('payment_status', 'verified');
         $pendingPayments = $payments->where('payment_status', 'pending');
         $failedPayments = $payments->where('payment_status', 'failed');
+        $verifiedCustomerPayments = (int) $verifiedPayments->sum('amount');
 
         return Inertia::render('admin/EventDetails', [
             'eventStatuses' => FundCycleEventStatus::options(),
@@ -260,10 +265,30 @@ class FundCycleEventController extends Controller
                     ->values(),
                 'payment_summary' => [
                     'entry_count' => $payments->count(),
-                    'verified_amount' => (int) $verifiedPayments->sum('amount'),
+                    'verified_amount' => $verifiedCustomerPayments,
                     'verified_count' => $verifiedPayments->count(),
                     'pending_count' => $pendingPayments->count(),
                     'failed_count' => $failedPayments->count(),
+                ],
+                'bank_deposits' => $bankDeposits
+                    ->map(fn (EventBankDeposit $deposit): array => [
+                        'id' => $deposit->id,
+                        'deposit_date' => $deposit->deposit_date?->format('Y-m-d'),
+                        'amount' => $deposit->amount,
+                        'description' => $deposit->description,
+                        'reference_no' => $deposit->reference_no,
+                        'created_by_name' => $deposit->createdBy?->name,
+                        'created_at' => $deposit->created_at?->format('d M Y, h:i A'),
+                    ])
+                    ->values(),
+                'bank_deposit_summary' => [
+                    'total_amount' => $totalBankDeposited,
+                    'entry_count' => $bankDeposits->count(),
+                ],
+                'bank_deposit_reconciliation' => [
+                    'verified_customer_payments' => $verifiedCustomerPayments,
+                    'deposited_to_bank' => $totalBankDeposited,
+                    'not_yet_deposited' => max(0, $verifiedCustomerPayments - $totalBankDeposited),
                 ],
             ],
         ]);

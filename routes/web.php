@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\ChargeCategoryController;
 use App\Http\Controllers\Admin\ChargeListController;
 use App\Http\Controllers\Admin\DepositListController;
+use App\Http\Controllers\Admin\EventBankDepositController;
 use App\Http\Controllers\Admin\EventBankWithdrawalController;
 use App\Http\Controllers\Admin\EventExpenseController;
 use App\Http\Controllers\Admin\EventOrderController;
@@ -96,6 +97,9 @@ Route::middleware(['auth', 'verified', 'admin'])->group(function () {
     Route::post('admin/events/{fundCycleEvent}/bank-withdrawals', [EventBankWithdrawalController::class, 'store'])->name('admin.events.bank-withdrawals.store');
     Route::put('admin/events/{fundCycleEvent}/bank-withdrawals/{eventBankWithdrawal}', [EventBankWithdrawalController::class, 'update'])->name('admin.events.bank-withdrawals.update');
     Route::delete('admin/events/{fundCycleEvent}/bank-withdrawals/{eventBankWithdrawal}', [EventBankWithdrawalController::class, 'destroy'])->name('admin.events.bank-withdrawals.destroy');
+    Route::post('admin/events/{fundCycleEvent}/bank-deposits', [EventBankDepositController::class, 'store'])->name('admin.events.bank-deposits.store');
+    Route::put('admin/events/{fundCycleEvent}/bank-deposits/{eventBankDeposit}', [EventBankDepositController::class, 'update'])->name('admin.events.bank-deposits.update');
+    Route::delete('admin/events/{fundCycleEvent}/bank-deposits/{eventBankDeposit}', [EventBankDepositController::class, 'destroy'])->name('admin.events.bank-deposits.destroy');
     Route::post('admin/fund-cycles', [FundCycleController::class, 'store'])->name('admin.fund-cycles.store');
     Route::put('admin/fund-cycles/{fundCycle}', [FundCycleController::class, 'update'])->name('admin.fund-cycles.update');
     Route::post('admin/fund-cycles/{fundCycle}/allocations', [FundCycleController::class, 'storeAllocation'])->name('admin.fund-cycles.allocations.store');

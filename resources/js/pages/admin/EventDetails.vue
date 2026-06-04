@@ -7,6 +7,7 @@ import {
     ChevronDown,
     Clock3,
     FileText,
+    Landmark,
     MapPin,
     Pencil,
     Tag,
@@ -16,6 +17,7 @@ import {
     Wallet,
 } from 'lucide-vue-next';
 import { computed, ref, watch } from 'vue';
+import EventBankDepositFormDialog from '@/components/admin/EventBankDepositFormDialog.vue';
 import EventBankWithdrawalFormDialog from '@/components/admin/EventBankWithdrawalFormDialog.vue';
 import EventExpenseFormDialog from '@/components/admin/EventExpenseFormDialog.vue';
 import EventPackageFormDialog from '@/components/admin/EventPackageFormDialog.vue';
@@ -98,6 +100,27 @@ type EventBankWithdrawal = {
     created_at: string | null;
 };
 
+type EventBankDeposit = {
+    id: number;
+    deposit_date: string;
+    amount: number;
+    description: string | null;
+    reference_no: string | null;
+    created_by_name: string | null;
+    created_at: string | null;
+};
+
+type BankDepositSummary = {
+    total_amount: number;
+    entry_count: number;
+};
+
+type BankDepositReconciliation = {
+    verified_customer_payments: number;
+    deposited_to_bank: number;
+    not_yet_deposited: number;
+};
+
 type WithdrawalSummary = {
     total_amount: number;
     entry_count: number;
@@ -165,6 +188,9 @@ type EventDetails = {
     cycle_withdrawal_budget: CycleWithdrawalBudget;
     payments: EventPaymentLog[];
     payment_summary: EventPaymentSummary;
+    bank_deposits: EventBankDeposit[];
+    bank_deposit_summary: BankDepositSummary;
+    bank_deposit_reconciliation: BankDepositReconciliation;
     fund_cycle: {
         id: number;
         name: string | null;
@@ -210,6 +236,8 @@ const isExpenseDialogOpen = ref(false);
 const editingExpense = ref<EventExpense | null>(null);
 const isWithdrawalDialogOpen = ref(false);
 const editingWithdrawal = ref<EventBankWithdrawal | null>(null);
+const isBankDepositDialogOpen = ref(false);
+const editingBankDeposit = ref<EventBankDeposit | null>(null);
 const isDescriptionExpanded = ref(false);
 
 type DetailTab =
@@ -217,6 +245,7 @@ type DetailTab =
     | 'packages'
     | 'pickup'
     | 'payments'
+    | 'deposits'
     | 'withdrawals'
     | 'costs';
 
@@ -226,6 +255,7 @@ const validTabs: DetailTab[] = [
     'packages',
     'pickup',
     'payments',
+    'deposits',
     'withdrawals',
     'costs',
 ];
@@ -275,6 +305,11 @@ const detailTabs = computed(() => [
         key: 'payments' as const,
         label: 'Payments',
         count: props.event.payment_summary.entry_count,
+    },
+    {
+        key: 'deposits' as const,
+        label: 'Bank Deposit',
+        count: props.event.bank_deposit_summary.entry_count,
     },
     {
         key: 'withdrawals' as const,
@@ -466,6 +501,33 @@ const openAddWithdrawal = () => {
 const openEditWithdrawal = (withdrawal: EventBankWithdrawal) => {
     editingWithdrawal.value = withdrawal;
     isWithdrawalDialogOpen.value = true;
+};
+
+const openAddBankDeposit = () => {
+    activeTab.value = 'deposits';
+    editingBankDeposit.value = null;
+    isBankDepositDialogOpen.value = true;
+};
+
+const openEditBankDeposit = (deposit: EventBankDeposit) => {
+    editingBankDeposit.value = deposit;
+    isBankDepositDialogOpen.value = true;
+};
+
+const deleteBankDeposit = (deposit: EventBankDeposit) => {
+    const label =
+        deposit.description ||
+        deposit.reference_no ||
+        money(deposit.amount);
+
+    if (!confirm(`"${label}" ব্যাংক জমা এন্ট্রি মুছে ফেলবেন?`)) {
+        return;
+    }
+
+    router.delete(
+        `/admin/events/${props.event.id}/bank-deposits/${deposit.id}`,
+        { preserveScroll: true },
+    );
 };
 
 const deleteWithdrawal = (withdrawal: EventBankWithdrawal) => {
@@ -1195,6 +1257,178 @@ const deleteExpense = (expense: EventExpense) => {
                 </div>
             </div>
 
+            <div v-else-if="activeTab === 'deposits'" class="p-6">
+                <div
+                    class="mb-4 rounded-xl border border-sidebar-border/70 bg-muted/30 p-4 text-sm"
+                >
+                    <p class="font-medium text-foreground">Reconciliation hint</p>
+                    <p class="mt-1 text-muted-foreground">
+                        Verified customer payments:
+                        {{
+                            money(
+                                props.event.bank_deposit_reconciliation
+                                    .verified_customer_payments,
+                            )
+                        }}
+                        · Deposited to bank:
+                        {{
+                            money(
+                                props.event.bank_deposit_reconciliation
+                                    .deposited_to_bank,
+                            )
+                        }}
+                        · Not yet logged as bank deposit:
+                        {{
+                            money(
+                                props.event.bank_deposit_reconciliation
+                                    .not_yet_deposited,
+                            )
+                        }}
+                    </p>
+                </div>
+
+                <div
+                    class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+                >
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <Landmark class="size-4 text-muted-foreground" />
+                            <h2 class="text-base font-semibold">
+                                Bank Deposit
+                            </h2>
+                            <Badge variant="secondary" class="ml-1">
+                                {{
+                                    props.event.bank_deposit_summary
+                                        .entry_count
+                                }}
+                            </Badge>
+                        </div>
+                        <p class="mt-1 text-sm text-muted-foreground">
+                            Cash returned to the joint bank account from this
+                            event. Increases Deposits → Current Balance.
+                        </p>
+                        <p
+                            v-if="
+                                props.event.bank_deposit_summary.entry_count >
+                                0
+                            "
+                            class="mt-2 text-sm font-medium text-foreground"
+                        >
+                            Total deposited:
+                            {{
+                                money(
+                                    props.event.bank_deposit_summary
+                                        .total_amount,
+                                )
+                            }}
+                        </p>
+                    </div>
+                    <Button
+                        size="sm"
+                        class="shrink-0"
+                        @click="openAddBankDeposit"
+                    >
+                        <Plus class="size-4" />
+                        Record Deposit
+                    </Button>
+                </div>
+
+                <div
+                    v-if="props.event.bank_deposits.length === 0"
+                    class="mt-6 flex flex-col items-center justify-center gap-2 py-12 text-center text-muted-foreground"
+                >
+                    <Landmark class="size-8 opacity-30" />
+                    <p class="text-sm">No bank deposits logged yet.</p>
+                    <Button
+                        size="sm"
+                        variant="outline"
+                        @click="openAddBankDeposit"
+                    >
+                        Record the first deposit
+                    </Button>
+                </div>
+
+                <div v-else class="mt-4 overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr
+                                class="border-b border-sidebar-border/70 bg-muted/30 text-xs text-muted-foreground"
+                            >
+                                <th class="px-4 py-2 text-left font-medium">
+                                    Date
+                                </th>
+                                <th class="px-4 py-2 text-right font-medium">
+                                    Amount
+                                </th>
+                                <th class="px-4 py-2 text-left font-medium">
+                                    Reference
+                                </th>
+                                <th class="px-4 py-2 text-left font-medium">
+                                    Description
+                                </th>
+                                <th class="px-4 py-2 text-left font-medium">
+                                    Added By
+                                </th>
+                                <th class="px-4 py-2 text-right font-medium">
+                                    Actions
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-sidebar-border/70">
+                            <tr
+                                v-for="deposit in props.event.bank_deposits"
+                                :key="deposit.id"
+                                class="hover:bg-muted/20"
+                            >
+                                <td class="px-4 py-3 font-medium">
+                                    {{ formatDate(deposit.deposit_date) }}
+                                </td>
+                                <td class="px-4 py-3 text-right tabular-nums">
+                                    {{ money(deposit.amount) }}
+                                </td>
+                                <td class="px-4 py-3 text-muted-foreground">
+                                    {{ deposit.reference_no || '—' }}
+                                </td>
+                                <td
+                                    class="max-w-xs px-4 py-3 text-muted-foreground"
+                                >
+                                    {{ deposit.description || '—' }}
+                                </td>
+                                <td class="px-4 py-3 text-muted-foreground">
+                                    {{ deposit.created_by_name || '—' }}
+                                </td>
+                                <td class="px-4 py-3 text-right">
+                                    <div
+                                        class="flex items-center justify-end gap-1"
+                                    >
+                                        <Button
+                                            size="sm"
+                                            variant="ghost"
+                                            class="h-7 px-2"
+                                            @click="
+                                                openEditBankDeposit(deposit)
+                                            "
+                                        >
+                                            <Pencil class="size-3.5" />
+                                        </Button>
+                                        <Button
+                                            size="sm"
+                                            variant="ghost"
+                                            class="h-7 px-2 text-destructive hover:text-destructive"
+                                            @click="
+                                                deleteBankDeposit(deposit)
+                                            "
+                                        >
+                                            <Trash2 class="size-3.5" />
+                                        </Button>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
             <div v-else-if="activeTab === 'withdrawals'" class="p-6">
                 <div
                     class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
@@ -1591,6 +1825,13 @@ const deleteExpense = (expense: EventExpense) => {
             :event-id="props.event.id"
             :mode="editingPickupPoint ? 'edit' : 'create'"
             :pickup-point="editingPickupPoint"
+        />
+
+        <EventBankDepositFormDialog
+            v-model:isOpen="isBankDepositDialogOpen"
+            :event-id="props.event.id"
+            :mode="editingBankDeposit ? 'edit' : 'create'"
+            :bank-deposit="editingBankDeposit"
         />
 
         <EventBankWithdrawalFormDialog
