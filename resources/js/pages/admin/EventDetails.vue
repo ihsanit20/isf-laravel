@@ -690,23 +690,37 @@ const deleteExpense = (expense: EventExpense) => {
             class="overflow-hidden rounded-xl border border-sidebar-border/70 bg-background shadow-sm dark:border-sidebar-border"
         >
             <div
-                class="flex flex-wrap gap-2 border-b border-sidebar-border/70 px-4 py-3"
+                class="flex flex-wrap items-center gap-2 border-b border-sidebar-border/70 px-4 py-3"
             >
-                <Button
-                    v-for="tab in detailTabs"
-                    :key="tab.key"
-                    size="sm"
-                    :variant="activeTab === tab.key ? 'default' : 'outline'"
-                    @click="setActiveTab(tab.key)"
-                >
-                    {{ tab.label }}
-                    <Badge
-                        v-if="tab.count !== undefined"
-                        variant="secondary"
-                        class="ml-1.5 text-xs"
+                <div class="flex flex-wrap gap-2">
+                    <Button
+                        v-for="tab in detailTabs"
+                        :key="tab.key"
+                        size="sm"
+                        :variant="
+                            activeTab === tab.key ? 'default' : 'outline'
+                        "
+                        @click="setActiveTab(tab.key)"
                     >
-                        {{ tab.count }}
-                    </Badge>
+                        {{ tab.label }}
+                        <Badge
+                            v-if="tab.count !== undefined"
+                            variant="secondary"
+                            class="ml-1.5 text-xs"
+                        >
+                            {{ tab.count }}
+                        </Badge>
+                    </Button>
+                </div>
+                <Button
+                    size="sm"
+                    variant="outline"
+                    class="ml-auto shrink-0"
+                    as-child
+                >
+                    <Link :href="`/admin/events/${props.event.id}/orders`">
+                        Order List
+                    </Link>
                 </Button>
             </div>
 
@@ -1148,11 +1162,6 @@ const deleteExpense = (expense: EventExpense) => {
                             order page.
                         </p>
                     </div>
-                    <Button size="sm" variant="outline" class="shrink-0" as-child>
-                        <Link :href="`/admin/events/${props.event.id}/orders`">
-                            View Orders
-                        </Link>
-                    </Button>
                 </div>
 
                 <div
@@ -1161,11 +1170,6 @@ const deleteExpense = (expense: EventExpense) => {
                 >
                     <CreditCard class="size-8 opacity-30" />
                     <p class="text-sm">No payments logged for this event yet.</p>
-                    <Button size="sm" variant="outline" as-child>
-                        <Link :href="`/admin/events/${props.event.id}/orders`">
-                            Go to Orders
-                        </Link>
-                    </Button>
                 </div>
 
                 <div v-else class="mt-4 overflow-x-auto">
