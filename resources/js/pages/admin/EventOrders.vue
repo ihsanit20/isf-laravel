@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
-import { ArrowLeft, Eye, Printer } from 'lucide-vue-next';
+import { ArrowLeft, Eye } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 import EventOrderRecordPaymentDialog from '@/components/admin/EventOrderRecordPaymentDialog.vue';
 import EventOrderStatusUpdateDialog from '@/components/admin/EventOrderStatusUpdateDialog.vue';
@@ -78,8 +78,6 @@ type OrderSummary = {
     }>;
 };
 
-type StatusCounts = Record<string, number>;
-
 type PickupPointSummary = {
     name: string;
     contact_person: string | null;
@@ -140,10 +138,7 @@ type FilterOptions = {
     pickup_points: Array<{ id: number; name: string }>;
 };
 
-type OrderTab = 'orders' | 'pickup' | 'packages';
-
 type ActiveFilters = {
-    tab: OrderTab;
     search: string;
     status: string;
     payment_status: string;
@@ -197,30 +192,10 @@ const openPaymentDialog = (order: OrderItem) => {
 
 const ordersIndexUrl = computed(() => `/admin/events/${props.event.id}/orders`);
 
-const printPickupAllUrl = computed(
-    () => `/admin/events/${props.event.id}/prints/pickup`,
-);
-
-const printPackageSummaryUrl = computed(
-    () => `/admin/events/${props.event.id}/prints/package-summary`,
-);
-
-const printPickupHubUrl = (pickupPointId: number) =>
-    `/admin/events/${props.event.id}/prints/pickup/${pickupPointId}`;
-
-const orderTabs: Array<{ key: OrderTab; label: string }> = [
-    { key: 'orders', label: 'Order List' },
-    { key: 'pickup', label: 'Pickup Points' },
-    { key: 'packages', label: 'Package Stock' },
-];
-
-const activeTab = computed(() => props.filters.tab);
-
 const buildOrdersUrl = (
     overrides: Record<string, string | number | boolean> = {},
 ): string => {
     const params = new URLSearchParams();
-    params.set('tab', 'orders');
 
     const values: Record<string, string | number | boolean> = {
         search: props.filters.search,
@@ -248,14 +223,6 @@ const buildOrdersUrl = (
     return `${ordersIndexUrl.value}?${params.toString()}`;
 };
 
-const tabUrl = (tab: OrderTab): string => {
-    if (tab === 'orders') {
-        return buildOrdersUrl();
-    }
-
-    return `${ordersIndexUrl.value}?tab=${tab}`;
-};
-
 const filterUrl = (params: Record<string, string>): string =>
     buildOrdersUrl(params);
 
@@ -265,19 +232,6 @@ const money = (amount: string | number): string => {
 
     return `${Number.isFinite(value) ? value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'} BDT`;
 };
-
-const lowStockPackages = computed(() =>
-    props.summary.packages.filter((pkg) => pkg.is_low_stock),
-);
-
-const statusColumns = computed(() => props.filterOptions.statuses);
-
-const statusBreakdownColumns = computed(() =>
-    statusColumns.value.filter((status) => status.value !== 'confirmed'),
-);
-
-const statusCount = (counts: StatusCounts, status: string): number =>
-    counts[status] ?? 0;
 
 const hasActiveFilters = computed(() => {
     const f = props.filters;
@@ -503,27 +457,12 @@ const paginationLabel = (label: string): string =>
         <section
             class="rounded-xl border border-sidebar-border/70 bg-background shadow-sm dark:border-sidebar-border"
         >
-            <div
-                class="flex flex-wrap gap-2 border-b border-sidebar-border/70 p-4"
-            >
-                <Button
-                    v-for="tab in orderTabs"
-                    :key="tab.key"
-                    size="sm"
-                    :variant="activeTab === tab.key ? 'default' : 'outline'"
-                    as-child
-                >
-                    <Link :href="tabUrl(tab.key)">{{ tab.label }}</Link>
-                </Button>
-            </div>
-
-            <div v-if="activeTab === 'orders'" class="space-y-4 p-4">
+            <div class="space-y-4 p-4">
                 <form
                     method="get"
                     :action="ordersIndexUrl"
                     class="grid gap-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5"
                 >
-                    <input type="hidden" name="tab" value="orders" />
                     <input
                         name="search"
                         type="text"
@@ -619,7 +558,7 @@ const paginationLabel = (label: string): string =>
                             class="h-9"
                             as-child
                         >
-                            <Link :href="tabUrl('orders')">Reset</Link>
+                            <Link :href="ordersIndexUrl">Reset</Link>
                         </Button>
                     </div>
                 </form>
@@ -800,270 +739,6 @@ const paginationLabel = (label: string): string =>
                         </div>
                     </div>
                 </div>
-            </div>
-
-            <div v-else-if="activeTab === 'pickup'" class="p-4">
-                <div class="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                        <h2 class="text-sm font-semibold tracking-tight">
-                            Orders by Pickup Point
-                        </h2>
-                        <p class="mt-1 text-sm text-muted-foreground">
-                            Status counts show all orders; Total, packages, and
-                            due reflect confirmed orders (operational focus).
-                        </p>
-                    </div>
-                    <Button variant="outline" size="sm" as-child>
-                        <a
-                            :href="printPickupAllUrl"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                        >
-                            <Printer class="size-4" />
-                            সব হাব প্রিন্ট
-                        </a>
-                    </Button>
-                </div>
-                <div
-                    v-if="props.summary.pickup_points.length === 0"
-                    class="mt-6 text-center text-sm text-muted-foreground"
-                >
-                    No pickup points configured for this event.
-                </div>
-                <div v-else class="mt-4 overflow-x-auto">
-                    <table
-                        class="min-w-full divide-y divide-sidebar-border/70 text-sm"
-                    >
-                        <thead class="bg-muted/40 text-left">
-                            <tr>
-                                <th class="px-3 py-2 font-medium">
-                                    Pickup Point
-                                </th>
-                                <th class="px-3 py-2 font-medium">Packages</th>
-                                <th class="px-3 py-2 font-medium">Confirmed</th>
-                                <th
-                                    v-for="status in statusBreakdownColumns"
-                                    :key="status.value"
-                                    class="px-3 py-2 font-medium"
-                                >
-                                    {{ status.label }}
-                                </th>
-                                <th class="px-3 py-2 font-medium">Total Due</th>
-                                <th class="px-3 py-2 font-medium">Action</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-sidebar-border/70">
-                            <tr
-                                v-for="point in props.summary.pickup_points"
-                                :key="point.id"
-                            >
-                                <td class="px-3 py-2 font-medium">
-                                    {{ point.name }}
-                                </td>
-                                <td
-                                    class="px-3 py-2 align-top text-muted-foreground"
-                                >
-                                    <ul
-                                        v-if="point.packages.length > 0"
-                                        class="m-0 list-none space-y-1 p-0 text-xs"
-                                    >
-                                        <li
-                                            v-for="pkg in point.packages"
-                                            :key="pkg.id"
-                                        >
-                                            <span
-                                                class="font-medium text-foreground"
-                                            >
-                                                {{ pkg.name }}
-                                            </span>
-                                            <span class="text-muted-foreground">
-                                                · {{ pkg.pack_line_label }}
-                                            </span>
-                                        </li>
-                                    </ul>
-                                    <span v-else class="text-xs">—</span>
-                                </td>
-                                <td class="px-3 py-2 text-muted-foreground">
-                                    {{ point.order_count.toLocaleString() }}
-                                </td>
-                                <td
-                                    v-for="status in statusBreakdownColumns"
-                                    :key="`${point.id}-${status.value}`"
-                                    class="px-3 py-2"
-                                >
-                                    <Link
-                                        v-if="
-                                            statusCount(
-                                                point.by_status,
-                                                status.value,
-                                            ) > 0
-                                        "
-                                        :href="
-                                            filterUrl({
-                                                pickup_point_id: String(
-                                                    point.id,
-                                                ),
-                                                status: status.value,
-                                            })
-                                        "
-                                        class="text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
-                                    >
-                                        {{
-                                            statusCount(
-                                                point.by_status,
-                                                status.value,
-                                            ).toLocaleString()
-                                        }}
-                                    </Link>
-                                    <span v-else class="text-muted-foreground">
-                                        0
-                                    </span>
-                                </td>
-                                <td
-                                    class="px-3 py-2 font-medium text-amber-600"
-                                >
-                                    {{ money(point.total_due_amount) }}
-                                </td>
-                                <td class="px-3 py-2">
-                                    <div class="flex flex-wrap gap-2">
-                                        <Link
-                                            :href="
-                                                filterUrl({
-                                                    pickup_point_id: String(
-                                                        point.id,
-                                                    ),
-                                                })
-                                            "
-                                            class="text-xs font-medium text-primary underline-offset-4 hover:underline"
-                                        >
-                                            View all
-                                        </Link>
-                                        <a
-                                            :href="printPickupHubUrl(point.id)"
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            class="inline-flex items-center gap-1 text-xs font-medium text-primary underline-offset-4 hover:underline"
-                                        >
-                                            <Printer class="size-3.5" />
-                                            প্রিন্ট
-                                        </a>
-                                    </div>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            <div v-else-if="activeTab === 'packages'" class="p-4">
-                <div class="flex flex-wrap items-center justify-between gap-2">
-                    <div>
-                        <h2 class="text-sm font-semibold tracking-tight">
-                            Package Stock Snapshot
-                        </h2>
-                        <p class="mt-1 text-sm text-muted-foreground">
-                            Status counts show all orders; Confirmed and ordered
-                            totals reflect confirmed only (operational focus).
-                        </p>
-                    </div>
-                    <div class="flex flex-wrap items-center gap-2">
-                        <Button variant="outline" size="sm" as-child>
-                            <a
-                                :href="printPackageSummaryUrl"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                            >
-                                <Printer class="size-4" />
-                                প্যাকিং লিস্ট
-                            </a>
-                        </Button>
-                        <Link
-                            :href="`/admin/events/${props.event.id}`"
-                            class="text-xs font-medium text-primary underline-offset-4 hover:underline"
-                        >
-                            Manage packages
-                        </Link>
-                    </div>
-                </div>
-                <div
-                    v-if="props.summary.packages.length === 0"
-                    class="mt-6 text-center text-sm text-muted-foreground"
-                >
-                    No packages configured for this event.
-                </div>
-                <div v-else class="mt-4 overflow-x-auto">
-                    <table
-                        class="min-w-full divide-y divide-sidebar-border/70 text-sm"
-                    >
-                        <thead class="bg-muted/40 text-left">
-                            <tr>
-                                <th class="px-3 py-2 font-medium">Package</th>
-                                <th class="px-3 py-2 font-medium">Ordered</th>
-                                <th class="px-3 py-2 font-medium">Stock</th>
-                                <th class="px-3 py-2 font-medium">Confirmed</th>
-                                <th
-                                    v-for="status in statusBreakdownColumns"
-                                    :key="status.value"
-                                    class="px-3 py-2 font-medium"
-                                >
-                                    {{ status.label }}
-                                </th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-sidebar-border/70">
-                            <tr
-                                v-for="pkg in props.summary.packages"
-                                :key="pkg.id"
-                                :class="
-                                    pkg.is_low_stock ? 'bg-amber-500/5' : ''
-                                "
-                            >
-                                <td class="px-3 py-2 font-medium">
-                                    {{ pkg.name }}
-                                </td>
-                                <td class="px-3 py-2 text-muted-foreground">
-                                    <template v-if="pkg.pack_count > 0">
-                                        <div class="text-xs">
-                                            {{ pkg.pack_line_label }}
-                                        </div>
-                                    </template>
-                                    <span v-else>—</span>
-                                </td>
-                                <td class="px-3 py-2 text-muted-foreground">
-                                    Sold: {{ pkg.sold_qty }}
-                                    <template v-if="pkg.stock_qty !== null">
-                                        · Left:
-                                        {{ pkg.remaining_qty ?? 0 }} /
-                                        {{ pkg.stock_qty }}
-                                    </template>
-                                    <template v-else> · No cap</template>
-                                </td>
-                                <td class="px-3 py-2 text-muted-foreground">
-                                    {{ pkg.order_count.toLocaleString() }}
-                                </td>
-                                <td
-                                    v-for="status in statusBreakdownColumns"
-                                    :key="`${pkg.id}-${status.value}`"
-                                    class="px-3 py-2 text-muted-foreground"
-                                >
-                                    {{
-                                        statusCount(
-                                            pkg.by_status,
-                                            status.value,
-                                        ).toLocaleString()
-                                    }}
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-                <p
-                    v-if="lowStockPackages.length > 0"
-                    class="mt-3 text-xs text-amber-600"
-                >
-                    Low stock (≤5 remaining):
-                    {{ lowStockPackages.map((pkg) => pkg.name).join(', ') }}
-                </p>
             </div>
         </section>
 

@@ -23,8 +23,6 @@ class EventOrderController extends Controller
 {
     private const PAYMENT_STATUSES = ['unpaid', 'pending', 'verified', 'failed'];
 
-    private const TABS = ['orders', 'pickup', 'packages'];
-
     public function __construct(
         private readonly EventOrderSummaryService $eventOrderSummaryService,
         private readonly EventOrderPaymentService $eventOrderPayments,
@@ -40,8 +38,6 @@ class EventOrderController extends Controller
         $fromDate = $request->string('from_date')->toString();
         $toDate = $request->string('to_date')->toString();
         $hasDue = $request->boolean('has_due');
-        $tab = $request->string('tab')->toString();
-        $tab = in_array($tab, self::TABS, true) ? $tab : 'orders';
         $perPage = $request->integer('per_page', 15);
         $perPage = in_array($perPage, [15, 25, 50, 100], true) ? $perPage : 15;
 
@@ -98,7 +94,6 @@ class EventOrderController extends Controller
             ],
             'summary' => $this->eventOrderSummaryService->forEvent($fundCycleEvent),
             'filters' => [
-                'tab' => $tab,
                 'search' => $search,
                 'status' => $status,
                 'payment_status' => $paymentStatus,

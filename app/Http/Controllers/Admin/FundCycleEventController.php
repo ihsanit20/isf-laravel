@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Enums\EventExpenseCategory;
+use App\Enums\EventOrderStatus;
 use App\Enums\EventPackageStatus;
 use App\Enums\EventPackageUnitType;
 use App\Enums\FundCycleEventStatus;
@@ -18,6 +19,7 @@ use App\Models\EventPayment;
 use App\Models\EventPickupPoint;
 use App\Models\FundCycle;
 use App\Models\FundCycleEvent;
+use App\Services\EventOrderSummaryService;
 use App\Services\FundCycleWithdrawalBudgetService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Storage;
@@ -29,6 +31,7 @@ class FundCycleEventController extends Controller
 {
     public function __construct(
         private readonly FundCycleWithdrawalBudgetService $withdrawalBudget,
+        private readonly EventOrderSummaryService $eventOrderSummaryService,
     ) {}
 
     public function index(FundCycle $fundCycle): Response
@@ -291,6 +294,8 @@ class FundCycleEventController extends Controller
                     'not_yet_deposited' => max(0, $verifiedCustomerPayments - $totalBankDeposited),
                 ],
             ],
+            'orderSummary' => $this->eventOrderSummaryService->forEvent($fundCycleEvent),
+            'statusOptions' => EventOrderStatus::options(),
         ]);
     }
 

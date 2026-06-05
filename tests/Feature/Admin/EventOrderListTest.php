@@ -167,7 +167,6 @@ test('admins can visit event orders list with filters and pagination props', fun
                 ->where('summary.pickup_points.1.by_status.pending', 0)
                 ->where('summary.pickup_points.1.total_due_amount', '0.00')
                 ->has('filters')
-                ->where('filters.tab', 'orders')
                 ->has('filterOptions.statuses', 4)
                 ->has('filterOptions.payment_statuses', 4)
                 ->has('filterOptions.pickup_points', 2)
@@ -205,31 +204,27 @@ test('event orders list includes pickup point name and contact person', function
         );
 });
 
-test('event orders page can open pickup and packages tabs', function () {
+test('event details page includes pickup and package order summaries', function () {
     ['event' => $event] = createEventWithFilterableOrders();
 
     $admin = User::factory()->create(['role' => 'admin']);
 
     actingAs($admin)
-        ->get(route('admin.events.orders.index', [
-            'fundCycleEvent' => $event,
-            'tab' => 'pickup',
-        ]))
+        ->get(route('admin.events.show', $event))
         ->assertOk()
         ->assertInertia(
             fn (Assert $page) => $page
-                ->where('filters.tab', 'pickup')
-                ->has('summary.pickup_points', 2),
+                ->component('admin/EventDetails')
+                ->has('orderSummary.pickup_points', 2),
         );
 
     actingAs($admin)
-        ->get(route('admin.events.orders.index', [
-            'fundCycleEvent' => $event,
-            'tab' => 'packages',
-        ]))
+        ->get(route('admin.events.show', $event))
         ->assertOk()
         ->assertInertia(
-            fn (Assert $page) => $page->where('filters.tab', 'packages'),
+            fn (Assert $page) => $page
+                ->component('admin/EventDetails')
+                ->has('orderSummary.packages'),
         );
 });
 
@@ -360,17 +355,14 @@ test('pickup point summary includes package quantities per hub', function () {
     $admin = User::factory()->create(['role' => 'admin']);
 
     actingAs($admin)
-        ->get(route('admin.events.orders.index', [
-            'fundCycleEvent' => $event,
-            'tab' => 'pickup',
-        ]))
+        ->get(route('admin.events.show', $event))
         ->assertOk()
         ->assertInertia(
             fn (Assert $page) => $page
-                ->where('summary.pickup_points.0.id', $pickupA->id)
-                ->where('summary.pickup_points.0.packages', [])
-                ->where('summary.pickup_points.1.id', $pickupB->id)
-                ->where('summary.pickup_points.1.packages', [
+                ->where('orderSummary.pickup_points.0.id', $pickupA->id)
+                ->where('orderSummary.pickup_points.0.packages', [])
+                ->where('orderSummary.pickup_points.1.id', $pickupB->id)
+                ->where('orderSummary.pickup_points.1.packages', [
                     [
                         'id' => $pkg->id,
                         'name' => 'Oil 1kg',
@@ -418,21 +410,18 @@ test('event orders summary includes package order counts by status', function ()
     $admin = User::factory()->create(['role' => 'admin']);
 
     actingAs($admin)
-        ->get(route('admin.events.orders.index', [
-            'fundCycleEvent' => $event,
-            'tab' => 'packages',
-        ]))
+        ->get(route('admin.events.show', $event))
         ->assertOk()
         ->assertInertia(
             fn (Assert $page) => $page
-                ->where('summary.packages.0.name', 'Rice 5kg')
-                ->where('summary.packages.0.order_count', 1)
-                ->where('summary.packages.0.pack_count', 2)
-                ->where('summary.packages.0.physical_label', '10 kg')
-                ->where('summary.packages.0.pack_line_label', '2 × 5 kg = 10 kg')
-                ->where('summary.packages.0.by_status.pending', 1)
-                ->where('summary.packages.0.by_status.confirmed', 1)
-                ->where('summary.packages.0.by_status.delivered', 0),
+                ->where('orderSummary.packages.0.name', 'Rice 5kg')
+                ->where('orderSummary.packages.0.order_count', 1)
+                ->where('orderSummary.packages.0.pack_count', 2)
+                ->where('orderSummary.packages.0.physical_label', '10 kg')
+                ->where('orderSummary.packages.0.pack_line_label', '2 × 5 kg = 10 kg')
+                ->where('orderSummary.packages.0.by_status.pending', 1)
+                ->where('orderSummary.packages.0.by_status.confirmed', 1)
+                ->where('orderSummary.packages.0.by_status.delivered', 0),
         );
 });
 
