@@ -65,6 +65,7 @@ type Summary = {
     verified_amount: number;
     rejected_amount: number;
     total_general_expense: number;
+    total_general_incomes: number;
     total_event_bank_withdrawals: number;
     total_event_bank_deposits: number;
     total_charge_settlements: number;
@@ -220,13 +221,19 @@ const decodePaginationLabel = (label: string): string => {
                             </Link>
                         </dt>
                         <dd class="font-semibold text-foreground tabular-nums">
-                            {{ money(props.summary.total_charge_settlements) }}
+                            + {{ money(props.summary.total_charge_settlements) }}
+                        </dd>
+                    </div>
+                    <div class="flex justify-between gap-2">
+                        <dt class="text-muted-foreground">General incomes</dt>
+                        <dd class="font-semibold text-foreground tabular-nums">
+                            + {{ money(props.summary.total_general_incomes) }}
                         </dd>
                     </div>
                     <div class="flex justify-between gap-2">
                         <dt class="text-muted-foreground">General expense</dt>
                         <dd class="font-semibold text-foreground tabular-nums">
-                            {{ money(props.summary.total_general_expense) }}
+                            - {{ money(props.summary.total_general_expense) }}
                         </dd>
                     </div>
                 </dl>
@@ -258,6 +265,17 @@ const decodePaginationLabel = (label: string): string => {
                         <dt class="text-muted-foreground">Deposits</dt>
                         <dd class="font-semibold text-foreground tabular-nums">
                             {{ money(props.summary.total_event_bank_deposits) }}
+                        </dd>
+                    </div>
+                    <hr>
+                    <div class="flex justify-between gap-2">
+                        <dt class="text-muted-foreground">Net total</dt>
+                        <dd class="font-semibold text-foreground tabular-nums">
+                            {{
+                                money(
+                                    props.summary.total_event_bank_deposits - props.summary.total_event_bank_withdrawals
+                                )
+                            }}
                         </dd>
                     </div>
                 </dl>

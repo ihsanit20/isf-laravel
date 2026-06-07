@@ -8,6 +8,7 @@ use App\Models\DepositSubmission;
 use App\Models\EventBankDeposit;
 use App\Models\EventBankWithdrawal;
 use App\Models\GeneralExpense;
+use App\Models\GeneralIncome;
 
 class TreasuryBalanceService
 {
@@ -35,6 +36,7 @@ class TreasuryBalanceService
             ->where('status', DepositSubmissionStatus::Rejected)
             ->sum('amount');
         $totalGeneralExpense = (int) GeneralExpense::query()->sum('amount');
+        $totalGeneralIncomes = (int) GeneralIncome::query()->sum('amount');
         $totalEventBankWithdrawals = (int) EventBankWithdrawal::query()->sum('amount');
         $totalEventBankDeposits = (int) EventBankDeposit::query()->sum('amount');
         $totalChargeSettlements = (int) ChargeAllocation::query()
@@ -52,7 +54,8 @@ class TreasuryBalanceService
             $verifiedAmount
                 - $totalGeneralExpense
                 - $totalEventBankWithdrawals
-                + $totalEventBankDeposits,
+                + $totalEventBankDeposits
+                + $totalGeneralIncomes,
         );
 
         return [
@@ -60,6 +63,7 @@ class TreasuryBalanceService
             'verified_amount' => $verifiedAmount,
             'rejected_amount' => $rejectedAmount,
             'total_general_expense' => $totalGeneralExpense,
+            'total_general_incomes' => $totalGeneralIncomes,
             'total_event_bank_withdrawals' => $totalEventBankWithdrawals,
             'total_event_bank_deposits' => $totalEventBankDeposits,
             'total_charge_settlements' => $totalChargeSettlements,
