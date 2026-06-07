@@ -108,3 +108,53 @@ test('track by order number and phone includes receipt url with customer phone',
     $receiptUrl = $response->json('data.payments.1.receipt_url');
     expect($receiptUrl)->toContain('customer_phone=01788889999');
 });
+
+test('track response allows due bkash when confirmed order has due balance', function () {
+    ['order' => $order] = createOrderWithPaymentsForTracking();
+
+    EventPayment::query()->where('event_order_id', $order->id)
+        ->where('payment_status', 'pending')
+        ->delete();
+
+    $response = get('/api/v1/orders/track?'.http_build_query([
+        'order_number' => $order->order_number,
+        'customer_phone' => $order->customer_phone,
+    ]));
+
+    $response->assertOk()
+        ->assertJsonPath('data.due_amount', 700)
+        ->assertJsonPath('data.can_pay_due', true);
+});
+
+test('track response allows due bkash for delivered order with due balance', function () {
+    ['order' => $order] = createOrderWithPaymentsForTracking();
+
+    EventPayment::query()->where('event_order_id', $order->id)
+        ->where('payment_status', 'pending')
+        ->delete();
+
+    $order->update(['status' => EventOrderStatus::Delivered]);
+
+    $response = get('/api/v1/orders/track?'.http_build_query([
+        'order_number' => $order->order_number,
+        'customer_phone' => $order->customer_phone,
+    ]));
+
+    $response->assertOk()
+        ->assertJsonPath('data.status', 'delivered')
+        ->assertJsonPath('data.due_amount', 700)
+        ->assertJsonPath('data.can_pay_due', true);
+});
+
+test('track response blocks due bkash while another payment is pending', function () {
+    ['order' => $order] = createOrderWithPaymentsForTracking();
+
+    $response = get('/api/v1/orders/track?'.http_build_query([
+        'order_number' => $order->order_number,
+        'customer_phone' => $order->customer_phone,
+    ]));
+
+    $response->assertOk()
+        ->assertJsonPath('data.due_amount', 700)
+        ->assertJsonPath('data.can_pay_due', false);
+});
