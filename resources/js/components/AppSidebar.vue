@@ -12,6 +12,7 @@ import {
     Landmark,
     Layers3,
     ScrollText,
+    TrendingUp,
     UserRound,
     Users,
     WalletCards,
@@ -84,6 +85,12 @@ const mainNavItems = computed<NavItem[]>(() => {
             title: 'General Expenses',
             href: '/admin/general-expenses',
             icon: BookMarked,
+        });
+
+        items.push({
+            title: 'General Incomes',
+            href: '/admin/general-incomes',
+            icon: TrendingUp,
         });
 
         items.push({

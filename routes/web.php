@@ -13,6 +13,7 @@ use App\Http\Controllers\Admin\EventPickupPointController;
 use App\Http\Controllers\Admin\FundCycleController;
 use App\Http\Controllers\Admin\FundCycleEventController;
 use App\Http\Controllers\Admin\GeneralExpenseController;
+use App\Http\Controllers\Admin\GeneralIncomeController;
 use App\Http\Controllers\Admin\MemberListController;
 use App\Http\Controllers\Admin\UserListController;
 use App\Http\Controllers\BkashCallbackController;
@@ -109,6 +110,9 @@ Route::middleware(['auth', 'verified', 'admin'])->group(function () {
     Route::get('admin/general-expenses', [GeneralExpenseController::class, 'index'])->name('admin.general-expenses.index');
     Route::post('admin/general-expenses', [GeneralExpenseController::class, 'store'])->name('admin.general-expenses.store');
     Route::put('admin/general-expenses/{generalExpense}', [GeneralExpenseController::class, 'update'])->name('admin.general-expenses.update');
+    Route::get('admin/general-incomes', [GeneralIncomeController::class, 'index'])->name('admin.general-incomes.index');
+    Route::post('admin/general-incomes', [GeneralIncomeController::class, 'store'])->name('admin.general-incomes.store');
+    Route::put('admin/general-incomes/{generalIncome}', [GeneralIncomeController::class, 'update'])->name('admin.general-incomes.update');
     Route::get('admin/members', [MemberListController::class, 'index'])->name('admin.members.index');
     Route::patch('admin/members/{member}/review', [MemberListController::class, 'review'])->name('admin.members.review');
     Route::get('admin/charges', [ChargeListController::class, 'index'])->name('admin.charges.index');
