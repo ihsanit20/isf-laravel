@@ -201,6 +201,14 @@ class EventOrderSummaryService
             ->where('status', EventOrderStatus::Confirmed);
     }
 
+    private function confirmedSalesQuery(int $eventId): Builder
+    {
+        return EventOrder::query()
+            ->where('fund_cycle_event_id', $eventId)
+            ->whereNotNull('confirmed_at')
+            ->where('status', '!=', EventOrderStatus::Cancelled);
+    }
+
     private function countByPaymentStatus(int $eventId, string $paymentStatus): int
     {
         $query = EventOrder::query()->where('fund_cycle_event_id', $eventId);
@@ -364,11 +372,9 @@ class EventOrderSummaryService
     {
         $dueExpression = EventOrder::dueAmountSqlExpression();
 
-        $confirmedQuery = EventOrder::query()
-            ->where('fund_cycle_event_id', $eventId)
-            ->where('status', EventOrderStatus::Confirmed);
+        $salesQuery = $this->confirmedSalesQuery($eventId);
 
-        $confirmedMoney = (clone $confirmedQuery)
+        $salesMoney = (clone $salesQuery)
             ->selectRaw('COALESCE(SUM(total_amount), 0) as total_amount')
             ->selectRaw('COALESCE(SUM(advance_amount), 0) as advance_amount')
             ->selectRaw("COALESCE(SUM({$dueExpression}), 0) as total_due_amount")
@@ -377,9 +383,7 @@ class EventOrderSummaryService
 
         $verifiedPaymentCount = $this->countByPaymentStatus($eventId, 'verified');
 
-        $confirmedWithVerifiedPayment = EventOrder::query()
-            ->where('fund_cycle_event_id', $eventId)
-            ->where('status', EventOrderStatus::Confirmed)
+        $salesWithVerifiedPayment = (clone $salesQuery)
             ->whereHas('payments', function (Builder $paymentQuery): void {
                 $paymentQuery
                     ->where('payment_status', 'verified')
@@ -399,12 +403,13 @@ class EventOrderSummaryService
                     )
                     ->sum('amount'),
             ),
-            'confirmed_order_count' => (int) ($statusCounts[EventOrderStatus::Confirmed->value] ?? 0),
-            'confirmed_order_amount' => $this->formatMoney($confirmedMoney->total_amount ?? 0),
-            'confirmed_due_amount' => $this->formatMoney($confirmedMoney->total_due_amount ?? 0),
-            'confirmed_orders_with_due_count' => (int) ($confirmedMoney->orders_with_due_count ?? 0),
-            'confirmed_advance_amount' => $this->formatMoney($confirmedMoney->advance_amount ?? 0),
-            'confirmed_verified_payment_count' => (int) $confirmedWithVerifiedPayment,
+            'confirmed_order_count' => (int) (clone $salesQuery)->count(),
+            'confirmed_order_amount' => $this->formatMoney($salesMoney->total_amount ?? 0),
+            'confirmed_due_amount' => $this->formatMoney($salesMoney->total_due_amount ?? 0),
+            'confirmed_orders_with_due_count' => (int) ($salesMoney->orders_with_due_count ?? 0),
+            'confirmed_advance_amount' => $this->formatMoney($salesMoney->advance_amount ?? 0),
+            'confirmed_verified_payment_count' => (int) $salesWithVerifiedPayment,
+            'awaiting_delivery_count' => (int) ($statusCounts[EventOrderStatus::Confirmed->value] ?? 0),
             'verified_payment_count' => $verifiedPaymentCount,
             'pending_order_count' => (int) ($statusCounts[EventOrderStatus::Pending->value] ?? 0),
             'delivered_order_count' => (int) ($statusCounts[EventOrderStatus::Delivered->value] ?? 0),

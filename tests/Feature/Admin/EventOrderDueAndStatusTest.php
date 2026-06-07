@@ -139,6 +139,84 @@ test('delivered status can override when due remains', function () {
     expect($order->refresh()->status)->toBe(EventOrderStatus::Delivered);
 });
 
+test('delivered order with due can record and verify manual payment', function () {
+    ['event' => $event, 'order' => $order, 'admin' => $admin] = createConfirmedOrderWithDue();
+    $showUrl = route('admin.events.orders.show', [$event, $order]);
+
+    actingAs($admin)
+        ->from($showUrl)
+        ->patch(route('admin.events.orders.status.update', [$event, $order]), [
+            'status' => 'delivered',
+            'note' => 'Delivered with agreement',
+            'allow_delivered_with_due' => true,
+        ])
+        ->assertRedirect($showUrl);
+
+    actingAs($admin)
+        ->from($showUrl)
+        ->post(route('admin.events.orders.payments.store', [$event, $order]), [
+            'amount' => 300,
+            'payment_method' => 'cash',
+            'note' => 'Collected after delivery',
+        ])
+        ->assertRedirect($showUrl);
+
+    $payment = EventPayment::query()
+        ->where('event_order_id', $order->id)
+        ->where('payment_status', 'pending')
+        ->latest('id')
+        ->first();
+
+    expect($payment)->not->toBeNull();
+
+    actingAs($admin)
+        ->from($showUrl)
+        ->patch(route('admin.events.orders.payments.review', [$event, $order, $payment]), [
+            'status' => 'verified',
+        ])
+        ->assertRedirect($showUrl);
+
+    $order->refresh();
+
+    expect($order->status)->toBe(EventOrderStatus::Delivered)
+        ->and($order->dueAmount())->toBe(500.0);
+});
+
+test('delivered order with due can initiate bkash due payment', function () {
+    ['event' => $event, 'order' => $order, 'admin' => $admin] = createConfirmedOrderWithDue();
+
+    actingAs($admin)
+        ->patch(route('admin.events.orders.status.update', [$event, $order]), [
+            'status' => 'delivered',
+            'note' => 'Delivered with agreement',
+            'allow_delivered_with_due' => true,
+        ])
+        ->assertRedirect();
+
+    Http::fake([
+        '*/tokenized/checkout/token/grant' => Http::response(['id_token' => 'sandbox-token']),
+        '*/tokenized/checkout/create' => Http::response([
+            'paymentID' => 'TRDUE03',
+            'bkashURL' => 'https://sandbox.bka.sh/pay/TRDUE03',
+        ]),
+    ]);
+
+    $response = postJson("/api/v1/orders/{$order->order_number}/bkash/init-due", [
+        'customer_phone' => $order->customer_phone,
+    ]);
+
+    $response->assertOk()
+        ->assertJsonPath('data.redirect_url', 'https://sandbox.bka.sh/pay/TRDUE03');
+
+    assertDatabaseHas('event_payments', [
+        'event_order_id' => $order->id,
+        'bkash_payment_id' => 'TRDUE03',
+        'payment_status' => 'pending',
+        'payment_type' => EventPaymentType::Due->value,
+        'amount' => 800,
+    ]);
+});
+
 test('full manual verify clears due and allows delivered', function () {
     ['event' => $event, 'order' => $order, 'admin' => $admin] = createConfirmedOrderWithDue();
 

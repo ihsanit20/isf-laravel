@@ -158,8 +158,7 @@ class EventOrderController extends Controller
                 'advance_amount' => (string) $eventOrder->advance_amount,
                 'due_amount' => (string) $dueAmount,
                 'verified_paid_amount' => (string) $eventOrder->totalVerifiedPaid(),
-                'can_record_payment' => $dueAmount > 0
-                    && ! in_array($eventOrder->status, [EventOrderStatus::Cancelled, EventOrderStatus::Delivered], true),
+                'can_record_payment' => $eventOrder->canAcceptDuePayment(),
                 'can_update_status' => $eventOrder->status !== EventOrderStatus::Cancelled,
                 'created_at' => $eventOrder->created_at?->format('d M Y, h:i A'),
                 'confirmed_at' => $eventOrder->confirmed_at?->format('d M Y, h:i A'),
@@ -317,8 +316,7 @@ class EventOrderController extends Controller
             'total_amount' => (string) $order->total_amount,
             'advance_amount' => (string) $order->advance_amount,
             'due_amount' => (string) $dueAmount,
-            'can_record_payment' => $dueAmount > 0
-                && ! in_array($order->status, [EventOrderStatus::Cancelled, EventOrderStatus::Delivered], true),
+            'can_record_payment' => $order->canAcceptDuePayment(),
             'can_update_status' => $order->status !== EventOrderStatus::Cancelled,
             'package_lines' => $order->items->map(fn ($item): array => [
                 'line_label' => $item->packageSizeLineLabel(),

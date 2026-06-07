@@ -72,6 +72,7 @@ function createEventWithFilterableOrders(): array
         'status' => EventOrderStatus::Confirmed,
         'total_amount' => 500,
         'advance_amount' => 500,
+        'confirmed_at' => now()->subDay(),
         'created_at' => now()->subDay(),
     ]);
 
@@ -152,6 +153,7 @@ test('admins can visit event orders list with filters and pagination props', fun
                 ->where('summary.focus.confirmed_order_amount', '500.00')
                 ->where('summary.focus.confirmed_due_amount', '0.00')
                 ->where('summary.focus.confirmed_orders_with_due_count', 0)
+                ->where('summary.focus.awaiting_delivery_count', 1)
                 ->where('summary.focus.pending_order_count', 2)
                 ->where('summary.focus.verified_payment_count', 1)
                 ->where('summary.focus.confirmed_verified_payment_count', 1)
@@ -546,5 +548,63 @@ test('event orders list can filter by pickup point and date range', function () 
                 ->where('filters.pickup_point_id', (string) $pickupB->id)
                 ->where('filters.from_date', $fromDate)
                 ->where('filters.to_date', $toDate),
+        );
+});
+
+test('confirmed sales total stays stable when order is delivered', function () {
+    ['event' => $event, 'orders' => $orders] = createEventWithFilterableOrders();
+    $admin = User::factory()->create(['role' => 'admin']);
+    $order = $orders['confirmed_verified'];
+
+    actingAs($admin)
+        ->get(route('admin.events.orders.index', $event))
+        ->assertOk()
+        ->assertInertia(
+            fn (Assert $page) => $page
+                ->where('summary.focus.confirmed_order_amount', '500.00')
+                ->where('summary.focus.confirmed_order_count', 1)
+                ->where('summary.focus.awaiting_delivery_count', 1)
+                ->where('summary.focus.delivered_order_count', 0),
+        );
+
+    actingAs($admin)
+        ->patch(route('admin.events.orders.status.update', [$event, $order]), [
+            'status' => 'delivered',
+            'note' => 'Handed to customer.',
+        ])
+        ->assertRedirect();
+
+    actingAs($admin)
+        ->get(route('admin.events.orders.index', $event))
+        ->assertOk()
+        ->assertInertia(
+            fn (Assert $page) => $page
+                ->where('summary.focus.confirmed_order_amount', '500.00')
+                ->where('summary.focus.confirmed_order_count', 1)
+                ->where('summary.focus.awaiting_delivery_count', 0)
+                ->where('summary.focus.delivered_order_count', 1),
+        );
+});
+
+test('cancelled confirmed orders are excluded from confirmed sales totals', function () {
+    ['event' => $event, 'orders' => $orders] = createEventWithFilterableOrders();
+    $admin = User::factory()->create(['role' => 'admin']);
+
+    actingAs($admin)
+        ->patch(route('admin.events.orders.status.update', [$event, $orders['confirmed_verified']]), [
+            'status' => 'cancelled',
+            'note' => 'Customer requested cancellation.',
+        ])
+        ->assertRedirect();
+
+    actingAs($admin)
+        ->get(route('admin.events.orders.index', $event))
+        ->assertOk()
+        ->assertInertia(
+            fn (Assert $page) => $page
+                ->where('summary.focus.confirmed_order_amount', '0.00')
+                ->where('summary.focus.confirmed_order_count', 0)
+                ->where('summary.focus.awaiting_delivery_count', 0)
+                ->where('summary.focus.cancelled_order_count', 1),
         );
 });

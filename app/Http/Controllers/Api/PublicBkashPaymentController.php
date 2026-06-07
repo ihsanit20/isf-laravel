@@ -77,9 +77,9 @@ class PublicBkashPaymentController extends Controller
             ], 404);
         }
 
-        if ($order->status !== EventOrderStatus::Confirmed) {
+        if (! $order->canAcceptDuePayment()) {
             return response()->json([
-                'message' => 'Due payment is only available for confirmed orders.',
+                'message' => 'Due payment is not available for this order.',
             ], 422);
         }
 

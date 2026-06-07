@@ -181,4 +181,21 @@ class EventOrder extends Model
 
         return $this->hasVerifiedAdvancePayment();
     }
+
+    public function canAcceptDuePayment(): bool
+    {
+        if ($this->status === EventOrderStatus::Cancelled) {
+            return false;
+        }
+
+        if ($this->status === EventOrderStatus::Pending) {
+            return false;
+        }
+
+        if ($this->confirmed_at === null) {
+            return false;
+        }
+
+        return $this->dueAmount() > 0;
+    }
 }

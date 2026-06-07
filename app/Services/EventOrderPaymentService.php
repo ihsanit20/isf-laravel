@@ -101,27 +101,14 @@ class EventOrderPaymentService
 
     private function assertCanAcceptPayment(EventOrder $order): void
     {
-        if ($order->status === EventOrderStatus::Cancelled) {
+        if (! $order->canAcceptDuePayment()) {
             throw ValidationException::withMessages([
-                'order' => 'Cancelled orders cannot accept payments.',
-            ]);
-        }
-
-        if ($order->status === EventOrderStatus::Delivered) {
-            throw ValidationException::withMessages([
-                'order' => 'Delivered orders cannot accept payments.',
-            ]);
-        }
-
-        if ($order->dueAmount() <= 0) {
-            throw ValidationException::withMessages([
-                'order' => 'This order has no due balance remaining.',
-            ]);
-        }
-
-        if ($order->status === EventOrderStatus::Pending) {
-            throw ValidationException::withMessages([
-                'order' => 'Confirm the order before recording due payments.',
+                'order' => match (true) {
+                    $order->status === EventOrderStatus::Cancelled => 'Cancelled orders cannot accept payments.',
+                    $order->status === EventOrderStatus::Pending => 'Confirm the order before recording due payments.',
+                    $order->dueAmount() <= 0 => 'This order has no due balance remaining.',
+                    default => 'This order cannot accept due payments.',
+                },
             ]);
         }
     }

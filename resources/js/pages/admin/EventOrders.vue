@@ -44,6 +44,7 @@ type OrderSummary = {
         confirmed_orders_with_due_count: number;
         confirmed_advance_amount: string;
         confirmed_verified_payment_count: number;
+        awaiting_delivery_count: number;
         verified_payment_count: number;
         pending_order_count: number;
         delivered_order_count: number;
@@ -277,7 +278,7 @@ const paginationLabel = (label: string): string =>
                         {{ props.event.title }} - Orders
                     </h1>
                     <p class="mt-2 text-sm text-muted-foreground">
-                        Focus on confirmed orders and verified payments. Pending
+                        Focus on confirmed sales and verified payments. Pending
                         and other counts are shown for reference.
                     </p>
                     <dl
@@ -345,12 +346,11 @@ const paginationLabel = (label: string): string =>
                     Verified payment records for this event
                 </p>
             </div>
-            <Link
-                :href="filterUrl({ status: 'confirmed' })"
-                class="rounded-xl border border-sidebar-border/70 bg-background p-6 shadow-sm transition-colors hover:bg-muted/30 dark:border-sidebar-border"
+            <div
+                class="rounded-xl border border-sidebar-border/70 bg-background p-6 shadow-sm dark:border-sidebar-border"
             >
                 <p class="text-xs text-muted-foreground">
-                    Confirmed order total
+                    Confirmed sales total
                 </p>
                 <p class="mt-3 text-3xl font-semibold text-foreground">
                     {{ money(props.summary.focus.confirmed_order_amount) }}
@@ -359,14 +359,13 @@ const paginationLabel = (label: string): string =>
                     {{
                         props.summary.focus.confirmed_order_count.toLocaleString()
                     }}
-                    confirmed orders
+                    confirmed sales (includes delivered)
                 </p>
-            </Link>
-            <Link
-                :href="filterUrl({ status: 'confirmed', has_due: '1' })"
-                class="rounded-xl border border-sidebar-border/70 bg-background p-6 shadow-sm transition-colors hover:bg-muted/30 dark:border-sidebar-border"
+            </div>
+            <div
+                class="rounded-xl border border-sidebar-border/70 bg-background p-6 shadow-sm dark:border-sidebar-border"
             >
-                <p class="text-xs text-muted-foreground">Confirmed due</p>
+                <p class="text-xs text-muted-foreground">Confirmed sales due</p>
                 <p class="mt-3 text-3xl font-semibold text-amber-600">
                     {{ money(props.summary.focus.confirmed_due_amount) }}
                 </p>
@@ -374,17 +373,17 @@ const paginationLabel = (label: string): string =>
                     {{
                         props.summary.focus.confirmed_orders_with_due_count.toLocaleString()
                     }}
-                    confirmed orders with balance due
+                    confirmed sales with balance due
                 </p>
-            </Link>
+            </div>
             <Link
                 :href="filterUrl({ status: 'confirmed' })"
                 class="rounded-xl border border-sidebar-border/70 bg-background p-6 shadow-sm transition-colors hover:bg-muted/30 dark:border-sidebar-border"
             >
-                <p class="text-xs text-muted-foreground">Confirmed orders</p>
+                <p class="text-xs text-muted-foreground">Awaiting delivery</p>
                 <p class="mt-3 text-3xl font-semibold text-foreground">
                     {{
-                        props.summary.focus.confirmed_order_count.toLocaleString()
+                        props.summary.focus.awaiting_delivery_count.toLocaleString()
                     }}
                 </p>
                 <p class="mt-3 text-sm text-muted-foreground">

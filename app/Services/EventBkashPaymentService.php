@@ -66,21 +66,15 @@ class EventBkashPaymentService
      */
     public function initiateDue(EventOrder $order): array
     {
-        if ($order->status !== EventOrderStatus::Confirmed) {
-            throw new \InvalidArgumentException('Due payment is only available for confirmed orders.');
-        }
-
-        $dueAmount = $order->dueAmount();
-
-        if ($dueAmount <= 0) {
-            throw new \InvalidArgumentException('This order has no due balance.');
+        if (! $order->canAcceptDuePayment()) {
+            throw new \InvalidArgumentException('Due payment is not available for this order.');
         }
 
         if ($order->payments()->where('payment_status', 'pending')->exists()) {
             throw new \InvalidArgumentException('A payment is already pending for this order.');
         }
 
-        return $this->createBkashPayment($order, $dueAmount, EventPaymentType::Due);
+        return $this->createBkashPayment($order, $order->dueAmount(), EventPaymentType::Due);
     }
 
     /**
