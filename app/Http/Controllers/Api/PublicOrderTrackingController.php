@@ -73,8 +73,7 @@ class PublicOrderTrackingController extends Controller
             'total_amount' => (float) $order->total_amount,
             'advance_amount' => (float) $order->advance_amount,
             'due_amount' => $order->dueAmount(),
-            'can_pay_due' => $order->canAcceptDuePayment()
-                && ! $order->payments()->where('payment_status', 'pending')->exists(),
+            'can_pay_due' => $order->canPayDueViaBkash(),
             'payment_status' => $order->advancePaymentStatus(),
             'advance_paid' => $order->isAdvancePaid(),
             'confirmed_at' => $order->confirmed_at?->toIso8601String(),

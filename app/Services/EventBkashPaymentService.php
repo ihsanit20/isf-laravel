@@ -70,9 +70,11 @@ class EventBkashPaymentService
             throw new \InvalidArgumentException('Due payment is not available for this order.');
         }
 
-        if ($order->payments()->where('payment_status', 'pending')->exists()) {
+        if ($order->hasBlockingPendingPayment()) {
             throw new \InvalidArgumentException('A payment is already pending for this order.');
         }
+
+        $order->supersedePendingBkashDuePayments();
 
         return $this->createBkashPayment($order, $order->dueAmount(), EventPaymentType::Due);
     }

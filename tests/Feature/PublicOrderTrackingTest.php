@@ -8,8 +8,11 @@ use App\Models\EventPayment;
 use App\Models\FundCycle;
 use App\Models\FundCycleEvent;
 use App\Models\User;
+use Illuminate\Support\Facades\Http;
 
+use function Pest\Laravel\assertDatabaseHas;
 use function Pest\Laravel\get;
+use function Pest\Laravel\postJson;
 
 /**
  * @return array{order: EventOrder, verifiedPayment: EventPayment, pendingPayment: EventPayment}
@@ -146,7 +149,7 @@ test('track response allows due bkash for delivered order with due balance', fun
         ->assertJsonPath('data.can_pay_due', true);
 });
 
-test('track response blocks due bkash while another payment is pending', function () {
+test('track response still allows due bkash when a bkash due payment is pending', function () {
     ['order' => $order] = createOrderWithPaymentsForTracking();
 
     $response = get('/api/v1/orders/track?'.http_build_query([
@@ -156,5 +159,88 @@ test('track response blocks due bkash while another payment is pending', functio
 
     $response->assertOk()
         ->assertJsonPath('data.due_amount', 700)
+        ->assertJsonPath('data.can_pay_due', true);
+});
+
+test('track response blocks due bkash while manual payment is pending', function () {
+    ['order' => $order, 'pendingPayment' => $pendingPayment] = createOrderWithPaymentsForTracking();
+
+    $pendingPayment->update([
+        'payment_method' => 'cash',
+        'payment_type' => EventPaymentType::Manual,
+    ]);
+
+    $response = get('/api/v1/orders/track?'.http_build_query([
+        'order_number' => $order->order_number,
+        'customer_phone' => $order->customer_phone,
+    ]));
+
+    $response->assertOk()
         ->assertJsonPath('data.can_pay_due', false);
+});
+
+test('bkash due init supersedes an abandoned pending due payment', function () {
+    ['order' => $order, 'pendingPayment' => $pendingPayment] = createOrderWithPaymentsForTracking();
+
+    Http::fake([
+        '*/tokenized/checkout/token/grant' => Http::response(['id_token' => 'sandbox-token']),
+        '*/tokenized/checkout/create' => Http::response([
+            'paymentID' => 'TRDUE04',
+            'bkashURL' => 'https://sandbox.bka.sh/pay/TRDUE04',
+        ]),
+    ]);
+
+    $response = postJson("/api/v1/orders/{$order->order_number}/bkash/init-due", [
+        'customer_phone' => $order->customer_phone,
+    ]);
+
+    $response->assertOk()
+        ->assertJsonPath('data.redirect_url', 'https://sandbox.bka.sh/pay/TRDUE04');
+
+    expect($pendingPayment->refresh()->payment_status)->toBe('failed');
+
+    assertDatabaseHas('event_payments', [
+        'event_order_id' => $order->id,
+        'bkash_payment_id' => 'TRDUE04',
+        'payment_status' => 'pending',
+        'payment_type' => EventPaymentType::Due->value,
+    ]);
+});
+
+test('track response allows due bkash after abandoned bkash due session expires', function () {
+    ['order' => $order, 'pendingPayment' => $pendingPayment] = createOrderWithPaymentsForTracking();
+
+    EventPayment::query()
+        ->whereKey($pendingPayment->id)
+        ->update(['created_at' => now()->subMinutes(20)]);
+
+    $response = get('/api/v1/orders/track?'.http_build_query([
+        'order_number' => $order->order_number,
+        'customer_phone' => $order->customer_phone,
+    ]));
+
+    $response->assertOk()
+        ->assertJsonPath('data.can_pay_due', true);
+
+    expect($pendingPayment->refresh()->payment_status)->toBe('failed');
+});
+
+test('track response allows due bkash for confirmed order without confirmed_at timestamp', function () {
+    ['order' => $order] = createOrderWithPaymentsForTracking();
+
+    EventPayment::query()->where('event_order_id', $order->id)->delete();
+
+    $order->update([
+        'confirmed_at' => null,
+        'status' => EventOrderStatus::Confirmed,
+    ]);
+
+    $response = get('/api/v1/orders/track?'.http_build_query([
+        'order_number' => $order->order_number,
+        'customer_phone' => $order->customer_phone,
+    ]));
+
+    $response->assertOk()
+        ->assertJsonPath('data.due_amount', 1000)
+        ->assertJsonPath('data.can_pay_due', true);
 });

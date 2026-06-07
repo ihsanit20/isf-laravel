@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\EventOrderStatus;
+use App\Enums\EventPaymentType;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -184,18 +185,68 @@ class EventOrder extends Model
 
     public function canAcceptDuePayment(): bool
     {
-        if ($this->status === EventOrderStatus::Cancelled) {
+        if (in_array($this->status, [EventOrderStatus::Cancelled, EventOrderStatus::Pending], true)) {
             return false;
         }
 
-        if ($this->status === EventOrderStatus::Pending) {
-            return false;
-        }
-
-        if ($this->confirmed_at === null) {
+        if ($this->confirmed_at === null
+            && ! in_array($this->status, [EventOrderStatus::Confirmed, EventOrderStatus::Delivered], true)) {
             return false;
         }
 
         return $this->dueAmount() > 0;
+    }
+
+    public function expireAbandonedBkashDuePayments(int $minutes = 15): void
+    {
+        $this->payments()
+            ->where('payment_status', 'pending')
+            ->where('payment_method', 'bkash')
+            ->where('payment_type', EventPaymentType::Due)
+            ->where('created_at', '<', now()->subMinutes($minutes))
+            ->update([
+                'payment_status' => 'failed',
+                'note' => 'bKash payment session expired.',
+            ]);
+    }
+
+    public function supersedePendingBkashDuePayments(string $note = 'Superseded by a new bKash due payment attempt.'): void
+    {
+        $this->payments()
+            ->where('payment_status', 'pending')
+            ->where('payment_method', 'bkash')
+            ->where('payment_type', EventPaymentType::Due)
+            ->update([
+                'payment_status' => 'failed',
+                'note' => $note,
+            ]);
+    }
+
+    public function hasBlockingPendingPayment(): bool
+    {
+        return $this->payments()
+            ->where('payment_status', 'pending')
+            ->where(function ($query): void {
+                $query
+                    ->where('payment_method', '!=', 'bkash')
+                    ->orWhere(function ($query): void {
+                        $query
+                            ->where('payment_method', 'bkash')
+                            ->where(function ($query): void {
+                                $query
+                                    ->where('payment_type', '!=', EventPaymentType::Due)
+                                    ->orWhereNull('payment_type');
+                            });
+                    });
+            })
+            ->exists();
+    }
+
+    public function canPayDueViaBkash(): bool
+    {
+        $this->expireAbandonedBkashDuePayments();
+
+        return $this->canAcceptDuePayment()
+            && ! $this->hasBlockingPendingPayment();
     }
 }
