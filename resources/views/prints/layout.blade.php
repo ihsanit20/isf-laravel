@@ -14,6 +14,12 @@
             }
         @endunless
 
+        @if(request()->query('download') === 'pdf')
+            h1, h2, h3, th, strong, b {
+                font-weight: normal;
+            }
+        @endif
+
         * {
             box-sizing: border-box;
         }
@@ -54,8 +60,14 @@
 
         th {
             background: #f3f4f6;
-            font-weight: 600;
+            font-weight: normal;
         }
+
+        @if(request()->query('download') !== 'pdf')
+            th {
+                font-weight: 600;
+            }
+        @endif
 
         .text-right { text-align: right; }
         .text-center { text-align: center; }
