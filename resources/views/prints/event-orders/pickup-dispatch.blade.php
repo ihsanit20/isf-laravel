@@ -1,17 +1,17 @@
 @extends('prints.layout')
 
-@section('title', 'পিকআপ হাব ডিস্প্যাচ লিস্ট — '.$event['title'])
+@section('title', 'Pickup Hub Dispatch List — '.$event['title'])
 
 @section('content')
     <header class="section">
-        <h1>পিকআপ হাব ডিস্প্যাচ লিস্ট</h1>
+        <h1>Pickup Hub Dispatch List</h1>
         <p class="meta">
-            ইভেন্ট: <strong>{{ $event['title'] }}</strong>
+            Event: <strong>{{ $event['title'] }}</strong>
             @if($event['expected_delivery_date'])
-                · ডেলিভারি: {{ $event['expected_delivery_date'] }}
+                · Delivery: {{ $event['expected_delivery_date'] }}
             @endif
-            · ফিল্টার: {{ $status_label }}
-            · তৈরি: {{ $generated_at }}
+            · Filter: {{ $status_label }}
+            · Generated: {{ $generated_at }}
         </p>
     </header>
 
@@ -30,29 +30,29 @@
                     · {{ $section['pickup_point']['address'] }}
                 @endif
                 @if($section['pickup_point']['contact_person'])
-                    · যোগাযোগ: {{ $section['pickup_point']['contact_person'] }}
+                    · Contact: {{ $section['pickup_point']['contact_person'] }}
                 @endif
                 @if($section['pickup_point']['phone'])
                     · {{ $section['pickup_point']['phone'] }}
                 @endif
             </p>
             <p class="meta">
-                অর্ডার: {{ $section['order_count'] }} · মোট বাকি: ৳ {{ $section['total_due_amount'] }}
+                Orders: {{ $section['order_count'] }} · Total due: Tk. {{ $section['total_due_amount'] }}
             </p>
 
             @if(count($section['orders']) === 0)
-                <p class="muted">এই হাবে কোনো অর্ডার নেই।</p>
+                <p class="muted">No orders at this hub.</p>
             @else
                 <table>
                     <thead>
                         <tr>
-                            <th>অর্ডার নং</th>
-                            <th>গ্রাহক</th>
-                            <th>ফোন</th>
-                            <th>প্যাকেজ</th>
-                            <th class="text-right">মোট</th>
-                            <th class="text-right">বাকি</th>
-                            <th>স্ট্যাটাস</th>
+                            <th>Order No.</th>
+                            <th>Customer</th>
+                            <th>Phone</th>
+                            <th>Packages</th>
+                            <th class="text-right">Total</th>
+                            <th class="text-right">Due</th>
+                            <th>Status</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -62,8 +62,8 @@
                                 <td>{{ $order['customer_name'] }}</td>
                                 <td>{{ $order['customer_phone'] }}</td>
                                 <td>{{ $order['items_label'] ?: '—' }}</td>
-                                <td class="text-right">৳ {{ $order['total_amount'] }}</td>
-                                <td class="text-right">৳ {{ $order['due_amount'] }}</td>
+                                <td class="text-right">Tk. {{ $order['total_amount'] }}</td>
+                                <td class="text-right">Tk. {{ $order['due_amount'] }}</td>
                                 <td>{{ $order['status_label'] }}</td>
                             </tr>
                         @endforeach

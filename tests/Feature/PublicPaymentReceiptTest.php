@@ -76,12 +76,12 @@ test('verified payment receipt renders html with valid tracking token', function
         'token' => 'tracktoken1234',
     ]))
         ->assertOk()
-        ->assertSee('পেমেন্ট রিসিপ্ট')
+        ->assertSee('Payment Receipt')
         ->assertSee('PAY-'.$payment->id)
         ->assertSee('FC1E1-R01')
         ->assertSee('Receipt Customer')
         ->assertSee('TRX123456')
-        ->assertSee('অগ্রিম');
+        ->assertSee('Advance');
 });
 
 test('verified payment receipt downloads pdf with valid customer phone', function () {

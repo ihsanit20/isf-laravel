@@ -111,7 +111,7 @@ class EventOrderPrintService
             'payment' => [
                 'reference' => 'PAY-'.$payment->id,
                 'amount' => $this->formatMoney($payment->amount),
-                'payment_type_label' => $payment->payment_type?->labelBn() ?? 'পেমেন্ট',
+                'payment_type_label' => $payment->payment_type?->label() ?? 'Payment',
                 'payment_method' => $payment->payment_method,
                 'transaction_reference' => $payment->transaction_reference,
                 'paid_at' => $payment->paid_at?->format('d M Y, h:i A'),
@@ -254,9 +254,9 @@ class EventOrderPrintService
     private function statusFilterLabel(string $statusFilter): string
     {
         return match ($statusFilter) {
-            'pending' => 'Pending অর্ডার',
-            'all' => 'সব অর্ডার',
-            default => 'Confirmed অর্ডার',
+            'pending' => 'Pending orders',
+            'all' => 'All orders',
+            default => 'Confirmed orders',
         };
     }
 

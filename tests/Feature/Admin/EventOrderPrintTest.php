@@ -131,7 +131,7 @@ test('pickup hub print includes only confirmed orders by default', function () {
         ->get(route('admin.events.orders.print.pickup-hub', [$event, $pickupA]))
         ->assertOk()
         ->assertSee('Hub Alpha')
-        ->assertSee('এই হাবে কোনো অর্ডার নেই')
+        ->assertSee('No orders at this hub')
         ->assertDontSee('FC1E1-P01');
 
     actingAs($admin)
@@ -166,7 +166,7 @@ test('customer receipt print shows order details and tracking url', function () 
     actingAs($admin)
         ->get(route('admin.events.orders.print.receipt', [$event, $orders['confirmed']]))
         ->assertOk()
-        ->assertSee('অর্ডার/বুকিং রিসিপ্ট')
+        ->assertSee('Order Receipt')
         ->assertSee('FC1E1-C01')
         ->assertSee('Confirmed Customer')
         ->assertSee('01722222222')
@@ -205,7 +205,7 @@ test('package summary print shows confirmed packing totals', function () {
     actingAs($admin)
         ->get(route('admin.events.orders.print.package-summary', $event))
         ->assertOk()
-        ->assertSee('প্যাকেজ প্যাকিং সারাংশ')
+        ->assertSee('Package Packing Summary')
         ->assertSee('Rice 5kg')
         ->assertSee('2');
 });

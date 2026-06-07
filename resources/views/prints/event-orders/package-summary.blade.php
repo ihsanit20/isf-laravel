@@ -1,31 +1,31 @@
 @extends('prints.layout')
 
-@section('title', 'প্যাকিং সারাংশ — '.$event['title'])
+@section('title', 'Packing Summary — '.$event['title'])
 
 @section('content')
     <header class="section">
-        <h1>প্যাকেজ প্যাকিং সারাংশ</h1>
+        <h1>Package Packing Summary</h1>
         <p class="meta">
-            ইভেন্ট: <strong>{{ $event['title'] }}</strong>
+            Event: <strong>{{ $event['title'] }}</strong>
             @if($event['expected_delivery_date'])
-                · ডেলিভারি: {{ $event['expected_delivery_date'] }}
+                · Delivery: {{ $event['expected_delivery_date'] }}
             @endif
-            · Confirmed অর্ডার অনুযায়ী
-            · তৈরি: {{ $generated_at }}
+            · Based on confirmed orders
+            · Generated: {{ $generated_at }}
         </p>
     </header>
 
     @if(count($packages) === 0)
-        <p class="muted">Confirmed অর্ডারে কোনো প্যাকেজ নেই।</p>
+        <p class="muted">No packages in confirmed orders.</p>
     @else
         <table>
             <thead>
                 <tr>
-                    <th>প্যাকেজ</th>
-                    <th class="text-center">Confirmed অর্ডার</th>
-                    <th class="text-center">মোট প্যাক</th>
-                    <th>মোট পরিমাণ</th>
-                    <th>বিস্তারিত</th>
+                    <th>Package</th>
+                    <th class="text-center">Confirmed Orders</th>
+                    <th class="text-center">Total Packs</th>
+                    <th>Total Quantity</th>
+                    <th>Details</th>
                 </tr>
             </thead>
             <tbody>

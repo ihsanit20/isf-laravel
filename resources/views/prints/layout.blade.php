@@ -1,31 +1,16 @@
 <!DOCTYPE html>
-<html lang="bn">
+<html lang="en">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>@yield('title', 'প্রিন্ট')</title>
+    <title>@yield('title', 'Print')</title>
     <style>
-        @unless(request()->query('download') === 'pdf')
-            @font-face {
-                font-family: 'Noto Sans Bengali';
-                font-style: normal;
-                font-weight: 400;
-                src: url('{{ asset('fonts/NotoSansBengali-Regular.ttf') }}') format('truetype');
-            }
-        @endunless
-
-        @if(request()->query('download') === 'pdf')
-            h1, h2, h3, th, strong, b {
-                font-weight: normal;
-            }
-        @endif
-
         * {
             box-sizing: border-box;
         }
 
         body {
-            font-family: 'noto sans bengali', 'Noto Sans Bengali', 'DejaVu Sans', sans-serif;
+            font-family: 'DejaVu Sans', sans-serif;
             font-size: 12px;
             line-height: 1.45;
             color: #111;
@@ -60,14 +45,8 @@
 
         th {
             background: #f3f4f6;
-            font-weight: normal;
+            font-weight: 600;
         }
-
-        @if(request()->query('download') !== 'pdf')
-            th {
-                font-weight: 600;
-            }
-        @endif
 
         .text-right { text-align: right; }
         .text-center { text-align: center; }
@@ -113,9 +92,9 @@
 <body>
     @unless(request()->query('download') === 'pdf')
         <div class="toolbar">
-            <button type="button" class="btn btn-primary" onclick="window.print()">প্রিন্ট করুন</button>
+            <button type="button" class="btn btn-primary" onclick="window.print()">Print</button>
             @isset($pdf_download_url)
-                <a href="{{ $pdf_download_url }}" class="btn">PDF ডাউনলোড</a>
+                <a href="{{ $pdf_download_url }}" class="btn">Download PDF</a>
             @endisset
         </div>
     @endunless
