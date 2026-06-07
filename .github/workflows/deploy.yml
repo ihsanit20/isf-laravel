@@ -148,6 +148,8 @@ jobs:
 
             "$PHP_BIN" "$COMPOSER_PATH" install --no-interaction --no-dev --prefer-dist --optimize-autoloader
             "$PHP_BIN" artisan migrate --force
+            mkdir -p storage/fonts bootstrap/cache storage/framework/{cache,sessions,views} storage/logs
+            chmod -R ug+rwx storage bootstrap/cache
             "$PHP_BIN" artisan optimize:clear
             "$PHP_BIN" artisan config:cache
             "$PHP_BIN" artisan route:cache

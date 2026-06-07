@@ -22,7 +22,7 @@ trait RendersPrintViews
         if ($request->query('download') === 'pdf') {
             $pdf = Pdf::loadView($view, $data)->setPaper('a4');
 
-            $this->registerBengaliFont($pdf);
+            $this->configurePdfFonts($pdf);
 
             return $pdf->download($filename);
         }
@@ -30,18 +30,12 @@ trait RendersPrintViews
         return view($view, $data);
     }
 
-    private function registerBengaliFont(\Barryvdh\DomPDF\PDF $pdf): void
+    private function configurePdfFonts(\Barryvdh\DomPDF\PDF $pdf): void
     {
-        $fontPath = public_path('fonts/NotoSansBengali-Regular.ttf');
-
-        if (! is_file($fontPath)) {
-            return;
-        }
-
         $fontDir = storage_path('fonts');
 
         if (! is_dir($fontDir)) {
-            mkdir($fontDir, 0755, true);
+            return;
         }
 
         $dompdf = $pdf->getDomPDF();
@@ -49,11 +43,5 @@ trait RendersPrintViews
         $options->setChroot(public_path());
         $options->setFontDir($fontDir);
         $options->setFontCache($fontDir);
-
-        $dompdf->getFontMetrics()->registerFont([
-            'family' => 'noto sans bengali',
-            'style' => 'normal',
-            'weight' => 'normal',
-        ], $fontPath);
     }
 }

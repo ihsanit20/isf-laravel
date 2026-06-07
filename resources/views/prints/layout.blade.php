@@ -5,12 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>@yield('title', 'প্রিন্ট')</title>
     <style>
-        @font-face {
-            font-family: 'Noto Sans Bengali';
-            font-style: normal;
-            font-weight: 400;
-            src: url('{{ asset('fonts/NotoSansBengali-Regular.ttf') }}') format('truetype');
-        }
+        @unless(request()->query('download') === 'pdf')
+            @font-face {
+                font-family: 'Noto Sans Bengali';
+                font-style: normal;
+                font-weight: 400;
+                src: url('{{ asset('fonts/NotoSansBengali-Regular.ttf') }}') format('truetype');
+            }
+        @endunless
 
         * {
             box-sizing: border-box;
