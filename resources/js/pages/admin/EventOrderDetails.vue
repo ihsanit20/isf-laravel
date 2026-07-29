@@ -74,6 +74,7 @@ type OrderDetails = {
     status_label: string;
     total_amount: string;
     advance_amount: string;
+    is_full_payment: boolean;
     due_amount: string;
     verified_paid_amount: string;
     can_record_payment: boolean;
@@ -213,7 +214,11 @@ const submitReject = (paymentId: number) => {
                 class="rounded-xl border border-blue-300/60 bg-blue-50 p-5 dark:bg-blue-950/20"
             >
                 <p class="text-xs font-semibold uppercase text-blue-700">
-                    Advance required
+                    {{
+                        props.order.is_full_payment
+                            ? "Full payment"
+                            : "Advance required"
+                    }}
                 </p>
                 <p class="mt-2 text-2xl font-bold text-blue-800">
                     {{ props.order.advance_amount }}

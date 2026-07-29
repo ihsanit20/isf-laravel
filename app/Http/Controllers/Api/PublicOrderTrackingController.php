@@ -72,6 +72,8 @@ class PublicOrderTrackingController extends Controller
             'customer_phone' => $order->customer_phone,
             'total_amount' => (float) $order->total_amount,
             'advance_amount' => (float) $order->advance_amount,
+            'is_full_payment' => (float) $order->advance_amount > 0
+                && (float) $order->advance_amount >= (float) $order->total_amount,
             'due_amount' => $order->dueAmount(),
             'can_pay_due' => $order->canPayDueViaBkash(),
             'payment_status' => $order->advancePaymentStatus(),

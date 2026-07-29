@@ -98,7 +98,13 @@ class PublicOrderController extends Controller
         $maxAdvancePercent = count($advancePercents) ? max($advancePercents) : 0;
         $totalAdvance = round($totalAmount * $maxAdvancePercent / 100, 2);
 
-        $order = DB::transaction(function () use ($event, $request, $lineItems, $totalAmount, $totalAdvance) {
+        // Customer may choose to pay the full amount now instead of just the advance.
+        $paymentOption = $request->input('payment_option') === 'full' ? 'full' : 'advance';
+        if ($paymentOption === 'full') {
+            $totalAdvance = $totalAmount;
+        }
+
+        $order = DB::transaction(function () use ($event, $request, $lineItems, $totalAmount, $totalAdvance, $paymentOption) {
             $order = EventOrder::create([
                 'fund_cycle_event_id' => $event->id,
                 'event_pickup_point_id' => $request->pickup_point_id,
@@ -125,9 +131,11 @@ class PublicOrderController extends Controller
             EventOrderStatusHistory::create([
                 'event_order_id' => $order->id,
                 'status' => EventOrderStatus::Pending->value,
-                'note' => $totalAdvance > 0
-                    ? 'Order placed. Awaiting bKash advance payment.'
-                    : 'Order placed by customer.',
+                'note' => match (true) {
+                    $totalAdvance <= 0 => 'Order placed by customer.',
+                    $paymentOption === 'full' => 'Order placed. Awaiting full bKash payment.',
+                    default => 'Order placed. Awaiting bKash advance payment.',
+                },
                 'changed_by_user_id' => null,
                 'changed_at' => now(),
             ]);
@@ -148,15 +156,18 @@ class PublicOrderController extends Controller
         $requiresPayment = (float) $order->advance_amount > 0;
 
         return response()->json([
-            'message' => $requiresPayment
-                ? 'Order placed. Advance payment via bKash is required to confirm.'
-                : 'Order placed successfully.',
+            'message' => match (true) {
+                ! $requiresPayment => 'Order placed successfully.',
+                $paymentOption === 'full' => 'Order placed. Full payment via bKash is required to confirm.',
+                default => 'Order placed. Advance payment via bKash is required to confirm.',
+            },
             'data' => [
                 'order_number' => $order->order_number,
                 'customer_name' => $order->customer_name,
                 'customer_phone' => $order->customer_phone,
                 'total_amount' => (float) $order->total_amount,
                 'advance_amount' => (float) $order->advance_amount,
+                'payment_option' => $paymentOption,
                 'requires_payment' => $requiresPayment,
                 'status' => $order->status->value,
                 'status_label' => $order->status->label(),

@@ -156,6 +156,7 @@ class EventOrderController extends Controller
                 'status_label' => $eventOrder->status->label(),
                 'total_amount' => (string) $eventOrder->total_amount,
                 'advance_amount' => (string) $eventOrder->advance_amount,
+                'is_full_payment' => $this->isFullPayment($eventOrder),
                 'due_amount' => (string) $dueAmount,
                 'verified_paid_amount' => (string) $eventOrder->totalVerifiedPaid(),
                 'can_record_payment' => $eventOrder->canAcceptDuePayment(),
@@ -289,6 +290,12 @@ class EventOrderController extends Controller
         });
     }
 
+    private function isFullPayment(EventOrder $order): bool
+    {
+        return (float) $order->advance_amount > 0
+            && (float) $order->advance_amount >= (float) $order->total_amount;
+    }
+
     /**
      * @return array<int, array{value: string, label: string}>
      */
@@ -315,6 +322,7 @@ class EventOrderController extends Controller
             'status_label' => $order->status->label(),
             'total_amount' => (string) $order->total_amount,
             'advance_amount' => (string) $order->advance_amount,
+            'is_full_payment' => $this->isFullPayment($order),
             'due_amount' => (string) $dueAmount,
             'can_record_payment' => $order->canAcceptDuePayment(),
             'can_update_status' => $order->status !== EventOrderStatus::Cancelled,

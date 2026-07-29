@@ -97,6 +97,7 @@ type OrderItem = {
     status_label: string;
     total_amount: string;
     advance_amount: string;
+    is_full_payment: boolean;
     due_amount: string;
     can_record_payment: boolean;
     can_update_status: boolean;
@@ -641,6 +642,13 @@ const paginationLabel = (label: string): string =>
                                 </td>
                                 <td class="px-4 py-3 text-muted-foreground">
                                     {{ order.advance_amount }}
+                                    <Badge
+                                        v-if="order.is_full_payment"
+                                        variant="secondary"
+                                        class="ml-1"
+                                    >
+                                        Full
+                                    </Badge>
                                 </td>
                                 <td class="px-4 py-3">
                                     <Button

@@ -22,6 +22,7 @@ class PlaceOrderRequest extends FormRequest
             'items'                   => ['required', 'array', 'min:1'],
             'items.*.package_id'      => ['required', 'integer', 'exists:event_packages,id'],
             'items.*.quantity'        => ['required', 'integer', 'min:1'],
+            'payment_option'          => ['nullable', 'string', 'in:advance,full'],
         ];
     }
 
