@@ -87,6 +87,41 @@ const form = useForm<{
 
 const money = (amount: number): string => `${amount.toLocaleString()} BDT`;
 
+const MONTH_NAMES = [
+    'january',
+    'february',
+    'march',
+    'april',
+    'may',
+    'june',
+    'july',
+    'august',
+    'september',
+    'october',
+    'november',
+    'december',
+];
+
+const slotSortValue = (slot: string | null): number => {
+    if (!slot) {
+        return -Infinity;
+    }
+
+    const match = slot.trim().match(/^([A-Za-z]+)\s+(\d{4})$/);
+
+    if (!match) {
+        return -Infinity;
+    }
+
+    const monthIndex = MONTH_NAMES.indexOf(match[1].toLowerCase());
+
+    if (monthIndex === -1) {
+        return -Infinity;
+    }
+
+    return Number(match[2]) * 12 + monthIndex;
+};
+
 const activeMemberTab = computed<MemberTab | null>(() => {
     if (activeMemberId.value === null) {
         return null;
@@ -110,25 +145,49 @@ const filteredRows = computed<AllocationRow[]>(() => {
         return [];
     }
 
-    return activeMemberTab.value.rows.filter((row) => {
-        if (cycleFilter.value !== '' && row.cycle_name !== cycleFilter.value) {
-            return false;
-        }
-
-        if (statusFilter.value !== 'all' && row.status !== statusFilter.value) {
-            return false;
-        }
-
-        if (slotFilter.value.trim() !== '') {
-            const slotText = (row.slot_key ?? '').toLowerCase();
-
-            if (!slotText.includes(slotFilter.value.trim().toLowerCase())) {
+    return activeMemberTab.value.rows
+        .filter((row) => {
+            if (
+                cycleFilter.value !== '' &&
+                row.cycle_name !== cycleFilter.value
+            ) {
                 return false;
             }
-        }
 
-        return true;
-    });
+            if (
+                statusFilter.value !== 'all' &&
+                row.status !== statusFilter.value
+            ) {
+                return false;
+            }
+
+            if (slotFilter.value.trim() !== '') {
+                const slotText = (row.slot_key ?? '').toLowerCase();
+
+                if (
+                    !slotText.includes(slotFilter.value.trim().toLowerCase())
+                ) {
+                    return false;
+                }
+            }
+
+            return true;
+        })
+        .sort((a, b) => {
+            if (a.status !== b.status) {
+                return b.status.localeCompare(a.status);
+            }
+
+            const cycleCompare = (a.cycle_name ?? '').localeCompare(
+                b.cycle_name ?? '',
+            );
+
+            if (cycleCompare !== 0) {
+                return cycleCompare;
+            }
+
+            return slotSortValue(b.slot_key) - slotSortValue(a.slot_key);
+        });
 });
 
 const selectedAllocationAmount = computed(
