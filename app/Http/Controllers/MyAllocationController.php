@@ -10,6 +10,7 @@ use App\Models\FundCycle;
 use App\Models\FundCycleAllocation;
 use App\Models\Member;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -150,7 +151,7 @@ class MyAllocationController extends Controller
             ->sortBy([
                 ['status', 'desc'],
                 ['cycle_name', 'asc'],
-                ['slot_key', 'asc'],
+                fn(array $a, array $b): int => $this->slotSortValue($b['slot_key']) <=> $this->slotSortValue($a['slot_key']),
             ])
             ->values();
 
@@ -179,6 +180,19 @@ class MyAllocationController extends Controller
             ],
             'rows' => $rows,
         ];
+    }
+
+    private function slotSortValue(?string $slot): int
+    {
+        if ($slot === null || trim($slot) === '') {
+            return PHP_INT_MIN;
+        }
+
+        try {
+            return Carbon::createFromFormat('F Y', trim($slot))->timestamp;
+        } catch (\Throwable) {
+            return PHP_INT_MIN;
+        }
     }
 
     private function remainingPoolForUser(User $user): int
