@@ -103,6 +103,10 @@ class MemberFundCycleController extends Controller
             ]);
         });
 
+        if ($request->string('return_to')->toString() === 'allocations') {
+            return to_route('allocations.index');
+        }
+
         return to_route('members.fund-cycles.index', $member);
     }
 
