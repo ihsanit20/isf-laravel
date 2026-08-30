@@ -2,9 +2,12 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Enums\DepositSubmissionStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreUserRequest;
 use App\Http\Requests\Admin\UpdateUserRequest;
+use App\Models\DepositSubmission;
+use App\Models\FundCycleAllocation;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -18,19 +21,32 @@ class UserListController extends Controller
         /** @var User $actor */
         $actor = $request->user();
 
+        $verifiedDepositTotals = DepositSubmission::query()
+            ->where('status', DepositSubmissionStatus::Verified)
+            ->selectRaw('user_id, SUM(amount) as total')
+            ->groupBy('user_id')
+            ->pluck('total', 'user_id');
+
+        $memberAllocatedTotals = FundCycleAllocation::query()
+            ->join('members', 'members.id', '=', 'fund_cycle_allocations.member_id')
+            ->selectRaw('members.managed_by_user_id as user_id, SUM(fund_cycle_allocations.amount) as total')
+            ->groupBy('members.managed_by_user_id')
+            ->pluck('total', 'user_id');
+
         return Inertia::render('admin/Users', [
             'assignableRoles' => User::assignableRolesFor($actor->role),
             'users' => User::query()
                 ->orderBy('name')
-                ->get(['id', 'name', 'email', 'phone', 'role', 'created_at'])
+                ->get(['id', 'name', 'email', 'phone', 'role'])
                 ->map(fn(User $user): array => [
                     'id' => $user->id,
                     'name' => $user->name,
                     'email' => $user->email,
                     'phone' => $user->phone,
                     'role' => $user->role,
-                    'created_at' => $user->created_at?->format('d M Y, h:i A'),
                     'can_edit' => $actor->canManageUser($user),
+                    'total_verified_deposit_amount' => (int) ($verifiedDepositTotals[$user->id] ?? 0),
+                    'member_total_allocated_amount' => (int) ($memberAllocatedTotals[$user->id] ?? 0),
                 ])
                 ->values(),
         ]);

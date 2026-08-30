@@ -12,8 +12,9 @@ type AdminUser = {
     email: string;
     phone: string | null;
     role: UserRole;
-    created_at: string;
     can_edit: boolean;
+    total_verified_deposit_amount: number;
+    member_total_allocated_amount: number;
 };
 
 type Props = {
@@ -55,6 +56,8 @@ const editableUser = computed(() => {
         role: selectedUser.value.role,
     };
 });
+
+const money = (amount: number): string => `${amount.toLocaleString()} BDT`;
 
 const roleLabel = (role: UserRole): string =>
     role.replace('_', ' ').replace(/\b\w/g, (char) => char.toUpperCase());
@@ -102,10 +105,11 @@ const openEditDialog = (user: AdminUser) => {
                     <thead class="bg-muted/40 text-left">
                         <tr>
                             <th class="px-4 py-3 font-medium">Name</th>
-                            <th class="px-4 py-3 font-medium">Email</th>
                             <th class="px-4 py-3 font-medium">Phone</th>
+                            <th class="px-4 py-3 font-medium text-center">
+                                Member Allocated / Verified Deposit
+                            </th>
                             <th class="px-4 py-3 font-medium">Role</th>
-                            <th class="px-4 py-3 font-medium">Joined At</th>
                             <th class="px-4 py-3 font-medium">Action</th>
                         </tr>
                     </thead>
@@ -115,16 +119,24 @@ const openEditDialog = (user: AdminUser) => {
                                 {{ user.name }}
                             </td>
                             <td class="px-4 py-3 text-muted-foreground">
-                                {{ user.email }}
+                                {{ user.phone || 'Not set' }}
                             </td>
                             <td class="px-4 py-3 text-muted-foreground">
-                                {{ user.phone || 'Not set' }}
+                                <div class="flex flex-wrap gap-1 justify-center items-center">
+                                    <div>
+                                        {{
+                                            money(
+                                                user.member_total_allocated_amount,
+                                            )
+                                        }}
+                                    </div>
+                                    <div class="font-bold">
+                                        {{ money(user.total_verified_deposit_amount) }}
+                                    </div>
+                                </div>
                             </td>
                             <td class="px-4 py-3 capitalize">
                                 {{ roleLabel(user.role) }}
-                            </td>
-                            <td class="px-4 py-3 text-muted-foreground">
-                                {{ user.created_at }}
                             </td>
                             <td class="px-4 py-3">
                                 <Button
@@ -146,7 +158,7 @@ const openEditDialog = (user: AdminUser) => {
                         </tr>
                         <tr v-if="users.length === 0">
                             <td
-                                colspan="6"
+                                colspan="5"
                                 class="px-4 py-8 text-center text-muted-foreground"
                             >
                                 No users found.
