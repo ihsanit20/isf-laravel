@@ -23,6 +23,7 @@ use App\Http\Controllers\MemberController;
 use App\Http\Controllers\MemberFundCycleController;
 use App\Http\Controllers\MyAllocationController;
 use App\Http\Controllers\MyChargeController;
+use App\Http\Controllers\MyFundCycleController;
 use App\Http\Controllers\PublicPaymentReceiptController;
 use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Features;
@@ -60,6 +61,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('my-deposits/allocate', [DepositController::class, 'storeAllocations'])->name('deposits.allocations.store');
     Route::get('my-allocations', [MyAllocationController::class, 'index'])->name('allocations.index');
     Route::get('my-charges', [MyChargeController::class, 'index'])->name('charges.index');
+    Route::get('fund-cycles', [MyFundCycleController::class, 'index'])->name('fund-cycles.index');
+    Route::get('fund-cycles/{fundCycle}', [MyFundCycleController::class, 'show'])->name('fund-cycles.show');
 });
 
 Route::middleware(['auth', 'verified', 'admin'])->group(function () {
@@ -75,6 +78,7 @@ Route::middleware(['auth', 'verified', 'admin'])->group(function () {
     Route::put('admin/fund-cycles/{fundCycle}/events/{fundCycleEvent}', [FundCycleEventController::class, 'update'])->name('admin.fund-cycles.events.update');
     Route::get('admin/events', [FundCycleEventController::class, 'all'])->name('admin.events.index');
     Route::get('admin/events/{fundCycleEvent}', [FundCycleEventController::class, 'show'])->name('admin.events.show');
+    Route::patch('admin/events/{fundCycleEvent}/finalize', [FundCycleEventController::class, 'finalize'])->name('admin.events.finalize');
     Route::get('admin/events/{fundCycleEvent}/orders', [EventOrderController::class, 'index'])->name('admin.events.orders.index');
     Route::get('admin/events/{fundCycleEvent}/orders/{eventOrder}', [EventOrderController::class, 'show'])->name('admin.events.orders.show');
     Route::post('admin/events/{fundCycleEvent}/orders/{eventOrder}/payments', [EventOrderController::class, 'storePayment'])->name('admin.events.orders.payments.store');

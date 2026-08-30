@@ -28,6 +28,10 @@ class PublicOrderController extends Controller
             ->where('status', 'published')
             ->firstOrFail();
 
+        if ($event->is_finalized) {
+            return response()->json(['message' => 'This event has been finalized and is no longer accepting orders.'], 422);
+        }
+
         // Validate order window
         $now = now();
         if ($event->order_open_at && $now->lt($event->order_open_at)) {

@@ -13,6 +13,8 @@ class EventPickupPointController extends Controller
 {
     public function store(StoreEventPickupPointRequest $request, FundCycleEvent $fundCycleEvent): RedirectResponse
     {
+        $fundCycleEvent->ensureNotFinalized();
+
         $fundCycleEvent->pickupPoints()->create($request->validated());
 
         return to_route('admin.events.show', [
@@ -26,6 +28,8 @@ class EventPickupPointController extends Controller
         FundCycleEvent $fundCycleEvent,
         EventPickupPoint $eventPickupPoint,
     ): RedirectResponse {
+        $fundCycleEvent->ensureNotFinalized();
+
         $eventPickupPoint->update($request->validated());
 
         return to_route('admin.events.show', [
@@ -36,6 +40,8 @@ class EventPickupPointController extends Controller
 
     public function destroy(FundCycleEvent $fundCycleEvent, EventPickupPoint $eventPickupPoint): RedirectResponse
     {
+        $fundCycleEvent->ensureNotFinalized();
+
         $eventPickupPoint->delete();
 
         return to_route('admin.events.show', [

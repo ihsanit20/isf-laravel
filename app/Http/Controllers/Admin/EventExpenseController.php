@@ -14,6 +14,8 @@ class EventExpenseController extends Controller
 {
     public function store(StoreEventExpenseRequest $request, FundCycleEvent $fundCycleEvent): RedirectResponse
     {
+        $fundCycleEvent->ensureNotFinalized();
+
         $receiptPath = $request->file('receipt')?->store(
             "event-expense-attachments/{$fundCycleEvent->id}",
             EventExpense::attachmentDisk(),
@@ -37,6 +39,7 @@ class EventExpenseController extends Controller
         EventExpense $eventExpense,
     ): RedirectResponse {
         $this->ensureExpenseBelongsToEvent($fundCycleEvent, $eventExpense);
+        $fundCycleEvent->ensureNotFinalized();
 
         $attributes = $request->safe()->only(['expense_date', 'category', 'amount', 'description']);
 
@@ -62,6 +65,7 @@ class EventExpenseController extends Controller
     public function destroy(FundCycleEvent $fundCycleEvent, EventExpense $eventExpense): RedirectResponse
     {
         $this->ensureExpenseBelongsToEvent($fundCycleEvent, $eventExpense);
+        $fundCycleEvent->ensureNotFinalized();
 
         if ($eventExpense->receipt_path !== null) {
             Storage::disk(EventExpense::attachmentDisk())->delete($eventExpense->receipt_path);

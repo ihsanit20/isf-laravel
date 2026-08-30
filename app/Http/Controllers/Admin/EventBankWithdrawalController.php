@@ -13,6 +13,8 @@ class EventBankWithdrawalController extends Controller
 {
     public function store(StoreEventBankWithdrawalRequest $request, FundCycleEvent $fundCycleEvent): RedirectResponse
     {
+        $fundCycleEvent->ensureNotFinalized();
+
         $fundCycleEvent->bankWithdrawals()->create([
             ...$request->safe()->only(['withdrawal_date', 'amount', 'description', 'reference_no']),
             'created_by_user_id' => $request->user()?->id,
@@ -30,6 +32,7 @@ class EventBankWithdrawalController extends Controller
         EventBankWithdrawal $eventBankWithdrawal,
     ): RedirectResponse {
         $this->ensureWithdrawalBelongsToEvent($fundCycleEvent, $eventBankWithdrawal);
+        $fundCycleEvent->ensureNotFinalized();
 
         $eventBankWithdrawal->update(
             $request->safe()->only(['withdrawal_date', 'amount', 'description', 'reference_no']),
@@ -44,6 +47,7 @@ class EventBankWithdrawalController extends Controller
     public function destroy(FundCycleEvent $fundCycleEvent, EventBankWithdrawal $eventBankWithdrawal): RedirectResponse
     {
         $this->ensureWithdrawalBelongsToEvent($fundCycleEvent, $eventBankWithdrawal);
+        $fundCycleEvent->ensureNotFinalized();
 
         $eventBankWithdrawal->delete();
 

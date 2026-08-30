@@ -13,6 +13,8 @@ class EventBankDepositController extends Controller
 {
     public function store(StoreEventBankDepositRequest $request, FundCycleEvent $fundCycleEvent): RedirectResponse
     {
+        $fundCycleEvent->ensureNotFinalized();
+
         $fundCycleEvent->bankDeposits()->create([
             ...$request->safe()->only(['deposit_date', 'amount', 'description', 'reference_no']),
             'created_by_user_id' => $request->user()?->id,
@@ -30,6 +32,7 @@ class EventBankDepositController extends Controller
         EventBankDeposit $eventBankDeposit,
     ): RedirectResponse {
         $this->ensureDepositBelongsToEvent($fundCycleEvent, $eventBankDeposit);
+        $fundCycleEvent->ensureNotFinalized();
 
         $eventBankDeposit->update(
             $request->safe()->only(['deposit_date', 'amount', 'description', 'reference_no']),
@@ -44,6 +47,7 @@ class EventBankDepositController extends Controller
     public function destroy(FundCycleEvent $fundCycleEvent, EventBankDeposit $eventBankDeposit): RedirectResponse
     {
         $this->ensureDepositBelongsToEvent($fundCycleEvent, $eventBankDeposit);
+        $fundCycleEvent->ensureNotFinalized();
 
         $eventBankDeposit->delete();
 

@@ -13,6 +13,8 @@ class EventPackageController extends Controller
 {
     public function store(StoreEventPackageRequest $request, FundCycleEvent $fundCycleEvent): RedirectResponse
     {
+        $fundCycleEvent->ensureNotFinalized();
+
         $fundCycleEvent->packages()->create($request->validated());
 
         return to_route('admin.events.show', [
@@ -26,6 +28,8 @@ class EventPackageController extends Controller
         FundCycleEvent $fundCycleEvent,
         EventPackage $eventPackage,
     ): RedirectResponse {
+        $fundCycleEvent->ensureNotFinalized();
+
         $eventPackage->update($request->validated());
 
         return to_route('admin.events.show', [
@@ -36,6 +40,8 @@ class EventPackageController extends Controller
 
     public function destroy(FundCycleEvent $fundCycleEvent, EventPackage $eventPackage): RedirectResponse
     {
+        $fundCycleEvent->ensureNotFinalized();
+
         $eventPackage->delete();
 
         return to_route('admin.events.show', [

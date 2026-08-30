@@ -8,6 +8,7 @@ import {
     Clock3,
     FileText,
     Landmark,
+    Lock,
     MapPin,
     Pencil,
     Printer,
@@ -213,6 +214,7 @@ type EventDetails = {
     slug: string;
     status: string;
     status_label: string;
+    is_finalized: boolean;
     description: string | null;
     banner_image_url: string | null;
     order_open_at: string | null;
@@ -367,9 +369,7 @@ const detailTabs = computed(() => [
     },
 ]);
 
-const ordersIndexUrl = computed(
-    () => `/admin/events/${props.event.id}/orders`,
-);
+const ordersIndexUrl = computed(() => `/admin/events/${props.event.id}/orders`);
 
 const printPickupAllUrl = computed(
     () => `/admin/events/${props.event.id}/prints/pickup`,
@@ -382,9 +382,7 @@ const printPackageSummaryUrl = computed(
 const printPickupHubUrl = (pickupPointId: number) =>
     `/admin/events/${props.event.id}/prints/pickup/${pickupPointId}`;
 
-const buildOrdersUrl = (
-    overrides: Record<string, string> = {},
-): string => {
+const buildOrdersUrl = (overrides: Record<string, string> = {}): string => {
     const params = new URLSearchParams();
 
     Object.entries(overrides).forEach(([key, value]) => {
@@ -618,9 +616,7 @@ const openEditBankDeposit = (deposit: EventBankDeposit) => {
 
 const deleteBankDeposit = (deposit: EventBankDeposit) => {
     const label =
-        deposit.description ||
-        deposit.reference_no ||
-        money(deposit.amount);
+        deposit.description || deposit.reference_no || money(deposit.amount);
 
     if (!confirm(`"${label}" ব্যাংক জমা এন্ট্রি মুছে ফেলবেন?`)) {
         return;
@@ -670,6 +666,20 @@ const deleteExpense = (expense: EventExpense) => {
         preserveScroll: true,
     });
 };
+
+const finalizeEvent = () => {
+    if (
+        !confirm(
+            'এই ইভেন্টটি ফাইনালাইজ করবেন? ফাইনালাইজ করার পর কোনো তথ্য (কস্ট, উইথড্র, ডিপোজিট, এডিট, অর্ডার) আর পরিবর্তন করা যাবে না।',
+        )
+    ) {
+        return;
+    }
+
+    router.patch(`/admin/events/${props.event.id}/finalize`, undefined, {
+        preserveScroll: true,
+    });
+};
 </script>
 
 <template>
@@ -701,6 +711,20 @@ const deleteExpense = (expense: EventExpense) => {
                             <Badge class="px-2.5 py-1" variant="outline">
                                 {{ props.event.status_label }}
                             </Badge>
+                            <Badge
+                                class="px-2.5 py-1"
+                                :variant="
+                                    props.event.is_finalized
+                                        ? 'default'
+                                        : 'secondary'
+                                "
+                            >
+                                {{
+                                    props.event.is_finalized
+                                        ? 'Finalized'
+                                        : 'Not Finalized'
+                                }}
+                            </Badge>
                             <span
                                 class="inline-flex items-center gap-1 rounded-full border border-sidebar-border/80 bg-muted/40 px-2.5 py-1 font-medium text-muted-foreground"
                             >
@@ -712,13 +736,26 @@ const deleteExpense = (expense: EventExpense) => {
 
                     <div class="flex flex-wrap gap-2 md:justify-end">
                         <Button variant="outline" as-child>
-                            <Link :href="`/admin/events/${props.event.id}/orders`">
+                            <Link
+                                :href="`/admin/events/${props.event.id}/orders`"
+                            >
                                 Order List
                             </Link>
                         </Button>
-                        <Button @click="isEditDialogOpen = true">
+                        <Button
+                            v-if="!props.event.is_finalized"
+                            @click="isEditDialogOpen = true"
+                        >
                             <Pencil class="size-4" />
                             Edit Event
+                        </Button>
+                        <Button
+                            v-if="!props.event.is_finalized"
+                            variant="destructive"
+                            @click="finalizeEvent"
+                        >
+                            <Lock class="size-4" />
+                            Finalize
                         </Button>
                         <Button variant="outline" as-child>
                             <Link href="/admin/events">Back to Events</Link>
@@ -743,7 +780,10 @@ const deleteExpense = (expense: EventExpense) => {
                     <div
                         class="relative aspect-21/8 overflow-hidden bg-muted/40"
                     >
-                        <div class="absolute top-4 right-4 z-10">
+                        <div
+                            v-if="!props.event.is_finalized"
+                            class="absolute top-4 right-4 z-10"
+                        >
                             <Button
                                 size="sm"
                                 variant="secondary"
@@ -799,9 +839,7 @@ const deleteExpense = (expense: EventExpense) => {
                         v-for="tab in detailTabs"
                         :key="tab.key"
                         size="sm"
-                        :variant="
-                            activeTab === tab.key ? 'default' : 'outline'
-                        "
+                        :variant="activeTab === tab.key ? 'default' : 'outline'"
                         @click="setActiveTab(tab.key)"
                     >
                         {{ tab.label }}
@@ -826,10 +864,7 @@ const deleteExpense = (expense: EventExpense) => {
                 </Button>
             </div>
 
-            <div
-                v-if="activeTab === 'details'"
-                class="space-y-6 p-6"
-            >
+            <div v-if="activeTab === 'details'" class="space-y-6 p-6">
                 <div class="flex items-center gap-2">
                     <FileText class="size-5 text-muted-foreground" />
                     <h2 class="text-base font-semibold">Event Details</h2>
@@ -965,524 +1000,565 @@ const deleteExpense = (expense: EventExpense) => {
             </div>
 
             <div v-else-if="activeTab === 'packages'" class="p-6">
-            <div class="flex items-center justify-between">
-                <div class="flex items-center gap-2">
-                    <Package class="size-5 text-muted-foreground" />
-                    <h2 class="text-base font-semibold">Packages</h2>
-                    <Badge variant="secondary" class="text-xs">
-                        {{ props.event.packages.length }}
-                    </Badge>
-                </div>
-                <Button size="sm" @click="openAddPackage">
-                    <Plus class="size-4" />
-                    Add Package
-                </Button>
-            </div>
-
-            <div
-                v-if="props.event.packages.length === 0"
-                class="mt-6 rounded-xl border border-dashed border-sidebar-border/70 py-10 text-center text-sm text-muted-foreground"
-            >
-                No packages added yet. Click "Add Package" to create one.
-            </div>
-
-            <div
-                v-else
-                class="mt-4 overflow-x-auto rounded-xl border border-sidebar-border/70"
-            >
-                <table class="w-full text-sm">
-                    <thead>
-                        <tr
-                            class="border-b border-sidebar-border/70 bg-muted/30 text-xs text-muted-foreground"
-                        >
-                            <th class="px-4 py-3 text-left font-medium">
-                                Name
-                            </th>
-                            <th class="px-4 py-3 text-right font-medium">
-                                Unit
-                            </th>
-                            <th class="px-4 py-3 text-right font-medium">
-                                Package Price
-                            </th>
-                            <th class="px-4 py-3 text-right font-medium">
-                                Advance
-                            </th>
-                            <th class="px-4 py-3 text-right font-medium">
-                                Min / Max
-                            </th>
-                            <th class="px-4 py-3 text-right font-medium">
-                                Stock
-                            </th>
-                            <th class="px-4 py-3 text-right font-medium">
-                                Sold
-                            </th>
-                            <th class="px-4 py-3 text-center font-medium">
-                                Status
-                            </th>
-                            <th class="px-4 py-3 text-right font-medium">
-                                Actions
-                            </th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr
-                            v-for="pkg in props.event.packages"
-                            :key="pkg.id"
-                            class="border-b border-sidebar-border/50 last:border-0 hover:bg-muted/20"
-                        >
-                            <td class="px-4 py-3 font-medium text-foreground">
-                                {{ pkg.name }}
-                                <p
-                                    v-if="pkg.description"
-                                    class="mt-0.5 line-clamp-1 text-xs font-normal text-muted-foreground"
-                                >
-                                    {{ pkg.description }}
-                                </p>
-                            </td>
-                            <td
-                                class="px-4 py-3 text-right text-muted-foreground tabular-nums"
-                            >
-                                {{ pkg.unit_label }}
-                            </td>
-                            <td class="px-4 py-3 text-right tabular-nums">
-                                ৳{{ Number(pkg.package_price).toLocaleString() }}
-                            </td>
-                            <td class="px-4 py-3 text-right tabular-nums">
-                                {{ pkg.advance_percent }}%
-                            </td>
-                            <td
-                                class="px-4 py-3 text-right text-muted-foreground tabular-nums"
-                            >
-                                {{ pkg.min_qty_per_order }} /
-                                {{ pkg.max_qty_per_order ?? '∞' }}
-                            </td>
-                            <td class="px-4 py-3 text-right tabular-nums">
-                                {{ pkg.stock_qty ?? '∞' }}
-                            </td>
-                            <td class="px-4 py-3 text-right tabular-nums">
-                                {{ pkg.sold_qty }}
-                            </td>
-                            <td class="px-4 py-3 text-center">
-                                <Badge
-                                    variant="outline"
-                                    :class="{
-                                        'border-green-500/50 text-green-600 dark:text-green-400':
-                                            pkg.status === 'active',
-                                        'border-yellow-500/50 text-yellow-600 dark:text-yellow-400':
-                                            pkg.status === 'draft',
-                                        'border-muted text-muted-foreground':
-                                            pkg.status === 'inactive',
-                                    }"
-                                    class="text-xs"
-                                >
-                                    {{ pkg.status_label }}
-                                </Badge>
-                            </td>
-                            <td class="px-4 py-3 text-right">
-                                <div
-                                    class="flex items-center justify-end gap-1"
-                                >
-                                    <Button
-                                        size="sm"
-                                        variant="ghost"
-                                        class="h-7 px-2"
-                                        @click="openEditPackage(pkg)"
-                                    >
-                                        <Pencil class="size-3.5" />
-                                    </Button>
-                                    <Button
-                                        size="sm"
-                                        variant="ghost"
-                                        class="h-7 px-2 text-destructive hover:text-destructive"
-                                        @click="deletePackage(pkg)"
-                                    >
-                                        <Trash2 class="size-3.5" />
-                                    </Button>
-                                </div>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-
-            <div
-                class="mt-8 border-t border-sidebar-border/70 pt-8"
-            >
-                <div
-                    class="flex flex-wrap items-center justify-between gap-2"
-                >
-                    <div>
-                        <h3 class="text-sm font-semibold tracking-tight">
-                            Package Stock Snapshot
-                        </h3>
-                        <p class="mt-1 text-sm text-muted-foreground">
-                            Status counts show all orders; Confirmed and ordered
-                            totals reflect confirmed only (operational focus).
-                        </p>
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <Package class="size-5 text-muted-foreground" />
+                        <h2 class="text-base font-semibold">Packages</h2>
+                        <Badge variant="secondary" class="text-xs">
+                            {{ props.event.packages.length }}
+                        </Badge>
                     </div>
-                    <Button variant="outline" size="sm" as-child>
-                        <a
-                            :href="printPackageSummaryUrl"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                        >
-                            <Printer class="size-4" />
-                            প্যাকিং লিস্ট
-                        </a>
+                    <Button
+                        v-if="!props.event.is_finalized"
+                        size="sm"
+                        @click="openAddPackage"
+                    >
+                        <Plus class="size-4" />
+                        Add Package
                     </Button>
                 </div>
+
                 <div
-                    v-if="props.orderSummary.packages.length === 0"
-                    class="mt-6 text-center text-sm text-muted-foreground"
+                    v-if="props.event.packages.length === 0"
+                    class="mt-6 rounded-xl border border-dashed border-sidebar-border/70 py-10 text-center text-sm text-muted-foreground"
                 >
-                    No packages configured for this event.
+                    No packages added yet. Click "Add Package" to create one.
                 </div>
-                <div v-else class="mt-4 overflow-x-auto">
-                    <table
-                        class="min-w-full divide-y divide-sidebar-border/70 text-sm"
-                    >
-                        <thead class="bg-muted/40 text-left">
-                            <tr>
-                                <th class="px-3 py-2 font-medium">Package</th>
-                                <th class="px-3 py-2 font-medium">Ordered</th>
-                                <th class="px-3 py-2 font-medium">Stock</th>
-                                <th class="px-3 py-2 font-medium">Confirmed</th>
-                                <th
-                                    v-for="status in statusBreakdownColumns"
-                                    :key="status.value"
-                                    class="px-3 py-2 font-medium"
-                                >
-                                    {{ status.label }}
+
+                <div
+                    v-else
+                    class="mt-4 overflow-x-auto rounded-xl border border-sidebar-border/70"
+                >
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr
+                                class="border-b border-sidebar-border/70 bg-muted/30 text-xs text-muted-foreground"
+                            >
+                                <th class="px-4 py-3 text-left font-medium">
+                                    Name
+                                </th>
+                                <th class="px-4 py-3 text-right font-medium">
+                                    Unit
+                                </th>
+                                <th class="px-4 py-3 text-right font-medium">
+                                    Package Price
+                                </th>
+                                <th class="px-4 py-3 text-right font-medium">
+                                    Advance
+                                </th>
+                                <th class="px-4 py-3 text-right font-medium">
+                                    Min / Max
+                                </th>
+                                <th class="px-4 py-3 text-right font-medium">
+                                    Stock
+                                </th>
+                                <th class="px-4 py-3 text-right font-medium">
+                                    Sold
+                                </th>
+                                <th class="px-4 py-3 text-center font-medium">
+                                    Status
+                                </th>
+                                <th class="px-4 py-3 text-right font-medium">
+                                    Actions
                                 </th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-sidebar-border/70">
+                        <tbody>
                             <tr
-                                v-for="pkg in props.orderSummary.packages"
+                                v-for="pkg in props.event.packages"
                                 :key="pkg.id"
-                                :class="
-                                    pkg.is_low_stock ? 'bg-amber-500/5' : ''
-                                "
+                                class="border-b border-sidebar-border/50 last:border-0 hover:bg-muted/20"
                             >
-                                <td class="px-3 py-2 font-medium">
+                                <td
+                                    class="px-4 py-3 font-medium text-foreground"
+                                >
                                     {{ pkg.name }}
-                                </td>
-                                <td class="px-3 py-2 text-muted-foreground">
-                                    <template v-if="pkg.pack_count > 0">
-                                        <div class="text-xs">
-                                            {{ pkg.pack_line_label }}
-                                        </div>
-                                    </template>
-                                    <span v-else>—</span>
-                                </td>
-                                <td class="px-3 py-2 text-muted-foreground">
-                                    Sold: {{ pkg.sold_qty }}
-                                    <template v-if="pkg.stock_qty !== null">
-                                        · Left:
-                                        {{ pkg.remaining_qty ?? 0 }} /
-                                        {{ pkg.stock_qty }}
-                                    </template>
-                                    <template v-else> · No cap</template>
-                                </td>
-                                <td class="px-3 py-2 text-muted-foreground">
-                                    {{ pkg.order_count.toLocaleString() }}
+                                    <p
+                                        v-if="pkg.description"
+                                        class="mt-0.5 line-clamp-1 text-xs font-normal text-muted-foreground"
+                                    >
+                                        {{ pkg.description }}
+                                    </p>
                                 </td>
                                 <td
-                                    v-for="status in statusBreakdownColumns"
-                                    :key="`${pkg.id}-${status.value}`"
-                                    class="px-3 py-2 text-muted-foreground"
+                                    class="px-4 py-3 text-right text-muted-foreground tabular-nums"
                                 >
-                                    {{
-                                        statusCount(
-                                            pkg.by_status,
-                                            status.value,
+                                    {{ pkg.unit_label }}
+                                </td>
+                                <td class="px-4 py-3 text-right tabular-nums">
+                                    ৳{{
+                                        Number(
+                                            pkg.package_price,
                                         ).toLocaleString()
                                     }}
                                 </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-                <p
-                    v-if="lowStockPackages.length > 0"
-                    class="mt-3 text-xs text-amber-600"
-                >
-                    Low stock (≤5 remaining):
-                    {{ lowStockPackages.map((pkg) => pkg.name).join(', ') }}
-                </p>
-            </div>
-            </div>
-
-            <div v-else-if="activeTab === 'pickup'" class="p-6">
-            <div
-                class="flex items-center justify-between"
-            >
-                <div class="flex items-center gap-2">
-                    <MapPin class="size-4 text-muted-foreground" />
-                    <h2 class="text-base font-semibold">Pickup Points</h2>
-                    <Badge variant="secondary" class="ml-1">
-                        {{ props.event.pickup_points.length }}
-                    </Badge>
-                </div>
-                <Button size="sm" @click="openAddPickupPoint">
-                    <Plus class="size-4" />
-                    Add Pickup Point
-                </Button>
-            </div>
-
-            <!-- Empty state -->
-            <div
-                v-if="props.event.pickup_points.length === 0"
-                class="flex flex-col items-center justify-center gap-2 py-12 text-center text-muted-foreground"
-            >
-                <MapPin class="size-8 opacity-30" />
-                <p class="text-sm">No pickup points added yet.</p>
-                <Button size="sm" variant="outline" @click="openAddPickupPoint">
-                    Add the first pickup point
-                </Button>
-            </div>
-
-            <!-- Table -->
-            <div v-else class="overflow-x-auto">
-                <table class="w-full text-sm">
-                    <thead>
-                        <tr
-                            class="border-b border-sidebar-border/70 bg-muted/30 text-xs text-muted-foreground"
-                        >
-                            <th class="px-4 py-2 text-left font-medium">
-                                Name
-                            </th>
-                            <th class="px-4 py-2 text-left font-medium">
-                                Area
-                            </th>
-                            <th class="px-4 py-2 text-left font-medium">
-                                Contact
-                            </th>
-                            <th class="px-4 py-2 text-left font-medium">
-                                Phone
-                            </th>
-                            <th class="px-4 py-2 text-center font-medium">
-                                Status
-                            </th>
-                            <th class="px-4 py-2 text-right font-medium">
-                                Actions
-                            </th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-sidebar-border/70">
-                        <tr
-                            v-for="point in props.event.pickup_points"
-                            :key="point.id"
-                            class="hover:bg-muted/20"
-                        >
-                            <td class="px-4 py-3 font-medium">
-                                {{ point.name }}
-                            </td>
-                            <td class="px-4 py-3 text-muted-foreground">
-                                {{ point.area ?? '—' }}
-                            </td>
-                            <td class="px-4 py-3 text-muted-foreground">
-                                {{ point.contact_person ?? '—' }}
-                            </td>
-                            <td class="px-4 py-3 text-muted-foreground">
-                                {{ point.phone ?? '—' }}
-                            </td>
-                            <td class="px-4 py-3 text-center">
-                                <Badge
-                                    :variant="
-                                        point.is_active
-                                            ? 'default'
-                                            : 'secondary'
-                                    "
-                                >
-                                    {{
-                                        point.is_active ? 'Active' : 'Inactive'
-                                    }}
-                                </Badge>
-                            </td>
-                            <td class="px-4 py-3 text-right">
-                                <div
-                                    class="flex items-center justify-end gap-1"
-                                >
-                                    <Button
-                                        size="sm"
-                                        variant="ghost"
-                                        class="h-7 px-2"
-                                        @click="openEditPickupPoint(point)"
-                                    >
-                                        <Pencil class="size-3.5" />
-                                    </Button>
-                                    <Button
-                                        size="sm"
-                                        variant="ghost"
-                                        class="h-7 px-2 text-destructive hover:text-destructive"
-                                        @click="deletePickupPoint(point)"
-                                    >
-                                        <Trash2 class="size-3.5" />
-                                    </Button>
-                                </div>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-
-            <div
-                class="mt-8 border-t border-sidebar-border/70 pt-8"
-            >
-                <div
-                    class="flex flex-wrap items-start justify-between gap-3"
-                >
-                    <div>
-                        <h3 class="text-sm font-semibold tracking-tight">
-                            Orders by Pickup Point
-                        </h3>
-                        <p class="mt-1 text-sm text-muted-foreground">
-                            Status counts show all orders; Total, packages, and
-                            due reflect confirmed orders (operational focus).
-                        </p>
-                    </div>
-                    <Button variant="outline" size="sm" as-child>
-                        <a
-                            :href="printPickupAllUrl"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                        >
-                            <Printer class="size-4" />
-                            সব হাব প্রিন্ট
-                        </a>
-                    </Button>
-                </div>
-                <div
-                    v-if="props.orderSummary.pickup_points.length === 0"
-                    class="mt-6 text-center text-sm text-muted-foreground"
-                >
-                    No pickup points configured for this event.
-                </div>
-                <div v-else class="mt-4 overflow-x-auto">
-                    <table
-                        class="min-w-full divide-y divide-sidebar-border/70 text-sm"
-                    >
-                        <thead class="bg-muted/40 text-left">
-                            <tr>
-                                <th class="px-3 py-2 font-medium">
-                                    Pickup Point
-                                </th>
-                                <th class="px-3 py-2 font-medium">Packages</th>
-                                <th class="px-3 py-2 font-medium">Confirmed</th>
-                                <th
-                                    v-for="status in statusBreakdownColumns"
-                                    :key="status.value"
-                                    class="px-3 py-2 font-medium"
-                                >
-                                    {{ status.label }}
-                                </th>
-                                <th class="px-3 py-2 font-medium">Total Due</th>
-                                <th class="px-3 py-2 font-medium">Action</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-sidebar-border/70">
-                            <tr
-                                v-for="point in props.orderSummary.pickup_points"
-                                :key="point.id"
-                            >
-                                <td class="px-3 py-2 font-medium">
-                                    {{ point.name }}
+                                <td class="px-4 py-3 text-right tabular-nums">
+                                    {{ pkg.advance_percent }}%
                                 </td>
                                 <td
-                                    class="px-3 py-2 align-top text-muted-foreground"
+                                    class="px-4 py-3 text-right text-muted-foreground tabular-nums"
                                 >
-                                    <ul
-                                        v-if="point.packages.length > 0"
-                                        class="m-0 list-none space-y-1 p-0 text-xs"
+                                    {{ pkg.min_qty_per_order }} /
+                                    {{ pkg.max_qty_per_order ?? '∞' }}
+                                </td>
+                                <td class="px-4 py-3 text-right tabular-nums">
+                                    {{ pkg.stock_qty ?? '∞' }}
+                                </td>
+                                <td class="px-4 py-3 text-right tabular-nums">
+                                    {{ pkg.sold_qty }}
+                                </td>
+                                <td class="px-4 py-3 text-center">
+                                    <Badge
+                                        variant="outline"
+                                        :class="{
+                                            'border-green-500/50 text-green-600 dark:text-green-400':
+                                                pkg.status === 'active',
+                                            'border-yellow-500/50 text-yellow-600 dark:text-yellow-400':
+                                                pkg.status === 'draft',
+                                            'border-muted text-muted-foreground':
+                                                pkg.status === 'inactive',
+                                        }"
+                                        class="text-xs"
                                     >
-                                        <li
-                                            v-for="pkg in point.packages"
-                                            :key="pkg.id"
-                                        >
-                                            <span
-                                                class="font-medium text-foreground"
-                                            >
-                                                {{ pkg.name }}
-                                            </span>
-                                            <span class="text-muted-foreground">
-                                                · {{ pkg.pack_line_label }}
-                                            </span>
-                                        </li>
-                                    </ul>
-                                    <span v-else class="text-xs">—</span>
+                                        {{ pkg.status_label }}
+                                    </Badge>
                                 </td>
-                                <td class="px-3 py-2 text-muted-foreground">
-                                    {{ point.order_count.toLocaleString() }}
-                                </td>
-                                <td
-                                    v-for="status in statusBreakdownColumns"
-                                    :key="`${point.id}-${status.value}`"
-                                    class="px-3 py-2"
-                                >
-                                    <Link
-                                        v-if="
-                                            statusCount(
-                                                point.by_status,
-                                                status.value,
-                                            ) > 0
-                                        "
-                                        :href="
-                                            filterUrl({
-                                                pickup_point_id: String(
-                                                    point.id,
-                                                ),
-                                                status: status.value,
-                                            })
-                                        "
-                                        class="text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                                <td class="px-4 py-3 text-right">
+                                    <div
+                                        v-if="!props.event.is_finalized"
+                                        class="flex items-center justify-end gap-1"
                                     >
-                                        {{
-                                            statusCount(
-                                                point.by_status,
-                                                status.value,
-                                            ).toLocaleString()
-                                        }}
-                                    </Link>
-                                    <span v-else class="text-muted-foreground">
-                                        0
-                                    </span>
-                                </td>
-                                <td
-                                    class="px-3 py-2 font-medium text-amber-600"
-                                >
-                                    {{ money(point.total_due_amount) }}
-                                </td>
-                                <td class="px-3 py-2">
-                                    <div class="flex flex-wrap gap-2">
-                                        <Link
-                                            :href="
-                                                filterUrl({
-                                                    pickup_point_id: String(
-                                                        point.id,
-                                                    ),
-                                                })
-                                            "
-                                            class="text-xs font-medium text-primary underline-offset-4 hover:underline"
+                                        <Button
+                                            size="sm"
+                                            variant="ghost"
+                                            class="h-7 px-2"
+                                            @click="openEditPackage(pkg)"
                                         >
-                                            View all
-                                        </Link>
-                                        <a
-                                            :href="printPickupHubUrl(point.id)"
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            class="inline-flex items-center gap-1 text-xs font-medium text-primary underline-offset-4 hover:underline"
+                                            <Pencil class="size-3.5" />
+                                        </Button>
+                                        <Button
+                                            size="sm"
+                                            variant="ghost"
+                                            class="h-7 px-2 text-destructive hover:text-destructive"
+                                            @click="deletePackage(pkg)"
                                         >
-                                            <Printer class="size-3.5" />
-                                            প্রিন্ট
-                                        </a>
+                                            <Trash2 class="size-3.5" />
+                                        </Button>
                                     </div>
                                 </td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
+
+                <div class="mt-8 border-t border-sidebar-border/70 pt-8">
+                    <div
+                        class="flex flex-wrap items-center justify-between gap-2"
+                    >
+                        <div>
+                            <h3 class="text-sm font-semibold tracking-tight">
+                                Package Stock Snapshot
+                            </h3>
+                            <p class="mt-1 text-sm text-muted-foreground">
+                                Status counts show all orders; Confirmed and
+                                ordered totals reflect confirmed only
+                                (operational focus).
+                            </p>
+                        </div>
+                        <Button variant="outline" size="sm" as-child>
+                            <a
+                                :href="printPackageSummaryUrl"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                            >
+                                <Printer class="size-4" />
+                                প্যাকিং লিস্ট
+                            </a>
+                        </Button>
+                    </div>
+                    <div
+                        v-if="props.orderSummary.packages.length === 0"
+                        class="mt-6 text-center text-sm text-muted-foreground"
+                    >
+                        No packages configured for this event.
+                    </div>
+                    <div v-else class="mt-4 overflow-x-auto">
+                        <table
+                            class="min-w-full divide-y divide-sidebar-border/70 text-sm"
+                        >
+                            <thead class="bg-muted/40 text-left">
+                                <tr>
+                                    <th class="px-3 py-2 font-medium">
+                                        Package
+                                    </th>
+                                    <th class="px-3 py-2 font-medium">
+                                        Ordered
+                                    </th>
+                                    <th class="px-3 py-2 font-medium">Stock</th>
+                                    <th class="px-3 py-2 font-medium">
+                                        Confirmed
+                                    </th>
+                                    <th
+                                        v-for="status in statusBreakdownColumns"
+                                        :key="status.value"
+                                        class="px-3 py-2 font-medium"
+                                    >
+                                        {{ status.label }}
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-sidebar-border/70">
+                                <tr
+                                    v-for="pkg in props.orderSummary.packages"
+                                    :key="pkg.id"
+                                    :class="
+                                        pkg.is_low_stock ? 'bg-amber-500/5' : ''
+                                    "
+                                >
+                                    <td class="px-3 py-2 font-medium">
+                                        {{ pkg.name }}
+                                    </td>
+                                    <td class="px-3 py-2 text-muted-foreground">
+                                        <template v-if="pkg.pack_count > 0">
+                                            <div class="text-xs">
+                                                {{ pkg.pack_line_label }}
+                                            </div>
+                                        </template>
+                                        <span v-else>—</span>
+                                    </td>
+                                    <td class="px-3 py-2 text-muted-foreground">
+                                        Sold: {{ pkg.sold_qty }}
+                                        <template v-if="pkg.stock_qty !== null">
+                                            · Left:
+                                            {{ pkg.remaining_qty ?? 0 }} /
+                                            {{ pkg.stock_qty }}
+                                        </template>
+                                        <template v-else> · No cap</template>
+                                    </td>
+                                    <td class="px-3 py-2 text-muted-foreground">
+                                        {{ pkg.order_count.toLocaleString() }}
+                                    </td>
+                                    <td
+                                        v-for="status in statusBreakdownColumns"
+                                        :key="`${pkg.id}-${status.value}`"
+                                        class="px-3 py-2 text-muted-foreground"
+                                    >
+                                        {{
+                                            statusCount(
+                                                pkg.by_status,
+                                                status.value,
+                                            ).toLocaleString()
+                                        }}
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <p
+                        v-if="lowStockPackages.length > 0"
+                        class="mt-3 text-xs text-amber-600"
+                    >
+                        Low stock (≤5 remaining):
+                        {{ lowStockPackages.map((pkg) => pkg.name).join(', ') }}
+                    </p>
+                </div>
             </div>
+
+            <div v-else-if="activeTab === 'pickup'" class="p-6">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <MapPin class="size-4 text-muted-foreground" />
+                        <h2 class="text-base font-semibold">Pickup Points</h2>
+                        <Badge variant="secondary" class="ml-1">
+                            {{ props.event.pickup_points.length }}
+                        </Badge>
+                    </div>
+                    <Button
+                        v-if="!props.event.is_finalized"
+                        size="sm"
+                        @click="openAddPickupPoint"
+                    >
+                        <Plus class="size-4" />
+                        Add Pickup Point
+                    </Button>
+                </div>
+
+                <!-- Empty state -->
+                <div
+                    v-if="props.event.pickup_points.length === 0"
+                    class="flex flex-col items-center justify-center gap-2 py-12 text-center text-muted-foreground"
+                >
+                    <MapPin class="size-8 opacity-30" />
+                    <p class="text-sm">No pickup points added yet.</p>
+                    <Button
+                        v-if="!props.event.is_finalized"
+                        size="sm"
+                        variant="outline"
+                        @click="openAddPickupPoint"
+                    >
+                        Add the first pickup point
+                    </Button>
+                </div>
+
+                <!-- Table -->
+                <div v-else class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr
+                                class="border-b border-sidebar-border/70 bg-muted/30 text-xs text-muted-foreground"
+                            >
+                                <th class="px-4 py-2 text-left font-medium">
+                                    Name
+                                </th>
+                                <th class="px-4 py-2 text-left font-medium">
+                                    Area
+                                </th>
+                                <th class="px-4 py-2 text-left font-medium">
+                                    Contact
+                                </th>
+                                <th class="px-4 py-2 text-left font-medium">
+                                    Phone
+                                </th>
+                                <th class="px-4 py-2 text-center font-medium">
+                                    Status
+                                </th>
+                                <th class="px-4 py-2 text-right font-medium">
+                                    Actions
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-sidebar-border/70">
+                            <tr
+                                v-for="point in props.event.pickup_points"
+                                :key="point.id"
+                                class="hover:bg-muted/20"
+                            >
+                                <td class="px-4 py-3 font-medium">
+                                    {{ point.name }}
+                                </td>
+                                <td class="px-4 py-3 text-muted-foreground">
+                                    {{ point.area ?? '—' }}
+                                </td>
+                                <td class="px-4 py-3 text-muted-foreground">
+                                    {{ point.contact_person ?? '—' }}
+                                </td>
+                                <td class="px-4 py-3 text-muted-foreground">
+                                    {{ point.phone ?? '—' }}
+                                </td>
+                                <td class="px-4 py-3 text-center">
+                                    <Badge
+                                        :variant="
+                                            point.is_active
+                                                ? 'default'
+                                                : 'secondary'
+                                        "
+                                    >
+                                        {{
+                                            point.is_active
+                                                ? 'Active'
+                                                : 'Inactive'
+                                        }}
+                                    </Badge>
+                                </td>
+                                <td class="px-4 py-3 text-right">
+                                    <div
+                                        v-if="!props.event.is_finalized"
+                                        class="flex items-center justify-end gap-1"
+                                    >
+                                        <Button
+                                            size="sm"
+                                            variant="ghost"
+                                            class="h-7 px-2"
+                                            @click="openEditPickupPoint(point)"
+                                        >
+                                            <Pencil class="size-3.5" />
+                                        </Button>
+                                        <Button
+                                            size="sm"
+                                            variant="ghost"
+                                            class="h-7 px-2 text-destructive hover:text-destructive"
+                                            @click="deletePickupPoint(point)"
+                                        >
+                                            <Trash2 class="size-3.5" />
+                                        </Button>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="mt-8 border-t border-sidebar-border/70 pt-8">
+                    <div
+                        class="flex flex-wrap items-start justify-between gap-3"
+                    >
+                        <div>
+                            <h3 class="text-sm font-semibold tracking-tight">
+                                Orders by Pickup Point
+                            </h3>
+                            <p class="mt-1 text-sm text-muted-foreground">
+                                Status counts show all orders; Total, packages,
+                                and due reflect confirmed orders (operational
+                                focus).
+                            </p>
+                        </div>
+                        <Button variant="outline" size="sm" as-child>
+                            <a
+                                :href="printPickupAllUrl"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                            >
+                                <Printer class="size-4" />
+                                সব হাব প্রিন্ট
+                            </a>
+                        </Button>
+                    </div>
+                    <div
+                        v-if="props.orderSummary.pickup_points.length === 0"
+                        class="mt-6 text-center text-sm text-muted-foreground"
+                    >
+                        No pickup points configured for this event.
+                    </div>
+                    <div v-else class="mt-4 overflow-x-auto">
+                        <table
+                            class="min-w-full divide-y divide-sidebar-border/70 text-sm"
+                        >
+                            <thead class="bg-muted/40 text-left">
+                                <tr>
+                                    <th class="px-3 py-2 font-medium">
+                                        Pickup Point
+                                    </th>
+                                    <th class="px-3 py-2 font-medium">
+                                        Packages
+                                    </th>
+                                    <th class="px-3 py-2 font-medium">
+                                        Confirmed
+                                    </th>
+                                    <th
+                                        v-for="status in statusBreakdownColumns"
+                                        :key="status.value"
+                                        class="px-3 py-2 font-medium"
+                                    >
+                                        {{ status.label }}
+                                    </th>
+                                    <th class="px-3 py-2 font-medium">
+                                        Total Due
+                                    </th>
+                                    <th class="px-3 py-2 font-medium">
+                                        Action
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-sidebar-border/70">
+                                <tr
+                                    v-for="point in props.orderSummary
+                                        .pickup_points"
+                                    :key="point.id"
+                                >
+                                    <td class="px-3 py-2 font-medium">
+                                        {{ point.name }}
+                                    </td>
+                                    <td
+                                        class="px-3 py-2 align-top text-muted-foreground"
+                                    >
+                                        <ul
+                                            v-if="point.packages.length > 0"
+                                            class="m-0 list-none space-y-1 p-0 text-xs"
+                                        >
+                                            <li
+                                                v-for="pkg in point.packages"
+                                                :key="pkg.id"
+                                            >
+                                                <span
+                                                    class="font-medium text-foreground"
+                                                >
+                                                    {{ pkg.name }}
+                                                </span>
+                                                <span
+                                                    class="text-muted-foreground"
+                                                >
+                                                    · {{ pkg.pack_line_label }}
+                                                </span>
+                                            </li>
+                                        </ul>
+                                        <span v-else class="text-xs">—</span>
+                                    </td>
+                                    <td class="px-3 py-2 text-muted-foreground">
+                                        {{ point.order_count.toLocaleString() }}
+                                    </td>
+                                    <td
+                                        v-for="status in statusBreakdownColumns"
+                                        :key="`${point.id}-${status.value}`"
+                                        class="px-3 py-2"
+                                    >
+                                        <Link
+                                            v-if="
+                                                statusCount(
+                                                    point.by_status,
+                                                    status.value,
+                                                ) > 0
+                                            "
+                                            :href="
+                                                filterUrl({
+                                                    pickup_point_id: String(
+                                                        point.id,
+                                                    ),
+                                                    status: status.value,
+                                                })
+                                            "
+                                            class="text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                                        >
+                                            {{
+                                                statusCount(
+                                                    point.by_status,
+                                                    status.value,
+                                                ).toLocaleString()
+                                            }}
+                                        </Link>
+                                        <span
+                                            v-else
+                                            class="text-muted-foreground"
+                                        >
+                                            0
+                                        </span>
+                                    </td>
+                                    <td
+                                        class="px-3 py-2 font-medium text-amber-600"
+                                    >
+                                        {{ money(point.total_due_amount) }}
+                                    </td>
+                                    <td class="px-3 py-2">
+                                        <div class="flex flex-wrap gap-2">
+                                            <Link
+                                                :href="
+                                                    filterUrl({
+                                                        pickup_point_id: String(
+                                                            point.id,
+                                                        ),
+                                                    })
+                                                "
+                                                class="text-xs font-medium text-primary underline-offset-4 hover:underline"
+                                            >
+                                                View all
+                                            </Link>
+                                            <a
+                                                :href="
+                                                    printPickupHubUrl(point.id)
+                                                "
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                class="inline-flex items-center gap-1 text-xs font-medium text-primary underline-offset-4 hover:underline"
+                                            >
+                                                <Printer class="size-3.5" />
+                                                প্রিন্ট
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
 
             <div v-else-if="activeTab === 'payments'" class="p-6">
@@ -1494,13 +1570,9 @@ const deleteExpense = (expense: EventExpense) => {
                         Total entries:
                         {{ props.event.payment_summary.entry_count }}
                         · Verified:
-                        {{
-                            money(
-                                props.event.payment_summary.verified_amount,
-                            )
-                        }}
-                        ({{ props.event.payment_summary.verified_count }})
-                        · Pending:
+                        {{ money(props.event.payment_summary.verified_amount) }}
+                        ({{ props.event.payment_summary.verified_count }}) ·
+                        Pending:
                         {{ props.event.payment_summary.pending_count }}
                         · Failed:
                         {{ props.event.payment_summary.failed_count }}
@@ -1517,15 +1589,13 @@ const deleteExpense = (expense: EventExpense) => {
                                 Customer Payments
                             </h2>
                             <Badge variant="secondary" class="ml-1">
-                                {{
-                                    props.event.payment_summary.entry_count
-                                }}
+                                {{ props.event.payment_summary.entry_count }}
                             </Badge>
                         </div>
                         <p class="mt-1 text-sm text-muted-foreground">
-                            Advance and due payments recorded for orders on
-                            this event. Verify or record new payments from the
-                            order page.
+                            Advance and due payments recorded for orders on this
+                            event. Verify or record new payments from the order
+                            page.
                         </p>
                     </div>
                 </div>
@@ -1535,7 +1605,9 @@ const deleteExpense = (expense: EventExpense) => {
                     class="mt-6 flex flex-col items-center justify-center gap-2 py-12 text-center text-muted-foreground"
                 >
                     <CreditCard class="size-8 opacity-30" />
-                    <p class="text-sm">No payments logged for this event yet.</p>
+                    <p class="text-sm">
+                        No payments logged for this event yet.
+                    </p>
                 </div>
 
                 <div v-else class="mt-4 overflow-x-auto">
@@ -1617,9 +1689,7 @@ const deleteExpense = (expense: EventExpense) => {
                                 <td
                                     class="max-w-xs px-4 py-3 text-muted-foreground"
                                 >
-                                    {{
-                                        payment.transaction_reference || '—'
-                                    }}
+                                    {{ payment.transaction_reference || '—' }}
                                 </td>
                             </tr>
                         </tbody>
@@ -1631,7 +1701,9 @@ const deleteExpense = (expense: EventExpense) => {
                 <div
                     class="mb-4 rounded-xl border border-sidebar-border/70 bg-muted/30 p-4 text-sm"
                 >
-                    <p class="font-medium text-foreground">Reconciliation hint</p>
+                    <p class="font-medium text-foreground">
+                        Reconciliation hint
+                    </p>
                     <p class="mt-1 text-muted-foreground">
                         Verified customer payments:
                         {{
@@ -1668,8 +1740,7 @@ const deleteExpense = (expense: EventExpense) => {
                             </h2>
                             <Badge variant="secondary" class="ml-1">
                                 {{
-                                    props.event.bank_deposit_summary
-                                        .entry_count
+                                    props.event.bank_deposit_summary.entry_count
                                 }}
                             </Badge>
                         </div>
@@ -1679,8 +1750,7 @@ const deleteExpense = (expense: EventExpense) => {
                         </p>
                         <p
                             v-if="
-                                props.event.bank_deposit_summary.entry_count >
-                                0
+                                props.event.bank_deposit_summary.entry_count > 0
                             "
                             class="mt-2 text-sm font-medium text-foreground"
                         >
@@ -1694,6 +1764,7 @@ const deleteExpense = (expense: EventExpense) => {
                         </p>
                     </div>
                     <Button
+                        v-if="!props.event.is_finalized"
                         size="sm"
                         class="shrink-0"
                         @click="openAddBankDeposit"
@@ -1710,6 +1781,7 @@ const deleteExpense = (expense: EventExpense) => {
                     <Landmark class="size-8 opacity-30" />
                     <p class="text-sm">No bank deposits logged yet.</p>
                     <Button
+                        v-if="!props.event.is_finalized"
                         size="sm"
                         variant="outline"
                         @click="openAddBankDeposit"
@@ -1769,6 +1841,7 @@ const deleteExpense = (expense: EventExpense) => {
                                 </td>
                                 <td class="px-4 py-3 text-right">
                                     <div
+                                        v-if="!props.event.is_finalized"
                                         class="flex items-center justify-end gap-1"
                                     >
                                         <Button
@@ -1785,9 +1858,7 @@ const deleteExpense = (expense: EventExpense) => {
                                             size="sm"
                                             variant="ghost"
                                             class="h-7 px-2 text-destructive hover:text-destructive"
-                                            @click="
-                                                deleteBankDeposit(deposit)
-                                            "
+                                            @click="deleteBankDeposit(deposit)"
                                         >
                                             <Trash2 class="size-3.5" />
                                         </Button>
@@ -1810,9 +1881,7 @@ const deleteExpense = (expense: EventExpense) => {
                                 Bank Withdrawal
                             </h2>
                             <Badge variant="secondary" class="ml-1">
-                                {{
-                                    props.event.withdrawal_summary.entry_count
-                                }}
+                                {{ props.event.withdrawal_summary.entry_count }}
                             </Badge>
                         </div>
                         <p class="mt-1 text-sm text-muted-foreground">
@@ -1834,6 +1903,7 @@ const deleteExpense = (expense: EventExpense) => {
                         </p>
                     </div>
                     <Button
+                        v-if="!props.event.is_finalized"
                         size="sm"
                         class="shrink-0"
                         :disabled="
@@ -1903,6 +1973,7 @@ const deleteExpense = (expense: EventExpense) => {
                     <Banknote class="size-8 opacity-30" />
                     <p class="text-sm">No bank withdrawals logged yet.</p>
                     <Button
+                        v-if="!props.event.is_finalized"
                         size="sm"
                         variant="outline"
                         @click="openAddWithdrawal"
@@ -1945,9 +2016,7 @@ const deleteExpense = (expense: EventExpense) => {
                                 class="hover:bg-muted/20"
                             >
                                 <td class="px-4 py-3 font-medium">
-                                    {{
-                                        formatDate(withdrawal.withdrawal_date)
-                                    }}
+                                    {{ formatDate(withdrawal.withdrawal_date) }}
                                 </td>
                                 <td class="px-4 py-3 text-right tabular-nums">
                                     {{ money(withdrawal.amount) }}
@@ -1965,6 +2034,7 @@ const deleteExpense = (expense: EventExpense) => {
                                 </td>
                                 <td class="px-4 py-3 text-right">
                                     <div
+                                        v-if="!props.event.is_finalized"
                                         class="flex items-center justify-end gap-1"
                                     >
                                         <Button
@@ -1996,179 +2066,192 @@ const deleteExpense = (expense: EventExpense) => {
             </div>
 
             <div v-else-if="activeTab === 'costs'" class="p-6">
-            <div
-                class="mb-4 rounded-xl border border-sidebar-border/70 bg-muted/30 p-4 text-sm"
-                :class="{
-                    'border-destructive/50 bg-destructive/5':
-                        props.event.float_summary.is_over_logged,
-                }"
-            >
-                <p class="font-medium text-foreground">Event float</p>
-                <p class="mt-1 text-muted-foreground">
-                    Withdrawn from bank:
-                    {{
-                        money(props.event.float_summary.withdrawn_from_bank)
-                    }}
-                    · Logged expenses:
-                    {{ money(props.event.float_summary.logged_expenses) }}
-                    · Remaining float:
-                    <span
-                        :class="{
-                            'text-destructive':
-                                props.event.float_summary.is_over_logged,
-                        }"
-                    >
-                        {{
-                            money(props.event.float_summary.remaining_float)
-                        }}
-                    </span>
-                </p>
-                <p
-                    v-if="props.event.float_summary.is_over_logged"
-                    class="mt-2 text-xs text-destructive"
+                <div
+                    class="mb-4 rounded-xl border border-sidebar-border/70 bg-muted/30 p-4 text-sm"
+                    :class="{
+                        'border-destructive/50 bg-destructive/5':
+                            props.event.float_summary.is_over_logged,
+                    }"
                 >
-                    Logged expenses exceed bank withdrawals for this event.
-                </p>
-            </div>
-
-            <div
-                class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
-            >
-                <div>
-                    <div class="flex items-center gap-2">
-                        <Wallet class="size-4 text-muted-foreground" />
-                        <h2 class="text-base font-semibold">Event Costs</h2>
-                        <Badge variant="secondary" class="ml-1">
-                            {{ props.event.expense_summary.entry_count }}
-                        </Badge>
-                    </div>
-                    <p class="mt-1 text-sm text-muted-foreground">
-                        Petty expenses from the event float (does not reduce
-                        bank Current Balance).
+                    <p class="font-medium text-foreground">Event float</p>
+                    <p class="mt-1 text-muted-foreground">
+                        Withdrawn from bank:
+                        {{
+                            money(props.event.float_summary.withdrawn_from_bank)
+                        }}
+                        · Logged expenses:
+                        {{ money(props.event.float_summary.logged_expenses) }}
+                        · Remaining float:
+                        <span
+                            :class="{
+                                'text-destructive':
+                                    props.event.float_summary.is_over_logged,
+                            }"
+                        >
+                            {{
+                                money(props.event.float_summary.remaining_float)
+                            }}
+                        </span>
                     </p>
                     <p
-                        v-if="props.event.expense_summary.entry_count > 0"
-                        class="mt-2 text-sm font-medium text-foreground"
+                        v-if="props.event.float_summary.is_over_logged"
+                        class="mt-2 text-xs text-destructive"
                     >
-                        Total:
-                        {{ money(props.event.expense_summary.total_amount) }}
-                        ·
-                        {{ props.event.expense_summary.entry_count }}
-                        {{
-                            props.event.expense_summary.entry_count === 1
-                                ? 'entry'
-                                : 'entries'
-                        }}
+                        Logged expenses exceed bank withdrawals for this event.
                     </p>
                 </div>
-                <Button size="sm" class="shrink-0" @click="openAddExpense">
-                    <Plus class="size-4" />
-                    Add Cost
-                </Button>
-            </div>
 
-            <div
-                v-if="props.event.expenses.length === 0"
-                class="flex flex-col items-center justify-center gap-2 py-12 text-center text-muted-foreground"
-            >
-                <Wallet class="size-8 opacity-30" />
-                <p class="text-sm">No costs logged yet.</p>
-                <Button size="sm" variant="outline" @click="openAddExpense">
-                    Add the first cost
-                </Button>
-            </div>
+                <div
+                    class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+                >
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <Wallet class="size-4 text-muted-foreground" />
+                            <h2 class="text-base font-semibold">Event Costs</h2>
+                            <Badge variant="secondary" class="ml-1">
+                                {{ props.event.expense_summary.entry_count }}
+                            </Badge>
+                        </div>
+                        <p class="mt-1 text-sm text-muted-foreground">
+                            Petty expenses from the event float (does not reduce
+                            bank Current Balance).
+                        </p>
+                        <p
+                            v-if="props.event.expense_summary.entry_count > 0"
+                            class="mt-2 text-sm font-medium text-foreground"
+                        >
+                            Total:
+                            {{
+                                money(props.event.expense_summary.total_amount)
+                            }}
+                            ·
+                            {{ props.event.expense_summary.entry_count }}
+                            {{
+                                props.event.expense_summary.entry_count === 1
+                                    ? 'entry'
+                                    : 'entries'
+                            }}
+                        </p>
+                    </div>
+                    <Button
+                        v-if="!props.event.is_finalized"
+                        size="sm"
+                        class="shrink-0"
+                        @click="openAddExpense"
+                    >
+                        <Plus class="size-4" />
+                        Add Cost
+                    </Button>
+                </div>
 
-            <div v-else class="overflow-x-auto">
-                <table class="w-full text-sm">
-                    <thead>
-                        <tr
-                            class="border-b border-sidebar-border/70 bg-muted/30 text-xs text-muted-foreground"
-                        >
-                            <th class="px-4 py-2 text-left font-medium">
-                                Date
-                            </th>
-                            <th class="px-4 py-2 text-left font-medium">
-                                Category
-                            </th>
-                            <th class="px-4 py-2 text-right font-medium">
-                                Amount
-                            </th>
-                            <th class="px-4 py-2 text-left font-medium">
-                                Description
-                            </th>
-                            <th class="px-4 py-2 text-left font-medium">
-                                Receipt
-                            </th>
-                            <th class="px-4 py-2 text-left font-medium">
-                                Added By
-                            </th>
-                            <th class="px-4 py-2 text-right font-medium">
-                                Actions
-                            </th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-sidebar-border/70">
-                        <tr
-                            v-for="expense in props.event.expenses"
-                            :key="expense.id"
-                            class="hover:bg-muted/20"
-                        >
-                            <td class="px-4 py-3 font-medium">
-                                {{ formatDate(expense.expense_date) }}
-                            </td>
-                            <td class="px-4 py-3 text-muted-foreground">
-                                {{ expense.category_label }}
-                            </td>
-                            <td class="px-4 py-3 text-right tabular-nums">
-                                {{ money(expense.amount) }}
-                            </td>
-                            <td
-                                class="max-w-xs px-4 py-3 text-muted-foreground"
+                <div
+                    v-if="props.event.expenses.length === 0"
+                    class="flex flex-col items-center justify-center gap-2 py-12 text-center text-muted-foreground"
+                >
+                    <Wallet class="size-8 opacity-30" />
+                    <p class="text-sm">No costs logged yet.</p>
+                    <Button
+                        v-if="!props.event.is_finalized"
+                        size="sm"
+                        variant="outline"
+                        @click="openAddExpense"
+                    >
+                        Add the first cost
+                    </Button>
+                </div>
+
+                <div v-else class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr
+                                class="border-b border-sidebar-border/70 bg-muted/30 text-xs text-muted-foreground"
                             >
-                                {{ expense.description || '—' }}
-                            </td>
-                            <td class="px-4 py-3">
-                                <a
-                                    v-if="expense.receipt_url"
-                                    :href="expense.receipt_url"
-                                    target="_blank"
-                                    class="text-primary underline underline-offset-4"
+                                <th class="px-4 py-2 text-left font-medium">
+                                    Date
+                                </th>
+                                <th class="px-4 py-2 text-left font-medium">
+                                    Category
+                                </th>
+                                <th class="px-4 py-2 text-right font-medium">
+                                    Amount
+                                </th>
+                                <th class="px-4 py-2 text-left font-medium">
+                                    Description
+                                </th>
+                                <th class="px-4 py-2 text-left font-medium">
+                                    Receipt
+                                </th>
+                                <th class="px-4 py-2 text-left font-medium">
+                                    Added By
+                                </th>
+                                <th class="px-4 py-2 text-right font-medium">
+                                    Actions
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-sidebar-border/70">
+                            <tr
+                                v-for="expense in props.event.expenses"
+                                :key="expense.id"
+                                class="hover:bg-muted/20"
+                            >
+                                <td class="px-4 py-3 font-medium">
+                                    {{ formatDate(expense.expense_date) }}
+                                </td>
+                                <td class="px-4 py-3 text-muted-foreground">
+                                    {{ expense.category_label }}
+                                </td>
+                                <td class="px-4 py-3 text-right tabular-nums">
+                                    {{ money(expense.amount) }}
+                                </td>
+                                <td
+                                    class="max-w-xs px-4 py-3 text-muted-foreground"
                                 >
-                                    View
-                                </a>
-                                <span v-else class="text-muted-foreground"
-                                    >—</span
-                                >
-                            </td>
-                            <td class="px-4 py-3 text-muted-foreground">
-                                {{ expense.created_by_name || '—' }}
-                            </td>
-                            <td class="px-4 py-3 text-right">
-                                <div
-                                    class="flex items-center justify-end gap-1"
-                                >
-                                    <Button
-                                        size="sm"
-                                        variant="ghost"
-                                        class="h-7 px-2"
-                                        @click="openEditExpense(expense)"
+                                    {{ expense.description || '—' }}
+                                </td>
+                                <td class="px-4 py-3">
+                                    <a
+                                        v-if="expense.receipt_url"
+                                        :href="expense.receipt_url"
+                                        target="_blank"
+                                        class="text-primary underline underline-offset-4"
                                     >
-                                        <Pencil class="size-3.5" />
-                                    </Button>
-                                    <Button
-                                        size="sm"
-                                        variant="ghost"
-                                        class="h-7 px-2 text-destructive hover:text-destructive"
-                                        @click="deleteExpense(expense)"
+                                        View
+                                    </a>
+                                    <span v-else class="text-muted-foreground"
+                                        >—</span
                                     >
-                                        <Trash2 class="size-3.5" />
-                                    </Button>
-                                </div>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
+                                </td>
+                                <td class="px-4 py-3 text-muted-foreground">
+                                    {{ expense.created_by_name || '—' }}
+                                </td>
+                                <td class="px-4 py-3 text-right">
+                                    <div
+                                        v-if="!props.event.is_finalized"
+                                        class="flex items-center justify-end gap-1"
+                                    >
+                                        <Button
+                                            size="sm"
+                                            variant="ghost"
+                                            class="h-7 px-2"
+                                            @click="openEditExpense(expense)"
+                                        >
+                                            <Pencil class="size-3.5" />
+                                        </Button>
+                                        <Button
+                                            size="sm"
+                                            variant="ghost"
+                                            class="h-7 px-2 text-destructive hover:text-destructive"
+                                            @click="deleteExpense(expense)"
+                                        >
+                                            <Trash2 class="size-3.5" />
+                                        </Button>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </section>
 

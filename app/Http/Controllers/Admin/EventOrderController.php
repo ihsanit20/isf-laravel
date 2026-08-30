@@ -123,7 +123,7 @@ class EventOrderController extends Controller
             'orders' => $ordersQuery
                 ->paginate($perPage)
                 ->withQueryString()
-                ->through(fn (EventOrder $order): array => $this->formatOrderListItem($order)),
+                ->through(fn (EventOrder $order): array => $this->formatOrderListItem($order, $fundCycleEvent->is_finalized)),
         ]);
     }
 
@@ -159,8 +159,8 @@ class EventOrderController extends Controller
                 'is_full_payment' => $this->isFullPayment($eventOrder),
                 'due_amount' => (string) $dueAmount,
                 'verified_paid_amount' => (string) $eventOrder->totalVerifiedPaid(),
-                'can_record_payment' => $eventOrder->canAcceptDuePayment(),
-                'can_update_status' => $eventOrder->status !== EventOrderStatus::Cancelled,
+                'can_record_payment' => ! $fundCycleEvent->is_finalized && $eventOrder->canAcceptDuePayment(),
+                'can_update_status' => ! $fundCycleEvent->is_finalized && $eventOrder->status !== EventOrderStatus::Cancelled,
                 'created_at' => $eventOrder->created_at?->format('d M Y, h:i A'),
                 'confirmed_at' => $eventOrder->confirmed_at?->format('d M Y, h:i A'),
                 'pickup_point' => $eventOrder->pickupPoint ? [
@@ -194,7 +194,7 @@ class EventOrderController extends Controller
                     'paid_at' => $payment->paid_at?->format('d M Y, h:i A'),
                     'verified_at' => $payment->verified_at?->format('d M Y, h:i A'),
                     'verified_by' => $payment->verifiedBy?->name,
-                    'can_verify' => $payment->payment_status === 'pending',
+                    'can_verify' => ! $fundCycleEvent->is_finalized && $payment->payment_status === 'pending',
                 ])->values(),
                 'status_histories' => $eventOrder->statusHistories
                     ->sortByDesc('changed_at')
@@ -218,6 +218,7 @@ class EventOrderController extends Controller
         EventOrder $eventOrder,
     ): RedirectResponse {
         abort_unless($eventOrder->fund_cycle_event_id === $fundCycleEvent->id, 404);
+        $fundCycleEvent->ensureNotFinalized();
 
         $this->eventOrderPayments->recordManualPayment(
             $eventOrder,
@@ -238,6 +239,7 @@ class EventOrderController extends Controller
     ): RedirectResponse {
         abort_unless($eventOrder->fund_cycle_event_id === $fundCycleEvent->id, 404);
         abort_unless($eventPayment->event_order_id === $eventOrder->id, 404);
+        $fundCycleEvent->ensureNotFinalized();
 
         $status = $request->string('status')->toString();
         $user = $request->user();
@@ -261,6 +263,7 @@ class EventOrderController extends Controller
         EventOrder $eventOrder,
     ): RedirectResponse {
         abort_unless($eventOrder->fund_cycle_event_id === $fundCycleEvent->id, 404);
+        $fundCycleEvent->ensureNotFinalized();
 
         $this->eventOrderStatuses->update(
             $eventOrder,
@@ -308,7 +311,7 @@ class EventOrderController extends Controller
         ];
     }
 
-    private function formatOrderListItem(EventOrder $order): array
+    private function formatOrderListItem(EventOrder $order, bool $isEventFinalized = false): array
     {
         $latestPayment = $order->payments->sortByDesc('id')->first();
         $dueAmount = $order->dueAmount();
@@ -324,8 +327,8 @@ class EventOrderController extends Controller
             'advance_amount' => (string) $order->advance_amount,
             'is_full_payment' => $this->isFullPayment($order),
             'due_amount' => (string) $dueAmount,
-            'can_record_payment' => $order->canAcceptDuePayment(),
-            'can_update_status' => $order->status !== EventOrderStatus::Cancelled,
+            'can_record_payment' => ! $isEventFinalized && $order->canAcceptDuePayment(),
+            'can_update_status' => ! $isEventFinalized && $order->status !== EventOrderStatus::Cancelled,
             'package_lines' => $order->items->map(fn ($item): array => [
                 'line_label' => $item->packageSizeLineLabel(),
             ])->values(),

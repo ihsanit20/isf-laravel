@@ -58,6 +58,7 @@ class FundCycleEventController extends Controller
                     'slug' => $event->slug,
                     'status' => $event->status->value,
                     'status_label' => $event->status->label(),
+                    'is_finalized' => $event->is_finalized,
                     'description' => $event->description,
                     'banner_image_path' => $event->banner_image_path,
                     'banner_image_url' => $event->bannerUrl(),
@@ -155,6 +156,7 @@ class FundCycleEventController extends Controller
                 'slug' => $fundCycleEvent->slug,
                 'status' => $fundCycleEvent->status->value,
                 'status_label' => $fundCycleEvent->status->label(),
+                'is_finalized' => $fundCycleEvent->is_finalized,
                 'description' => $fundCycleEvent->description,
                 'banner_image_url' => $fundCycleEvent->bannerUrl(),
                 'order_open_at' => $fundCycleEvent->order_open_at?->format('Y-m-d\\TH:i'),
@@ -309,10 +311,19 @@ class FundCycleEventController extends Controller
         };
     }
 
+    public function finalize(FundCycleEvent $fundCycleEvent): RedirectResponse
+    {
+        $fundCycleEvent->update(['is_finalized' => true]);
+
+        return to_route('admin.events.show', $fundCycleEvent);
+    }
+
     public function updateFromDetails(
         UpdateFundCycleEventRequest $request,
         FundCycleEvent $fundCycleEvent,
     ): RedirectResponse {
+        $fundCycleEvent->ensureNotFinalized();
+
         $attributes = $request->validated();
         $attributes['slug'] = $this->generateUniqueSlug($attributes['title'], $fundCycleEvent->id);
 
@@ -325,6 +336,8 @@ class FundCycleEventController extends Controller
         UploadFundCycleEventBannerRequest $request,
         FundCycleEvent $fundCycleEvent,
     ): RedirectResponse {
+        $fundCycleEvent->ensureNotFinalized();
+
         $newPath = $request->file('cover_image')?->store('event-banners', FundCycleEvent::bannerDisk());
 
         if (! is_string($newPath) || $newPath === '') {
@@ -352,6 +365,7 @@ class FundCycleEventController extends Controller
         FundCycleEvent $fundCycleEvent,
     ): RedirectResponse {
         abort_unless($fundCycleEvent->fund_cycle_id === $fundCycle->id, 404);
+        $fundCycleEvent->ensureNotFinalized();
 
         $attributes = $request->validated();
         $attributes['slug'] = $this->generateUniqueSlug($attributes['title'], $fundCycleEvent->id);

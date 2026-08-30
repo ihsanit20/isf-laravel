@@ -18,6 +18,7 @@ class UpdateFundCycleEventRequest extends FormRequest
         return [
             'title' => ['required', 'string', 'max:255'],
             'status' => ['required', 'string', Rule::in(FundCycleEventStatus::values())],
+            'is_finalized' => ['boolean'],
             'description' => ['nullable', 'string'],
             'banner_image_path' => ['nullable', 'string', 'max:255'],
             'order_open_at' => ['required', 'date'],

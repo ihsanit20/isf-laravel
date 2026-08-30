@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Storage;
     'title',
     'slug',
     'status',
+    'is_finalized',
     'description',
     'banner_image_path',
     'order_open_at',
@@ -27,6 +28,7 @@ class FundCycleEvent extends Model
     {
         return [
             'status' => FundCycleEventStatus::class,
+            'is_finalized' => 'boolean',
             'order_open_at' => 'datetime',
             'order_close_at' => 'datetime',
             'expected_delivery_date' => 'date',
@@ -83,5 +85,10 @@ class FundCycleEvent extends Model
         $disk = Storage::disk(self::bannerDisk());
 
         return $disk->url($this->banner_image_path);
+    }
+
+    public function ensureNotFinalized(): void
+    {
+        abort_if($this->is_finalized, 403, 'This event has been finalized and is locked for changes.');
     }
 }

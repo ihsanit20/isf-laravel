@@ -65,6 +65,11 @@ const mainNavItems = computed<NavItem[]>(() => {
             href: '/my-charges',
             icon: BadgeDollarSign,
         },
+        {
+            title: 'Fund Cycles',
+            href: '/fund-cycles',
+            icon: Landmark,
+        },
     ];
 
     if (adminRoles.includes(page.props.auth.user.role)) {

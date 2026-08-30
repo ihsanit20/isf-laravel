@@ -28,6 +28,7 @@ type FundCycleEventItem = {
     slug: string;
     status: string;
     status_label: string;
+    is_finalized: boolean;
     description: string | null;
     banner_image_path: string | null;
     banner_image_url: string | null;
@@ -169,6 +170,7 @@ const formatDateTime = (value: string): string => {
                             <th class="px-4 py-3 font-medium">Title</th>
                             <th class="px-4 py-3 font-medium">Slug</th>
                             <th class="px-4 py-3 font-medium">Status</th>
+                            <th class="px-4 py-3 font-medium">Finalized</th>
                             <th class="px-4 py-3 font-medium">Order Window</th>
                             <th class="px-4 py-3 font-medium">Delivery</th>
                             <th class="px-4 py-3 font-medium">Created At</th>
@@ -205,6 +207,17 @@ const formatDateTime = (value: string): string => {
                                     event.status_label
                                 }}</Badge>
                             </td>
+                            <td class="px-4 py-3">
+                                <Badge
+                                    :variant="
+                                        event.is_finalized
+                                            ? 'default'
+                                            : 'secondary'
+                                    "
+                                >
+                                    {{ event.is_finalized ? 'Yes' : 'No' }}
+                                </Badge>
+                            </td>
                             <td class="px-4 py-3 text-muted-foreground">
                                 <div>
                                     Open:
@@ -236,6 +249,7 @@ const formatDateTime = (value: string): string => {
                                         </Link>
                                     </Button>
                                     <Button
+                                        v-if="!event.is_finalized"
                                         variant="outline"
                                         size="sm"
                                         @click="openEditDialog(event)"
@@ -248,7 +262,7 @@ const formatDateTime = (value: string): string => {
                         </tr>
                         <tr v-if="props.events.length === 0">
                             <td
-                                colspan="8"
+                                colspan="9"
                                 class="px-4 py-8 text-center text-muted-foreground"
                             >
                                 No events found for this cycle.

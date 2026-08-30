@@ -38,6 +38,12 @@ class PublicBkashPaymentController extends Controller
             ], 422);
         }
 
+        if ($order->fundCycleEvent?->is_finalized) {
+            return response()->json([
+                'message' => 'This event has been finalized and is no longer accepting payments.',
+            ], 422);
+        }
+
         if ((float) $order->advance_amount <= 0) {
             return response()->json([
                 'message' => 'No advance payment is required for this order.',
@@ -80,6 +86,12 @@ class PublicBkashPaymentController extends Controller
         if (! $order->canAcceptDuePayment()) {
             return response()->json([
                 'message' => 'Due payment is not available for this order.',
+            ], 422);
+        }
+
+        if ($order->fundCycleEvent?->is_finalized) {
+            return response()->json([
+                'message' => 'This event has been finalized and is no longer accepting payments.',
             ], 422);
         }
 
