@@ -1,0 +1,1 @@
+import{L as e,T as t,U as n,k as r}from"./dist-CubLf_Mt.js";var i=r({inheritAttrs:!1,__name:`AppLogoIcon`,props:{className:{type:[Boolean,null,String,Object,Array]}},setup(r){let i=r;return(r,a)=>(n(),t(`img`,e({src:`/isf_logo.png`,alt:`ISF Logo`,class:i.className},r.$attrs),null,16))}});export{i as t};
