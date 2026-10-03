@@ -20,6 +20,7 @@ use App\Http\Controllers\Admin\FundCycleLedgerController;
 use App\Http\Controllers\Admin\GeneralExpenseController;
 use App\Http\Controllers\Admin\GeneralIncomeController;
 use App\Http\Controllers\Admin\InvestmentChargeController;
+use App\Http\Controllers\Admin\JournalController;
 use App\Http\Controllers\Admin\MemberListController;
 use App\Http\Controllers\Admin\PayoutListController;
 use App\Http\Controllers\Admin\UserListController;
@@ -152,7 +153,8 @@ Route::middleware(['auth', 'verified', 'admin'])->group(function () {
     Route::get('admin/payouts', [PayoutListController::class, 'index'])->name('admin.payouts.index');
     Route::patch('admin/payouts/{payoutRequest}', [PayoutListController::class, 'review'])->name('admin.payouts.review');
     Route::get('admin/accounts', [AccountsController::class, 'index'])->name('admin.accounts.index');
-    Route::get('admin/accounts/journal', [AccountsController::class, 'journal'])->name('admin.accounts.journal');
+    Route::get('admin/accounts/journal', [JournalController::class, 'index'])->name('admin.accounts.journal');
+    Route::get('admin/accounts/journal/export', [JournalController::class, 'export'])->name('admin.accounts.journal.export');
     Route::get('admin/deposits', [DepositListController::class, 'index'])->name('admin.deposits.index');
     Route::patch('admin/deposits/{depositSubmission}/review', [DepositListController::class, 'review'])->name('admin.deposits.review');
 });
