@@ -2,6 +2,7 @@
 
 use App\Enums\FundCycleEventStatus;
 use App\Enums\MemberStatus;
+use App\Ledger\Postings\InvestmentPostings;
 use App\Models\EventBankWithdrawal;
 use App\Models\FundCycle;
 use App\Models\FundCycleAllocation;
@@ -113,17 +114,17 @@ test('bank withdrawal is blocked when fund cycle has no allocations', function (
 test('event details includes cycle withdrawal budget', function () {
     ['event' => $event, 'eventB' => $eventB, 'admin' => $admin] = createCycleWithAllocation(50_000);
 
-    $event->bankWithdrawals()->create([
+    app(InvestmentPostings::class)->eventWithdrawal($event->bankWithdrawals()->create([
         'withdrawal_date' => '2026-06-01',
         'amount' => 15_000,
         'created_by_user_id' => $admin->id,
-    ]);
+    ]));
 
-    $eventB->bankWithdrawals()->create([
+    app(InvestmentPostings::class)->eventWithdrawal($eventB->bankWithdrawals()->create([
         'withdrawal_date' => '2026-06-01',
         'amount' => 10_000,
         'created_by_user_id' => $admin->id,
-    ]);
+    ]));
 
     actingAs($admin)
         ->get(route('admin.events.show', $event))
@@ -142,6 +143,7 @@ test('updating a withdrawal respects the fund cycle cap', function () {
         'amount' => 10_000,
         'created_by_user_id' => $admin->id,
     ]);
+    app(InvestmentPostings::class)->eventWithdrawal($withdrawal);
 
     actingAs($admin);
 

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Ledger\Postings\MemberPostings;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -15,6 +16,17 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 ])]
 class ChargeAllocation extends Model
 {
+    protected static function booted(): void
+    {
+        static::created(fn (self $allocation) => app(MemberPostings::class)->chargeSettled($allocation, auth()->user()));
+
+        static::updated(function (self $allocation): void {
+            if ($allocation->wasChanged('reversed_at') && $allocation->reversed_at !== null) {
+                app(MemberPostings::class)->chargeAllocationReversed($allocation, auth()->user());
+            }
+        });
+    }
+
     protected function casts(): array
     {
         return [

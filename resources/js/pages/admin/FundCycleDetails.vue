@@ -2,6 +2,11 @@
 import { Head, Link } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import FundCycleFormDialog from '@/components/admin/FundCycleFormDialog.vue';
+import FundCycleLedgerSection from '@/components/admin/FundCycleLedgerSection.vue';
+import type {
+    CycleLedger,
+    CycleTransaction,
+} from '@/components/admin/FundCycleLedgerSection.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 
@@ -35,6 +40,9 @@ type FundCycleDetails = {
 type Props = {
     fundCycle: FundCycleDetails;
     statuses: string[];
+    ledger: CycleLedger;
+    transactions: CycleTransaction[];
+    transactionCategories: { value: string; label: string }[];
 };
 
 defineOptions({
@@ -215,6 +223,13 @@ const money = (amount: number): string => `${amount.toLocaleString()} BDT`;
                 <div class="mt-1">{{ props.fundCycle.notes }}</div>
             </div>
         </section>
+
+        <FundCycleLedgerSection
+            :cycle-id="props.fundCycle.id"
+            :ledger="props.ledger"
+            :transactions="props.transactions"
+            :transaction-categories="props.transactionCategories"
+        />
 
         <FundCycleFormDialog
             v-model:isOpen="isEditDialogOpen"

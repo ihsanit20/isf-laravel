@@ -7,8 +7,12 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\ReviewEventOrderPaymentRequest;
 use App\Http\Requests\Admin\StoreEventOrderPaymentRequest;
 use App\Http\Requests\Admin\UpdateEventOrderStatusRequest;
+use App\Ledger\Account;
+use App\Ledger\Ledger;
+use App\Ledger\Money;
 use App\Models\EventOrder;
 use App\Models\EventPayment;
+use App\Models\EventRefund;
 use App\Models\FundCycleEvent;
 use App\Services\EventOrderPaymentService;
 use App\Services\EventOrderStatusService;
@@ -196,6 +200,24 @@ class EventOrderController extends Controller
                     'verified_by' => $payment->verifiedBy?->name,
                     'can_verify' => ! $fundCycleEvent->is_finalized && $payment->payment_status === 'pending',
                 ])->values(),
+                'refunds' => EventRefund::query()
+                    ->where('event_order_id', $eventOrder->id)
+                    ->latest('id')
+                    ->get()
+                    ->map(fn (EventRefund $refund): array => [
+                        'id' => $refund->id,
+                        'amount' => (string) $refund->amount,
+                        'method' => $refund->method,
+                        'reference_no' => $refund->reference_no,
+                        'note' => $refund->note,
+                        'refunded_at' => $refund->refunded_at?->format('d M Y'),
+                    ])
+                    ->values(),
+                'refundable_amount' => Money::toTaka(app(Ledger::class)->creditBalance(
+                    [Account::EventSales, Account::EventSalesRefund],
+                    ['event_order_id' => $eventOrder->id],
+                )),
+                'can_refund' => ! $fundCycleEvent->is_finalized,
                 'status_histories' => $eventOrder->statusHistories
                     ->sortByDesc('changed_at')
                     ->values()

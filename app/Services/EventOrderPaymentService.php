@@ -4,13 +4,17 @@ namespace App\Services;
 
 use App\Enums\EventOrderStatus;
 use App\Enums\EventPaymentType;
+use App\Ledger\Postings\InvestmentPostings;
 use App\Models\EventOrder;
 use App\Models\EventPayment;
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class EventOrderPaymentService
 {
+    public function __construct(private readonly InvestmentPostings $investmentPostings) {}
+
     public function recordManualPayment(
         EventOrder $order,
         float $amount,
@@ -69,14 +73,18 @@ class EventOrderPaymentService
             ]);
         }
 
-        $now = now();
+        DB::transaction(function () use ($payment, $verifiedBy): void {
+            $now = now();
 
-        $payment->update([
-            'payment_status' => 'verified',
-            'paid_at' => $now,
-            'verified_at' => $now,
-            'verified_by_user_id' => $verifiedBy->id,
-        ]);
+            $payment->update([
+                'payment_status' => 'verified',
+                'paid_at' => $now,
+                'verified_at' => $now,
+                'verified_by_user_id' => $verifiedBy->id,
+            ]);
+
+            $this->investmentPostings->customerPaymentVerified($payment, $verifiedBy);
+        });
 
         return $payment->refresh();
     }

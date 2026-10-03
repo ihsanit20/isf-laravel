@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Storage;
 
 #[Fillable([
     'fund_cycle_id',
+    'cycle_investment_id',
     'title',
     'slug',
     'status',
@@ -24,6 +25,17 @@ use Illuminate\Support\Facades\Storage;
 ])]
 class FundCycleEvent extends Model
 {
+    protected static function booted(): void
+    {
+        static::created(fn (self $event) => $event->ensureInvestment());
+
+        static::updated(function (self $event): void {
+            if ($event->wasChanged('title') && $event->investment !== null) {
+                $event->investment->update(['title' => $event->title]);
+            }
+        });
+    }
+
     protected function casts(): array
     {
         return [
@@ -38,6 +50,38 @@ class FundCycleEvent extends Model
     public function fundCycle(): BelongsTo
     {
         return $this->belongsTo(FundCycle::class);
+    }
+
+    public function investment(): BelongsTo
+    {
+        return $this->belongsTo(CycleInvestment::class, 'cycle_investment_id');
+    }
+
+    /**
+     * Every event is a sub-business (cycle investment) for the ledger.
+     */
+    public function ensureInvestment(): CycleInvestment
+    {
+        if ($this->investment !== null) {
+            return $this->investment;
+        }
+
+        $investment = CycleInvestment::query()->create([
+            'fund_cycle_id' => $this->fund_cycle_id,
+            'type' => CycleInvestment::TYPE_EVENT,
+            'title' => $this->title,
+            'invested_at' => $this->order_open_at?->toDateString(),
+        ]);
+
+        $this->forceFill(['cycle_investment_id' => $investment->id])->saveQuietly();
+        $this->setRelation('investment', $investment);
+
+        return $investment;
+    }
+
+    public function incomes(): HasMany
+    {
+        return $this->hasMany(EventIncome::class);
     }
 
     public function packages(): HasMany

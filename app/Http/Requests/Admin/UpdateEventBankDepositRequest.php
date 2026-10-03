@@ -11,11 +11,19 @@ class UpdateEventBankDepositRequest extends FormRequest
         return $this->user()?->hasAdminAccess() ?? false;
     }
 
+    protected function prepareForValidation(): void
+    {
+        if (blank($this->input('source'))) {
+            $this->merge(['source' => 'cash']);
+        }
+    }
+
     public function rules(): array
     {
         return [
             'deposit_date' => ['required', 'date'],
             'amount' => ['required', 'integer', 'min:1'],
+            'source' => ['required', 'string', 'in:cash,bkash'],
             'description' => ['nullable', 'string', 'max:1000'],
             'reference_no' => ['nullable', 'string', 'max:120'],
         ];

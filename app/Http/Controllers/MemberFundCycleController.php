@@ -2,18 +2,16 @@
 
 namespace App\Http\Controllers;
 
-use App\Enums\DepositSubmissionStatus;
 use App\Enums\MemberStatus;
 use App\Http\Requests\Members\StoreMemberFundCycleAllocationRequest;
-use App\Models\ChargeAllocation;
-use App\Models\DepositSubmission;
+use App\Ledger\Money;
+use App\Ledger\Postings\MemberPostings;
 use App\Models\FundCycle;
 use App\Models\FundCycleAllocation;
 use App\Models\Member;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -27,6 +25,7 @@ class MemberFundCycleController extends Controller
         abort_unless($member->managed_by_user_id === $user->id, 404);
 
         $remainingPool = $this->remainingPoolForUser($user);
+
         return Inertia::render('members/FundCycles', [
             'member' => [
                 'id' => $member->id,
@@ -41,7 +40,7 @@ class MemberFundCycleController extends Controller
                 ->withCount('allocations')
                 ->withSum('allocations', 'amount')
                 ->with([
-                    'allocations' => fn($query) => $query
+                    'allocations' => fn ($query) => $query
                         ->where('member_id', $member->id)
                         ->select(['id', 'fund_cycle_id', 'member_id', 'slot_key', 'amount']),
                 ])
@@ -49,7 +48,7 @@ class MemberFundCycleController extends Controller
                 ->latest('start_date')
                 ->latest('id')
                 ->get()
-                ->map(fn(FundCycle $fundCycle): array => [
+                ->map(fn (FundCycle $fundCycle): array => [
                     'id' => $fundCycle->id,
                     'name' => $fundCycle->name,
                     'status' => $fundCycle->status,
@@ -68,8 +67,8 @@ class MemberFundCycleController extends Controller
                         ->filter()
                         ->values(),
                     'allocated_slot_amounts' => $fundCycle->allocations
-                        ->filter(fn(FundCycleAllocation $allocation) => filled($allocation->slot_key))
-                        ->mapWithKeys(fn(FundCycleAllocation $allocation): array => [
+                        ->filter(fn (FundCycleAllocation $allocation) => filled($allocation->slot_key))
+                        ->mapWithKeys(fn (FundCycleAllocation $allocation): array => [
                             $allocation->slot_key => $allocation->amount,
                         ]),
                     'is_locked' => $fundCycle->lock_date !== null && now()->startOfDay()->greaterThanOrEqualTo($fundCycle->lock_date),
@@ -92,16 +91,15 @@ class MemberFundCycleController extends Controller
 
         abort_unless($member->managed_by_user_id === $user->id, 404);
 
-        DB::transaction(function () use ($request, $member, $fundCycle, $user): void {
-            $fundCycle->allocations()->create([
-                'member_id' => $member->id,
-                'slot_key' => $request->string('slot_key')->trim()->toString(),
-                'amount' => $fundCycle->allocationAmountFor($member->units),
-                'allocated_at' => now(),
-                'notes' => $request->validated('notes'),
-                'created_by_user_id' => $user->id,
-            ]);
-        });
+        app(MemberPostings::class)->allocateToCycle([
+            'fund_cycle_id' => $fundCycle->id,
+            'member_id' => $member->id,
+            'slot_key' => $request->string('slot_key')->trim()->toString(),
+            'amount' => $fundCycle->allocationAmountFor($member->units),
+            'allocated_at' => now(),
+            'notes' => $request->validated('notes'),
+            'created_by_user_id' => $user->id,
+        ], $user->id);
 
         if ($request->string('return_to')->toString() === 'allocations') {
             return to_route('allocations.index');
@@ -112,20 +110,6 @@ class MemberFundCycleController extends Controller
 
     private function remainingPoolForUser(User $user): int
     {
-        $verifiedDepositAmount = (int) DepositSubmission::query()
-            ->where('user_id', $user->id)
-            ->where('status', DepositSubmissionStatus::Verified)
-            ->sum('amount');
-
-        $chargeAllocatedAmount = (int) ChargeAllocation::query()
-            ->whereNull('reversed_at')
-            ->whereHas('charge.member', fn($query) => $query->where('managed_by_user_id', $user->id))
-            ->sum('amount');
-
-        $cycleAllocatedAmount = (int) FundCycleAllocation::query()
-            ->whereHas('member', fn($query) => $query->where('managed_by_user_id', $user->id))
-            ->sum('amount');
-
-        return max(0, $verifiedDepositAmount - $chargeAllocatedAmount - $cycleAllocatedAmount);
+        return (int) Money::toTaka(app(MemberPostings::class)->availableBalance($user->id));
     }
 }

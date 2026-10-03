@@ -27,7 +27,7 @@ class EventOrderConfirmationService
 
     public function markConfirmed(EventOrder $order, string $historyNote): bool
     {
-        if ($order->status === EventOrderStatus::Confirmed) {
+        if ($order->status !== EventOrderStatus::Pending) {
             return false;
         }
 
@@ -36,7 +36,7 @@ class EventOrderConfirmationService
         DB::transaction(function () use ($order, $historyNote, &$confirmed): void {
             $order->refresh();
 
-            if ($order->status === EventOrderStatus::Confirmed) {
+            if ($order->status !== EventOrderStatus::Pending) {
                 return;
             }
 

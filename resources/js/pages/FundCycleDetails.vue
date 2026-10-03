@@ -22,6 +22,7 @@ type FundCycleItem = {
 
 type EventItem = {
     id: number;
+    type?: 'event' | 'business';
     title: string;
     total_paid_amount: number;
     other_income_amount: number;
@@ -30,9 +31,22 @@ type EventItem = {
     net_profit_amount: number;
 };
 
+type CycleResult = {
+    investments_result: number;
+    cycle_income: number;
+    cycle_expense: number;
+    result: number;
+    is_settled: boolean;
+    open_investments: number;
+    my_capital: number;
+    my_share: number;
+    my_payout: number;
+};
+
 type Props = {
     fundCycle: FundCycleItem;
     events: EventItem[];
+    cycleResult: CycleResult;
 };
 
 const props = defineProps<Props>();
@@ -336,6 +350,87 @@ const eventChartGroups = computed<EventChartGroup[]>(() => {
                     </div>
                 </div>
             </div>
+        </section>
+
+        <section
+            class="rounded-xl border border-sidebar-border/70 bg-background p-6 shadow-sm dark:border-sidebar-border"
+        >
+            <div class="flex flex-wrap items-center justify-between gap-2">
+                <h2 class="text-lg font-semibold">My share of this cycle</h2>
+                <Badge
+                    :variant="
+                        props.cycleResult.is_settled ? 'default' : 'secondary'
+                    "
+                >
+                    {{
+                        props.cycleResult.is_settled
+                            ? 'Settled — returned to your balance'
+                            : props.cycleResult.open_investments > 0
+                              ? `${props.cycleResult.open_investments} project(s) still running`
+                              : 'Awaiting settlement'
+                    }}
+                </Badge>
+            </div>
+            <div class="mt-4 grid gap-4 md:grid-cols-4">
+                <div class="rounded-xl border border-sidebar-border/70 p-4">
+                    <p class="text-xs text-muted-foreground">My capital</p>
+                    <p class="mt-1 text-xl font-semibold tabular-nums">
+                        {{ money(props.cycleResult.my_capital) }}
+                    </p>
+                </div>
+                <div class="rounded-xl border border-sidebar-border/70 p-4">
+                    <p class="text-xs text-muted-foreground">
+                        Cycle result (all projects)
+                    </p>
+                    <p
+                        class="mt-1 text-xl font-semibold tabular-nums"
+                        :class="
+                            props.cycleResult.result < 0
+                                ? 'text-destructive'
+                                : ''
+                        "
+                    >
+                        {{ money(props.cycleResult.result) }}
+                    </p>
+                    <p class="mt-1 text-xs text-muted-foreground">
+                        Projects
+                        {{ money(props.cycleResult.investments_result) }} ·
+                        cycle income
+                        {{ money(props.cycleResult.cycle_income) }} · cycle
+                        expense {{ money(props.cycleResult.cycle_expense) }}
+                    </p>
+                </div>
+                <div class="rounded-xl border border-sidebar-border/70 p-4">
+                    <p class="text-xs text-muted-foreground">My share</p>
+                    <p
+                        class="mt-1 text-xl font-semibold tabular-nums"
+                        :class="
+                            props.cycleResult.my_share < 0
+                                ? 'text-destructive'
+                                : 'text-emerald-600 dark:text-emerald-400'
+                        "
+                    >
+                        {{ money(props.cycleResult.my_share) }}
+                    </p>
+                </div>
+                <div class="rounded-xl border border-sidebar-border/70 p-4">
+                    <p class="text-xs text-muted-foreground">
+                        {{
+                            props.cycleResult.is_settled
+                                ? 'Returned to me'
+                                : 'Will return to me'
+                        }}
+                    </p>
+                    <p class="mt-1 text-xl font-semibold tabular-nums">
+                        {{ money(props.cycleResult.my_payout) }}
+                    </p>
+                </div>
+            </div>
+            <p class="mt-3 text-xs text-muted-foreground">
+                The fund cycle is a mudaraba: the full result (after each
+                project's own costs and platform charges) is shared by capital
+                ratio. The platform takes no share of the cycle result.
+            </p>
         </section>
 
         <section v-if="props.events.length > 0">

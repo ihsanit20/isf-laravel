@@ -2,14 +2,13 @@
 
 namespace App\Http\Controllers;
 
-use App\Enums\FundCycleEventStatus;
-use App\Models\EventBankDeposit;
-use App\Models\EventBankWithdrawal;
-use App\Models\EventExpense;
-use App\Models\EventPayment;
+use App\Ledger\Account;
+use App\Ledger\Money;
+use App\Ledger\Postings\CyclePostings;
+use App\Ledger\Postings\InvestmentPostings;
+use App\Models\CycleInvestment;
 use App\Models\FundCycle;
 use App\Models\FundCycleAllocation;
-use App\Models\FundCycleEvent;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -54,8 +53,12 @@ class MyFundCycleController extends Controller
         ]);
     }
 
-    public function show(Request $request, FundCycle $fundCycle): Response
-    {
+    public function show(
+        Request $request,
+        FundCycle $fundCycle,
+        CyclePostings $cyclePostings,
+        InvestmentPostings $investmentPostings,
+    ): Response {
         /** @var User $user */
         $user = $request->user();
 
@@ -66,40 +69,13 @@ class MyFundCycleController extends Controller
             ->whereHas('member', fn ($query) => $query->where('managed_by_user_id', $user->id))
             ->sum('amount');
 
-        $events = $fundCycle->events()
-            ->where('status', '!=', FundCycleEventStatus::Draft)
-            ->where('is_finalized', true)
-            ->oldest('order_open_at')
-            ->oldest('id')
+        $cycleSummary = $cyclePostings->summary($fundCycle);
+        $closedInvestments = CycleInvestment::query()
+            ->where('fund_cycle_id', $fundCycle->id)
+            ->where('status', CycleInvestment::STATUS_CLOSED)
+            ->orderBy('closed_at')
             ->get();
-
-        $eventIds = $events->pluck('id');
-
-        $paidTotals = EventPayment::query()
-            ->join('event_orders', 'event_orders.id', '=', 'event_payments.event_order_id')
-            ->where('event_payments.payment_status', 'verified')
-            ->whereIn('event_orders.fund_cycle_event_id', $eventIds)
-            ->selectRaw('event_orders.fund_cycle_event_id as event_id, SUM(event_payments.amount) as total')
-            ->groupBy('event_orders.fund_cycle_event_id')
-            ->pluck('total', 'event_id');
-
-        $expenseTotals = EventExpense::query()
-            ->whereIn('fund_cycle_event_id', $eventIds)
-            ->selectRaw('fund_cycle_event_id, SUM(amount) as total')
-            ->groupBy('fund_cycle_event_id')
-            ->pluck('total', 'fund_cycle_event_id');
-
-        $bankDepositTotals = EventBankDeposit::query()
-            ->whereIn('fund_cycle_event_id', $eventIds)
-            ->selectRaw('fund_cycle_event_id, SUM(amount) as total')
-            ->groupBy('fund_cycle_event_id')
-            ->pluck('total', 'fund_cycle_event_id');
-
-        $bankWithdrawalTotals = EventBankWithdrawal::query()
-            ->whereIn('fund_cycle_event_id', $eventIds)
-            ->selectRaw('fund_cycle_event_id, SUM(amount) as total')
-            ->groupBy('fund_cycle_event_id')
-            ->pluck('total', 'fund_cycle_event_id');
+        $myRows = collect($cycleSummary['members'])->where('user_id', $user->id);
 
         return Inertia::render('FundCycleDetails', [
             'fundCycle' => [
@@ -116,37 +92,37 @@ class MyFundCycleController extends Controller
                 'total_allocated_amount' => (int) ($fundCycle->allocations_sum_amount ?? 0),
                 'my_allocated_amount' => $myAllocatedAmount,
             ],
-            'events' => $events
-                ->map(function (FundCycleEvent $event) use (
-                    $paidTotals,
-                    $expenseTotals,
-                    $bankDepositTotals,
-                    $bankWithdrawalTotals,
-                ): array {
-                    $totalPaid = round((float) ($paidTotals[$event->id] ?? 0), 2);
-                    $totalExpense = (int) ($expenseTotals[$event->id] ?? 0);
-                    $bankDeposit = (int) ($bankDepositTotals[$event->id] ?? 0);
-                    $bankWithdrawal = (int) ($bankWithdrawalTotals[$event->id] ?? 0);
-
-                    // "Other income" reconciles bank cash flow (deposits minus
-                    // withdrawals) against order-tracked profit — money that
-                    // reached the bank without being logged as an order payment.
-                    $orderProfit = $totalPaid - $totalExpense;
-                    $bankProfit = $bankDeposit - $bankWithdrawal;
-                    $otherIncome = round($bankProfit - $orderProfit, 2);
-                    $totalIncome = round($totalPaid + $otherIncome, 2);
+            'events' => $closedInvestments
+                ->map(function (CycleInvestment $investment) use ($investmentPostings): array {
+                    $lines = collect($investmentPostings->profitAndLoss($investment));
+                    $credit = fn (Account ...$accounts): float => Money::toTaka((int) $lines->only(array_map(fn (Account $a) => $a->value, $accounts))->sum());
+                    $sales = $credit(Account::EventSales, Account::EventSalesRefund, Account::BusinessProfit);
+                    $otherIncome = $credit(Account::SubBusinessOtherIncome);
+                    $totalExpense = -Money::toTaka((int) $lines->filter(fn (int $amount, string $code) => Account::from($code)->type() === 'expense')->sum());
 
                     return [
-                        'id' => $event->id,
-                        'title' => $event->title,
-                        'total_paid_amount' => $totalPaid,
+                        'id' => $investment->id,
+                        'type' => $investment->type,
+                        'title' => $investment->title,
+                        'total_paid_amount' => $sales,
                         'other_income_amount' => $otherIncome,
-                        'total_income_amount' => $totalIncome,
-                        'total_expense_amount' => $totalExpense,
-                        'net_profit_amount' => round($totalIncome - $totalExpense, 2),
+                        'total_income_amount' => round($sales + $otherIncome, 2),
+                        'total_expense_amount' => round($totalExpense, 2),
+                        'net_profit_amount' => Money::toTaka($investmentPostings->result($investment)),
                     ];
                 })
                 ->values(),
+            'cycleResult' => [
+                'investments_result' => Money::toTaka($cycleSummary['investments_result']),
+                'cycle_income' => Money::toTaka($cycleSummary['cycle_income']),
+                'cycle_expense' => Money::toTaka($cycleSummary['cycle_expense']),
+                'result' => Money::toTaka($cycleSummary['result']),
+                'is_settled' => $cycleSummary['is_settled'],
+                'open_investments' => collect($cycleSummary['investments'])->where('status', '!=', CycleInvestment::STATUS_CLOSED)->count(),
+                'my_capital' => Money::toTaka((int) $myRows->sum('capital')),
+                'my_share' => Money::toTaka((int) $myRows->sum('share')),
+                'my_payout' => Money::toTaka((int) $myRows->sum('payout')),
+            ],
         ]);
     }
 }

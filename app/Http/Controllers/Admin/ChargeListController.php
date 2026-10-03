@@ -27,7 +27,7 @@ class ChargeListController extends Controller
                 ->latest('effective_at')
                 ->latest('id')
                 ->get()
-                ->map(fn(Charge $charge): array => [
+                ->map(fn (Charge $charge): array => [
                     'id' => $charge->id,
                     'amount' => $charge->amount,
                     'status' => $charge->status,
@@ -63,10 +63,13 @@ class ChargeListController extends Controller
                 ChargeAllocation::query()
                     ->where('charge_id', $charge->id)
                     ->whereNull('reversed_at')
-                    ->update([
-                        'reversed_at' => now(),
-                        'reversed_by_user_id' => $request->user()?->id,
-                    ]);
+                    ->get()
+                    ->each(function (ChargeAllocation $allocation) use ($request): void {
+                        $allocation->update([
+                            'reversed_at' => now(),
+                            'reversed_by_user_id' => $request->user()?->id,
+                        ]);
+                    });
             }
 
             $charge->update([

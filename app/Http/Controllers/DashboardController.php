@@ -4,6 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Enums\DepositSubmissionStatus;
 use App\Enums\MemberStatus;
+use App\Ledger\Account;
+use App\Ledger\Ledger;
+use App\Ledger\Money;
+use App\Ledger\Postings\MemberPostings;
 use App\Models\Charge;
 use App\Models\ChargeAllocation;
 use App\Models\DepositSubmission;
@@ -55,14 +59,14 @@ class DashboardController extends Controller
             ->count();
         $chargeAllocatedAmount = (int) ChargeAllocation::query()
             ->whereNull('reversed_at')
-            ->whereHas('charge.member', fn($query) => $query->where('managed_by_user_id', $user->id))
+            ->whereHas('charge.member', fn ($query) => $query->where('managed_by_user_id', $user->id))
             ->sum('amount');
         $myChargesQuery = Charge::query()
-            ->whereHas('member', fn($query) => $query->where('managed_by_user_id', $user->id));
+            ->whereHas('member', fn ($query) => $query->where('managed_by_user_id', $user->id));
         $cycleAllocatedAmount = (int) FundCycleAllocation::query()
-            ->whereHas('member', fn($query) => $query->where('managed_by_user_id', $user->id))
+            ->whereHas('member', fn ($query) => $query->where('managed_by_user_id', $user->id))
             ->sum('amount');
-        $availableBalance = max(0, $verifiedDeposits - $chargeAllocatedAmount - $cycleAllocatedAmount);
+        $availableBalance = (int) Money::toTaka(app(MemberPostings::class)->availableBalance($user->id));
 
         $myChargeCount = (clone $myChargesQuery)->count();
         $pendingChargeCount = (clone $myChargesQuery)
@@ -70,7 +74,7 @@ class DashboardController extends Controller
             ->count();
 
         $myCycleAllocationCount = FundCycleAllocation::query()
-            ->whereHas('member', fn($query) => $query->where('managed_by_user_id', $user->id))
+            ->whereHas('member', fn ($query) => $query->where('managed_by_user_id', $user->id))
             ->count();
 
         $openCycleCount = FundCycle::query()
@@ -124,7 +128,8 @@ class DashboardController extends Controller
                 'total_verified_deposits' => $totalVerifiedDeposits,
                 'total_charge_allocations' => $totalChargeAllocations,
                 'total_cycle_allocations' => $totalCycleAllocations,
-                'remaining_pool' => max(0, $totalVerifiedDeposits - $totalChargeAllocations - $totalCycleAllocations),
+                'remaining_pool' => (int) Money::toTaka(app(Ledger::class)->creditBalance(Account::MemberBalance)),
+                'platform_fund' => (int) Money::toTaka(app(Ledger::class)->platformFund()),
             ],
             'queues' => [
                 'pending_deposits' => DepositSubmission::query()
@@ -142,7 +147,7 @@ class DashboardController extends Controller
                     ->count(),
             ],
             'cycle_statuses' => collect(FundCycle::statuses())
-                ->map(fn(string $status): array => [
+                ->map(fn (string $status): array => [
                     'status' => $status,
                     'label' => FundCycle::statusLabel($status),
                     'count' => FundCycle::query()->where('status', $status)->count(),
@@ -159,8 +164,8 @@ class DashboardController extends Controller
             ->latest('created_at')
             ->limit(3)
             ->get()
-            ->map(fn(DepositSubmission $deposit): array => $this->makeActivityItem(
-                id: 'deposit-' . $deposit->id,
+            ->map(fn (DepositSubmission $deposit): array => $this->makeActivityItem(
+                id: 'deposit-'.$deposit->id,
                 title: 'Deposit submitted',
                 description: sprintf('%s BDT marked as %s.', number_format($deposit->amount), $deposit->status->value),
                 timestamp: $deposit->created_at,
@@ -172,8 +177,8 @@ class DashboardController extends Controller
             ->latest('applied_at')
             ->limit(3)
             ->get()
-            ->map(fn(Member $member): array => $this->makeActivityItem(
-                id: 'member-' . $member->id,
+            ->map(fn (Member $member): array => $this->makeActivityItem(
+                id: 'member-'.$member->id,
                 title: 'Membership updated',
                 description: sprintf('%s is currently %s.', $member->full_name, $member->status->value),
                 timestamp: $member->applied_at ?? $member->created_at,
@@ -182,18 +187,18 @@ class DashboardController extends Controller
 
         $allocations = FundCycleAllocation::query()
             ->with(['member:id,full_name', 'fundCycle:id,name'])
-            ->whereHas('member', fn($query) => $query->where('managed_by_user_id', $user->id))
+            ->whereHas('member', fn ($query) => $query->where('managed_by_user_id', $user->id))
             ->latest('allocated_at')
             ->limit(3)
             ->get()
-            ->map(fn(FundCycleAllocation $allocation): array => $this->makeActivityItem(
-                id: 'allocation-' . $allocation->id,
+            ->map(fn (FundCycleAllocation $allocation): array => $this->makeActivityItem(
+                id: 'allocation-'.$allocation->id,
                 title: 'Fund cycle allocated',
                 description: sprintf(
                     '%s joined %s%s.',
                     $allocation->member?->full_name ?? 'A member',
                     $allocation->fundCycle?->name ?? 'a fund cycle',
-                    $allocation->slot_key ? ' in ' . $allocation->slot_key : '',
+                    $allocation->slot_key ? ' in '.$allocation->slot_key : '',
                 ),
                 timestamp: $allocation->allocated_at,
                 tone: 'success',
@@ -211,8 +216,8 @@ class DashboardController extends Controller
             ->latest('verified_at')
             ->limit(3)
             ->get()
-            ->map(fn(DepositSubmission $deposit): array => $this->makeActivityItem(
-                id: 'admin-deposit-' . $deposit->id,
+            ->map(fn (DepositSubmission $deposit): array => $this->makeActivityItem(
+                id: 'admin-deposit-'.$deposit->id,
                 title: 'Deposit verified',
                 description: sprintf(
                     '%s BDT verified for %s.',
@@ -230,8 +235,8 @@ class DashboardController extends Controller
             ->latest('approved_at')
             ->limit(3)
             ->get()
-            ->map(fn(Member $member): array => $this->makeActivityItem(
-                id: 'admin-member-' . $member->id,
+            ->map(fn (Member $member): array => $this->makeActivityItem(
+                id: 'admin-member-'.$member->id,
                 title: 'Member approved',
                 description: sprintf(
                     '%s approved under %s.',
@@ -247,8 +252,8 @@ class DashboardController extends Controller
             ->latest('allocated_at')
             ->limit(3)
             ->get()
-            ->map(fn(FundCycleAllocation $allocation): array => $this->makeActivityItem(
-                id: 'admin-allocation-' . $allocation->id,
+            ->map(fn (FundCycleAllocation $allocation): array => $this->makeActivityItem(
+                id: 'admin-allocation-'.$allocation->id,
                 title: 'Cycle allocation posted',
                 description: sprintf(
                     '%s allocated to %s.',

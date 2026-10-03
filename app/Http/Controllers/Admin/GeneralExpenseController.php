@@ -6,8 +6,10 @@ use App\Enums\GeneralExpenseCategory;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreGeneralExpenseRequest;
 use App\Http\Requests\Admin\UpdateGeneralExpenseRequest;
+use App\Ledger\Postings\PlatformPostings;
 use App\Models\GeneralExpense;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -23,7 +25,7 @@ class GeneralExpenseController extends Controller
                 ->orderByDesc('expense_date')
                 ->orderByDesc('id')
                 ->get()
-                ->map(fn(GeneralExpense $expense): array => [
+                ->map(fn (GeneralExpense $expense): array => [
                     'id' => $expense->id,
                     'expense_date' => $expense->expense_date?->format('Y-m-d'),
                     'category' => $expense->category->value,
@@ -43,11 +45,15 @@ class GeneralExpenseController extends Controller
     {
         $receiptPath = $request->file('receipt')?->store('general-expense-attachments', GeneralExpense::attachmentDisk());
 
-        GeneralExpense::query()->create([
-            ...$request->safe()->only(['expense_date', 'category', 'amount', 'description']),
-            'receipt_path' => $receiptPath,
-            'created_by_user_id' => $request->user()?->id,
-        ]);
+        DB::transaction(function () use ($request, $receiptPath): void {
+            $expense = GeneralExpense::query()->create([
+                ...$request->safe()->only(['expense_date', 'category', 'amount', 'description']),
+                'receipt_path' => $receiptPath,
+                'created_by_user_id' => $request->user()?->id,
+            ]);
+
+            app(PlatformPostings::class)->expenseRecorded($expense, $request->user());
+        });
 
         return to_route('admin.general-expenses.index');
     }
@@ -64,7 +70,10 @@ class GeneralExpenseController extends Controller
             $attributes['receipt_path'] = $request->file('receipt')?->store('general-expense-attachments', GeneralExpense::attachmentDisk());
         }
 
-        $generalExpense->update($attributes);
+        DB::transaction(function () use ($request, $generalExpense, $attributes): void {
+            $generalExpense->update($attributes);
+            app(PlatformPostings::class)->expenseRecorded($generalExpense, $request->user());
+        });
 
         return to_route('admin.general-expenses.index');
     }

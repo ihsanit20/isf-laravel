@@ -61,15 +61,20 @@ type ActiveFilters = {
 };
 
 type Summary = {
-    total_deposit_amount: number;
+    bank_balance: number;
+    bkash_balance: number;
+    event_cash: number;
+    business_investment: number;
+    members_available: number;
+    cycle_capital: number;
+    cycle_results: number;
+    platform_fund: number;
+    platform_income: number;
+    platform_expense: number;
+    fee_income: number;
+    charge_income: number;
     verified_amount: number;
     rejected_amount: number;
-    total_general_expense: number;
-    total_general_incomes: number;
-    total_event_bank_withdrawals: number;
-    total_event_bank_deposits: number;
-    total_charge_settlements: number;
-    current_balance: number;
     pending_amount: number;
     pending_count: number;
 };
@@ -169,71 +174,64 @@ const decodePaginationLabel = (label: string): string => {
             <div
                 class="rounded-xl border border-sidebar-border/70 bg-background p-4 shadow-sm dark:border-sidebar-border"
             >
-                <p class="text-xs text-muted-foreground">
-                    Total Verified Amount
-                </p>
+                <p class="text-xs text-muted-foreground">Verified deposits</p>
                 <p class="mt-2 text-2xl font-semibold text-foreground">
                     {{ money(props.summary.verified_amount) }}
-                </p>
-                <div class="mt-3 flex items-center justify-between text-sm">
-                    <span class="text-muted-foreground">
-                        Rejected: {{ money(props.summary.rejected_amount) }}
-                    </span>
-                </div>
-                <div class="mt-1 flex items-center justify-between text-sm">
-                    <span class="text-muted-foreground">
-                        Total:
-                        {{ money(props.summary.total_deposit_amount) }}
-                    </span>
-                </div>
-            </div>
-
-            <div
-                class="rounded-xl border border-sidebar-border/70 bg-background p-4 shadow-sm dark:border-sidebar-border"
-            >
-                <p class="text-xs text-muted-foreground">Current Balance</p>
-                <p class="mt-0.5 text-xs text-muted-foreground">
-                    Cash in joint bank account (wallet)
-                </p>
-                <p class="mt-2 text-2xl font-semibold text-foreground">
-                    {{ money(props.summary.current_balance) }}
                 </p>
                 <p class="mt-3 text-sm text-muted-foreground">
                     {{ props.summary.pending_count.toLocaleString() }} pending ·
                     {{ money(props.summary.pending_amount) }}
                 </p>
+                <p class="text-sm text-muted-foreground">
+                    Rejected: {{ money(props.summary.rejected_amount) }}
+                </p>
             </div>
 
             <div
                 class="rounded-xl border border-sidebar-border/70 bg-background p-4 shadow-sm dark:border-sidebar-border"
             >
                 <p class="text-xs text-muted-foreground">
-                    Expenses &amp; charges
+                    Joint bank (journal)
                 </p>
+                <p class="mt-2 text-2xl font-semibold text-foreground">
+                    {{ money(props.summary.bank_balance) }}
+                </p>
+                <p class="mt-3 text-sm text-muted-foreground">
+                    + bKash {{ money(props.summary.bkash_balance) }} · event
+                    cash
+                    {{ money(props.summary.event_cash) }}
+                </p>
+                <p class="text-sm text-muted-foreground">
+                    + in businesses
+                    {{ money(props.summary.business_investment) }}
+                </p>
+            </div>
+
+            <div
+                class="rounded-xl border border-sidebar-border/70 bg-background p-4 shadow-sm dark:border-sidebar-border"
+            >
+                <p class="text-xs text-muted-foreground">Members' money</p>
                 <dl class="mt-3 space-y-2 text-sm">
                     <div class="flex justify-between gap-2">
                         <dt class="text-muted-foreground">
-                            <Link
-                                href="/admin/charges"
-                                class="text-primary underline underline-offset-4"
-                            >
-                                Charge settlements
-                            </Link>
+                            Available balances
                         </dt>
-                        <dd class="font-semibold text-foreground tabular-nums">
-                            + {{ money(props.summary.total_charge_settlements) }}
+                        <dd class="font-semibold tabular-nums">
+                            {{ money(props.summary.members_available) }}
                         </dd>
                     </div>
                     <div class="flex justify-between gap-2">
-                        <dt class="text-muted-foreground">General incomes</dt>
-                        <dd class="font-semibold text-foreground tabular-nums">
-                            + {{ money(props.summary.total_general_incomes) }}
+                        <dt class="text-muted-foreground">Capital in cycles</dt>
+                        <dd class="font-semibold tabular-nums">
+                            {{ money(props.summary.cycle_capital) }}
                         </dd>
                     </div>
                     <div class="flex justify-between gap-2">
-                        <dt class="text-muted-foreground">General expense</dt>
-                        <dd class="font-semibold text-foreground tabular-nums">
-                            - {{ money(props.summary.total_general_expense) }}
+                        <dt class="text-muted-foreground">
+                            Closed project results
+                        </dt>
+                        <dd class="font-semibold tabular-nums">
+                            {{ money(props.summary.cycle_results) }}
                         </dd>
                     </div>
                 </dl>
@@ -244,38 +242,34 @@ const decodePaginationLabel = (label: string): string => {
             >
                 <p class="text-xs text-muted-foreground">
                     <Link
-                        href="/admin/events"
+                        href="/admin/accounts"
                         class="text-primary underline underline-offset-4"
                     >
-                        Event bank
+                        Platform fund
                     </Link>
                 </p>
-                <dl class="mt-3 space-y-2 text-sm">
+                <p class="mt-2 text-2xl font-semibold text-foreground">
+                    {{ money(props.summary.platform_fund) }}
+                </p>
+                <dl class="mt-3 space-y-1 text-sm">
                     <div class="flex justify-between gap-2">
-                        <dt class="text-muted-foreground">Withdrawals</dt>
-                        <dd class="font-semibold text-foreground tabular-nums">
-                            {{
-                                money(
-                                    props.summary.total_event_bank_withdrawals,
-                                )
-                            }}
+                        <dt class="text-muted-foreground">Fees</dt>
+                        <dd class="tabular-nums">
+                            + {{ money(props.summary.fee_income) }}
                         </dd>
                     </div>
                     <div class="flex justify-between gap-2">
-                        <dt class="text-muted-foreground">Deposits</dt>
-                        <dd class="font-semibold text-foreground tabular-nums">
-                            {{ money(props.summary.total_event_bank_deposits) }}
+                        <dt class="text-muted-foreground">
+                            Charges &amp; rent
+                        </dt>
+                        <dd class="tabular-nums">
+                            + {{ money(props.summary.charge_income) }}
                         </dd>
                     </div>
-                    <hr>
                     <div class="flex justify-between gap-2">
-                        <dt class="text-muted-foreground">Net total</dt>
-                        <dd class="font-semibold text-foreground tabular-nums">
-                            {{
-                                money(
-                                    props.summary.total_event_bank_deposits - props.summary.total_event_bank_withdrawals
-                                )
-                            }}
+                        <dt class="text-muted-foreground">Platform expense</dt>
+                        <dd class="tabular-nums">
+                            − {{ money(props.summary.platform_expense) }}
                         </dd>
                     </div>
                 </dl>

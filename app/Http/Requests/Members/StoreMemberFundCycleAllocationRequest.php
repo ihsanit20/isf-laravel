@@ -2,10 +2,9 @@
 
 namespace App\Http\Requests\Members;
 
-use App\Enums\DepositSubmissionStatus;
 use App\Enums\MemberStatus;
-use App\Models\ChargeAllocation;
-use App\Models\DepositSubmission;
+use App\Ledger\Money;
+use App\Ledger\Postings\MemberPostings;
 use App\Models\FundCycle;
 use App\Models\FundCycleAllocation;
 use App\Models\Member;
@@ -64,7 +63,7 @@ class StoreMemberFundCycleAllocationRequest extends FormRequest
             $slotKey = $this->string('slot_key')->trim()->toString();
 
             $availableSlots = collect($fundCycle->slots ?? [])
-                ->map(fn($slot) => is_string($slot) ? trim($slot) : '')
+                ->map(fn ($slot) => is_string($slot) ? trim($slot) : '')
                 ->filter()
                 ->values();
 
@@ -88,23 +87,9 @@ class StoreMemberFundCycleAllocationRequest extends FormRequest
 
             $allocationAmount = $fundCycle->allocationAmountFor($member->units);
 
-            $verifiedDepositAmount = (int) DepositSubmission::query()
-                ->where('user_id', $user->id)
-                ->where('status', DepositSubmissionStatus::Verified)
-                ->sum('amount');
+            $remainingPool = app(MemberPostings::class)->availableBalance($user->id);
 
-            $chargeAllocatedAmount = (int) ChargeAllocation::query()
-                ->whereNull('reversed_at')
-                ->whereHas('charge.member', fn($query) => $query->where('managed_by_user_id', $user->id))
-                ->sum('amount');
-
-            $cycleAllocatedAmount = (int) FundCycleAllocation::query()
-                ->whereHas('member', fn($query) => $query->where('managed_by_user_id', $user->id))
-                ->sum('amount');
-
-            $remainingPool = max(0, $verifiedDepositAmount - $chargeAllocatedAmount - $cycleAllocatedAmount);
-
-            if ($allocationAmount > $remainingPool) {
+            if (Money::toPaisa($allocationAmount) > $remainingPool) {
                 $validator->errors()->add('slot_key', 'You do not have enough verified deposit balance for this slot allocation.');
             }
         });

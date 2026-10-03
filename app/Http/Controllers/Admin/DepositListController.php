@@ -11,6 +11,7 @@ use App\Services\SmsService;
 use App\Services\TreasuryBalanceService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -125,7 +126,10 @@ class DepositListController extends Controller
             $data['verified_by_user_id'] = null;
         }
 
-        $depositSubmission->update($data);
+        DB::transaction(function () use ($depositSubmission, $data): void {
+            // The model posts the journal entry once the deposit is verified.
+            $depositSubmission->update($data);
+        });
 
         if ($status === DepositSubmissionStatus::Verified) {
             $smsService->send(

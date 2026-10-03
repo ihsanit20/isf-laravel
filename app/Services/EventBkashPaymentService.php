@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Enums\EventOrderStatus;
 use App\Enums\EventPaymentType;
+use App\Ledger\Postings\InvestmentPostings;
 use App\Models\EventOrder;
 use App\Models\EventPayment;
 use Illuminate\Http\Request;
@@ -18,6 +19,7 @@ class EventBkashPaymentService
 
     public function __construct(
         private readonly EventOrderConfirmationService $orderConfirmation,
+        private readonly InvestmentPostings $investmentPostings,
     ) {}
 
     public function callbackUrl(): string
@@ -204,27 +206,30 @@ class EventBkashPaymentService
         string $trxId,
         string $orderNumber,
     ): Response {
-        if ($order->status === EventOrderStatus::Confirmed) {
-            return redirect($this->frontendRedirect('success', $orderNumber, $order->customer_phone));
-        }
-
         $confirmed = false;
 
         DB::transaction(function () use ($order, $payment, $trxId, &$confirmed): void {
             $order->refresh();
+            $payment->refresh();
 
-            if ($order->status === EventOrderStatus::Confirmed) {
-                return;
+            // bKash has already taken the money: always record it, even when the
+            // order was confirmed or cancelled meanwhile (refund handles the latter).
+            if ($payment->payment_status !== 'verified') {
+                $now = now();
+
+                $payment->update([
+                    'payment_status' => 'verified',
+                    'transaction_reference' => $trxId,
+                    'paid_at' => $now,
+                    'verified_at' => $now,
+                ]);
+
+                $this->investmentPostings->customerPaymentVerified($payment);
             }
 
-            $now = now();
-
-            $payment->update([
-                'payment_status' => 'verified',
-                'transaction_reference' => $trxId,
-                'paid_at' => $now,
-                'verified_at' => $now,
-            ]);
+            if ($order->status !== EventOrderStatus::Pending) {
+                return;
+            }
 
             $confirmed = $this->orderConfirmation->markConfirmed(
                 $order,
@@ -258,6 +263,8 @@ class EventBkashPaymentService
                 'paid_at' => $now,
                 'verified_at' => $now,
             ]);
+
+            $this->investmentPostings->customerPaymentVerified($payment);
         });
     }
 

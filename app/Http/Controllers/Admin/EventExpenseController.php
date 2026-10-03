@@ -5,13 +5,17 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreEventExpenseRequest;
 use App\Http\Requests\Admin\UpdateEventExpenseRequest;
+use App\Ledger\Postings\InvestmentPostings;
 use App\Models\EventExpense;
 use App\Models\FundCycleEvent;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
 class EventExpenseController extends Controller
 {
+    public function __construct(private readonly InvestmentPostings $postings) {}
+
     public function store(StoreEventExpenseRequest $request, FundCycleEvent $fundCycleEvent): RedirectResponse
     {
         $fundCycleEvent->ensureNotFinalized();
@@ -21,16 +25,17 @@ class EventExpenseController extends Controller
             EventExpense::attachmentDisk(),
         );
 
-        $fundCycleEvent->expenses()->create([
-            ...$request->safe()->only(['expense_date', 'category', 'amount', 'description']),
-            'receipt_path' => $receiptPath,
-            'created_by_user_id' => $request->user()?->id,
-        ]);
+        DB::transaction(function () use ($request, $fundCycleEvent, $receiptPath): void {
+            $expense = $fundCycleEvent->expenses()->create([
+                ...$request->safe()->only(['expense_date', 'category', 'paid_from', 'amount', 'description']),
+                'receipt_path' => $receiptPath,
+                'created_by_user_id' => $request->user()?->id,
+            ]);
 
-        return to_route('admin.events.show', [
-            'fundCycleEvent' => $fundCycleEvent,
-            'tab' => 'costs',
-        ]);
+            $this->postings->eventExpense($expense, $request->user());
+        });
+
+        return $this->backToTab($fundCycleEvent);
     }
 
     public function update(
@@ -41,7 +46,7 @@ class EventExpenseController extends Controller
         $this->ensureExpenseBelongsToEvent($fundCycleEvent, $eventExpense);
         $fundCycleEvent->ensureNotFinalized();
 
-        $attributes = $request->safe()->only(['expense_date', 'category', 'amount', 'description']);
+        $attributes = $request->safe()->only(['expense_date', 'category', 'paid_from', 'amount', 'description']);
 
         if ($request->hasFile('receipt')) {
             if ($eventExpense->receipt_path !== null) {
@@ -54,12 +59,12 @@ class EventExpenseController extends Controller
             );
         }
 
-        $eventExpense->update($attributes);
+        DB::transaction(function () use ($request, $eventExpense, $attributes): void {
+            $eventExpense->update($attributes);
+            $this->postings->eventExpense($eventExpense, $request->user());
+        });
 
-        return to_route('admin.events.show', [
-            'fundCycleEvent' => $fundCycleEvent,
-            'tab' => 'costs',
-        ]);
+        return $this->backToTab($fundCycleEvent);
     }
 
     public function destroy(FundCycleEvent $fundCycleEvent, EventExpense $eventExpense): RedirectResponse
@@ -67,12 +72,20 @@ class EventExpenseController extends Controller
         $this->ensureExpenseBelongsToEvent($fundCycleEvent, $eventExpense);
         $fundCycleEvent->ensureNotFinalized();
 
+        DB::transaction(function () use ($eventExpense): void {
+            $this->postings->removed($eventExpense, request()->user());
+            $eventExpense->delete();
+        });
+
         if ($eventExpense->receipt_path !== null) {
             Storage::disk(EventExpense::attachmentDisk())->delete($eventExpense->receipt_path);
         }
 
-        $eventExpense->delete();
+        return $this->backToTab($fundCycleEvent);
+    }
 
+    private function backToTab(FundCycleEvent $fundCycleEvent): RedirectResponse
+    {
         return to_route('admin.events.show', [
             'fundCycleEvent' => $fundCycleEvent,
             'tab' => 'costs',

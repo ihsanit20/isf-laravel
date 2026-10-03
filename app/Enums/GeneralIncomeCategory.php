@@ -2,6 +2,8 @@
 
 namespace App\Enums;
 
+use App\Ledger\Account;
+
 enum GeneralIncomeCategory: string
 {
     case PlatformFee = 'platform_fee';
@@ -25,6 +27,14 @@ enum GeneralIncomeCategory: string
         };
     }
 
+    public function ledgerAccount(): Account
+    {
+        return match ($this) {
+            self::PlatformFee => Account::OtherFeeIncome,
+            default => Account::PlatformOtherIncome,
+        };
+    }
+
     public static function values(): array
     {
         return array_column(self::cases(), 'value');
@@ -33,7 +43,7 @@ enum GeneralIncomeCategory: string
     public static function options(): array
     {
         return array_map(
-            fn(self $category): array => [
+            fn (self $category): array => [
                 'value' => $category->value,
                 'label' => $category->label(),
             ],

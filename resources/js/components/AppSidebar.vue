@@ -4,13 +4,18 @@ import { usePage } from '@inertiajs/vue3';
 import {
     BadgeDollarSign,
     BookMarked,
+    Briefcase,
     CalendarDays,
+    HandCoins,
     Cog,
     FileBadge2,
     Info,
     LayoutGrid,
     Landmark,
     Layers3,
+    NotebookTabs,
+    ReceiptText,
+    Scale,
     ScrollText,
     TrendingUp,
     UserRound,
@@ -70,6 +75,16 @@ const mainNavItems = computed<NavItem[]>(() => {
             href: '/fund-cycles',
             icon: Landmark,
         },
+        {
+            title: 'My Statement',
+            href: '/my-statement',
+            icon: ReceiptText,
+        },
+        {
+            title: 'My Payouts',
+            href: '/my-payouts',
+            icon: HandCoins,
+        },
     ];
 
     if (adminRoles.includes(page.props.auth.user.role)) {
@@ -114,6 +129,30 @@ const mainNavItems = computed<NavItem[]>(() => {
             title: 'Events',
             href: '/admin/events',
             icon: CalendarDays,
+        });
+
+        items.push({
+            title: 'Business Investments',
+            href: '/admin/businesses',
+            icon: Briefcase,
+        });
+
+        items.push({
+            title: 'Payout Requests',
+            href: '/admin/payouts',
+            icon: HandCoins,
+        });
+
+        items.push({
+            title: 'Accounts',
+            href: '/admin/accounts',
+            icon: Scale,
+        });
+
+        items.push({
+            title: 'Journal',
+            href: '/admin/accounts/journal',
+            icon: NotebookTabs,
         });
 
         items.push({

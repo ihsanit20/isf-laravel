@@ -11,9 +11,12 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreFundCycleEventRequest;
 use App\Http\Requests\Admin\UpdateFundCycleEventRequest;
 use App\Http\Requests\Admin\UploadFundCycleEventBannerRequest;
+use App\Ledger\InvestmentReport;
+use App\Ledger\Postings\InvestmentPostings;
 use App\Models\EventBankDeposit;
 use App\Models\EventBankWithdrawal;
 use App\Models\EventExpense;
+use App\Models\EventIncome;
 use App\Models\EventPackage;
 use App\Models\EventPayment;
 use App\Models\EventPickupPoint;
@@ -22,6 +25,8 @@ use App\Models\FundCycleEvent;
 use App\Services\EventOrderSummaryService;
 use App\Services\FundCycleWithdrawalBudgetService;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
@@ -32,6 +37,8 @@ class FundCycleEventController extends Controller
     public function __construct(
         private readonly FundCycleWithdrawalBudgetService $withdrawalBudget,
         private readonly EventOrderSummaryService $eventOrderSummaryService,
+        private readonly InvestmentPostings $investmentPostings,
+        private readonly InvestmentReport $investmentReport,
     ) {}
 
     public function index(FundCycle $fundCycle): Response
@@ -122,7 +129,11 @@ class FundCycleEventController extends Controller
             'expenses' => fn ($q) => $q->with('createdBy:id,name')->orderByDesc('expense_date')->orderByDesc('id'),
             'bankWithdrawals' => fn ($q) => $q->with('createdBy:id,name')->orderByDesc('withdrawal_date')->orderByDesc('id'),
             'bankDeposits' => fn ($q) => $q->with('createdBy:id,name')->orderByDesc('deposit_date')->orderByDesc('id'),
+            'incomes' => fn ($q) => $q->with('createdBy:id,name')->orderByDesc('income_date')->orderByDesc('id'),
         ]);
+
+        $investment = $fundCycleEvent->ensureInvestment();
+        $ledgerReport = $this->investmentReport->for($investment);
 
         $expenses = $fundCycleEvent->expenses;
         $bankWithdrawals = $fundCycleEvent->bankWithdrawals;
@@ -138,7 +149,7 @@ class FundCycleEventController extends Controller
             ->get();
         $totalWithdrawn = (int) $bankWithdrawals->sum('amount');
         $totalBankDeposited = (int) $bankDeposits->sum('amount');
-        $totalLoggedExpenses = (int) $expenses->sum('amount');
+        $totalLoggedExpenses = (int) $expenses->where('paid_from', 'cash')->sum('amount');
         $cycleWithdrawalBudget = $this->withdrawalBudget->forCycle($fundCycleEvent->fund_cycle_id);
         $verifiedPayments = $payments->where('payment_status', 'verified');
         $pendingPayments = $payments->where('payment_status', 'pending');
@@ -150,6 +161,10 @@ class FundCycleEventController extends Controller
             'packageStatuses' => EventPackageStatus::options(),
             'packageUnitTypes' => EventPackageUnitType::options(),
             'expenseCategories' => EventExpenseCategory::options(),
+            'incomeCategories' => collect(EventIncome::CATEGORIES)
+                ->map(fn (string $category): array => ['value' => $category, 'label' => EventIncome::categoryLabel($category)])
+                ->values(),
+            'ledger' => $ledgerReport,
             'event' => [
                 'id' => $fundCycleEvent->id,
                 'title' => $fundCycleEvent->title,
@@ -215,6 +230,7 @@ class FundCycleEventController extends Controller
                         'expense_date' => $expense->expense_date?->format('Y-m-d'),
                         'category' => $expense->category->value,
                         'category_label' => $expense->category->label(),
+                        'paid_from' => $expense->paid_from,
                         'amount' => $expense->amount,
                         'description' => $expense->description,
                         'receipt_path' => $expense->receipt_path,
@@ -223,8 +239,20 @@ class FundCycleEventController extends Controller
                         'created_at' => $expense->created_at?->format('d M Y, h:i A'),
                     ])
                     ->values(),
+                'incomes' => $fundCycleEvent->incomes
+                    ->map(fn (EventIncome $income): array => [
+                        'id' => $income->id,
+                        'income_date' => $income->income_date?->format('Y-m-d'),
+                        'category' => $income->category,
+                        'category_label' => EventIncome::categoryLabel($income->category),
+                        'received_via' => $income->received_via,
+                        'amount' => (float) $income->amount,
+                        'description' => $income->description,
+                        'created_by_name' => $income->createdBy?->name,
+                    ])
+                    ->values(),
                 'expense_summary' => [
-                    'total_amount' => $totalLoggedExpenses,
+                    'total_amount' => (int) $expenses->sum('amount'),
                     'entry_count' => $expenses->count(),
                 ],
                 'bank_withdrawals' => $bankWithdrawals
@@ -245,8 +273,8 @@ class FundCycleEventController extends Controller
                 'float_summary' => [
                     'withdrawn_from_bank' => $totalWithdrawn,
                     'logged_expenses' => $totalLoggedExpenses,
-                    'remaining_float' => $totalWithdrawn - $totalLoggedExpenses,
-                    'is_over_logged' => $totalLoggedExpenses > $totalWithdrawn,
+                    'remaining_float' => (int) $ledgerReport['cash'],
+                    'is_over_logged' => $ledgerReport['cash'] < 0,
                 ],
                 'cycle_withdrawal_budget' => $cycleWithdrawalBudget,
                 'payments' => $payments
@@ -280,6 +308,7 @@ class FundCycleEventController extends Controller
                         'id' => $deposit->id,
                         'deposit_date' => $deposit->deposit_date?->format('Y-m-d'),
                         'amount' => $deposit->amount,
+                        'source' => $deposit->source,
                         'description' => $deposit->description,
                         'reference_no' => $deposit->reference_no,
                         'created_by_name' => $deposit->createdBy?->name,
@@ -293,7 +322,9 @@ class FundCycleEventController extends Controller
                 'bank_deposit_reconciliation' => [
                     'verified_customer_payments' => $verifiedCustomerPayments,
                     'deposited_to_bank' => $totalBankDeposited,
-                    'not_yet_deposited' => max(0, $verifiedCustomerPayments - $totalBankDeposited),
+                    'not_yet_deposited' => (int) ($ledgerReport['cash'] + $ledgerReport['bkash']),
+                    'cash_in_hand' => (int) $ledgerReport['cash'],
+                    'bkash_wallet' => (int) $ledgerReport['bkash'],
                 ],
             ],
             'orderSummary' => $this->eventOrderSummaryService->forEvent($fundCycleEvent),
@@ -311,9 +342,18 @@ class FundCycleEventController extends Controller
         };
     }
 
-    public function finalize(FundCycleEvent $fundCycleEvent): RedirectResponse
+    /**
+     * Close the event as a sub-business: checklist, closing entry into the
+     * cycle result, then lock.
+     */
+    public function finalize(Request $request, FundCycleEvent $fundCycleEvent): RedirectResponse
     {
-        $fundCycleEvent->update(['is_finalized' => true]);
+        $fundCycleEvent->ensureNotFinalized();
+
+        DB::transaction(function () use ($request, $fundCycleEvent): void {
+            $this->investmentPostings->close($fundCycleEvent->ensureInvestment(), $request->user());
+            $fundCycleEvent->update(['is_finalized' => true]);
+        });
 
         return to_route('admin.events.show', $fundCycleEvent);
     }
