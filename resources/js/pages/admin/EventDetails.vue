@@ -147,7 +147,11 @@ type WithdrawalSummary = {
 
 type FloatSummary = {
     withdrawn_from_bank: number;
+    cash_received: number;
     logged_expenses: number;
+    cash_refunded: number;
+    deposited_to_bank: number;
+    other_movements: number;
     remaining_float: number;
     is_over_logged: boolean;
 };
@@ -2166,15 +2170,35 @@ const accountsMoney = (amount: number): string =>
                             props.event.float_summary.is_over_logged,
                     }"
                 >
-                    <p class="font-medium text-foreground">Event float</p>
+                    <p class="font-medium text-foreground">
+                        Event cash (from the journal)
+                    </p>
                     <p class="mt-1 text-muted-foreground">
                         Withdrawn from bank:
                         {{
                             money(props.event.float_summary.withdrawn_from_bank)
                         }}
-                        · Logged expenses:
+                        · Cash received:
+                        {{ money(props.event.float_summary.cash_received) }}
+                        · Cash expenses:
                         {{ money(props.event.float_summary.logged_expenses) }}
-                        · Remaining float:
+                        <template
+                            v-if="props.event.float_summary.cash_refunded"
+                        >
+                            · Cash refunds:
+                            {{ money(props.event.float_summary.cash_refunded) }}
+                        </template>
+                        · Deposited to bank:
+                        {{ money(props.event.float_summary.deposited_to_bank) }}
+                        <template
+                            v-if="props.event.float_summary.other_movements"
+                        >
+                            · Other:
+                            {{
+                                money(props.event.float_summary.other_movements)
+                            }}
+                        </template>
+                        · In hand:
                         <span
                             :class="{
                                 'text-destructive':
@@ -2190,7 +2214,8 @@ const accountsMoney = (amount: number): string =>
                         v-if="props.event.float_summary.is_over_logged"
                         class="mt-2 text-xs text-destructive"
                     >
-                        Logged expenses exceed bank withdrawals for this event.
+                        More cash is recorded going out than coming in for this
+                        event. Check the expenses, deposits and withdrawals.
                     </p>
                 </div>
 

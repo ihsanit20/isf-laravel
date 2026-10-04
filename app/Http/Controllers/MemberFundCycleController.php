@@ -25,6 +25,7 @@ class MemberFundCycleController extends Controller
         abort_unless($member->managed_by_user_id === $user->id, 404);
 
         $remainingPool = $this->remainingPoolForUser($user);
+        $allocatedByCycle = app(MemberPostings::class)->allocatedCapitalBy('fund_cycle_id');
 
         return Inertia::render('members/FundCycles', [
             'member' => [
@@ -38,7 +39,6 @@ class MemberFundCycleController extends Controller
             ],
             'fundCycles' => FundCycle::query()
                 ->withCount('allocations')
-                ->withSum('allocations', 'amount')
                 ->with([
                     'allocations' => fn ($query) => $query
                         ->where('member_id', $member->id)
@@ -60,7 +60,7 @@ class MemberFundCycleController extends Controller
                     'unit_amount' => $fundCycle->unit_amount,
                     'slots' => collect($fundCycle->slots ?? [])->values(),
                     'allocation_amount' => $fundCycle->allocationAmountFor($member->units),
-                    'total_allocated_amount' => (int) ($fundCycle->allocations_sum_amount ?? 0),
+                    'total_allocated_amount' => Money::toTaka($allocatedByCycle->get($fundCycle->id, 0)),
                     'allocations_count' => $fundCycle->allocations_count,
                     'allocated_slots' => $fundCycle->allocations
                         ->pluck('slot_key')

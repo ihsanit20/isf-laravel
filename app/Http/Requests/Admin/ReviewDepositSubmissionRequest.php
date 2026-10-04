@@ -27,7 +27,7 @@ class ReviewDepositSubmissionRequest extends FormRequest
                 'string',
                 'max:255',
                 Rule::requiredIf(
-                    fn(): bool => $this->string('status')->toString() === DepositSubmissionStatus::Rejected->value,
+                    fn (): bool => $this->string('status')->toString() === DepositSubmissionStatus::Rejected->value,
                 ),
             ],
         ];

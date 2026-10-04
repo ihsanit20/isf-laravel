@@ -15,6 +15,7 @@ type AdminUser = {
     can_edit: boolean;
     total_verified_deposit_amount: number;
     member_total_allocated_amount: number;
+    available_balance: number;
 };
 
 type Props = {
@@ -106,8 +107,11 @@ const openEditDialog = (user: AdminUser) => {
                         <tr>
                             <th class="px-4 py-3 font-medium">Name</th>
                             <th class="px-4 py-3 font-medium">Phone</th>
-                            <th class="px-4 py-3 font-medium text-center">
+                            <th class="px-4 py-3 text-center font-medium">
                                 Member Allocated / Verified Deposit
+                            </th>
+                            <th class="px-4 py-3 text-right font-medium">
+                                Available
                             </th>
                             <th class="px-4 py-3 font-medium">Role</th>
                             <th class="px-4 py-3 font-medium">Action</th>
@@ -122,7 +126,9 @@ const openEditDialog = (user: AdminUser) => {
                                 {{ user.phone || 'Not set' }}
                             </td>
                             <td class="px-4 py-3 text-muted-foreground">
-                                <div class="flex flex-wrap gap-1 justify-center items-center">
+                                <div
+                                    class="flex flex-wrap items-center justify-center gap-1"
+                                >
                                     <div>
                                         {{
                                             money(
@@ -131,9 +137,23 @@ const openEditDialog = (user: AdminUser) => {
                                         }}
                                     </div>
                                     <div class="font-bold">
-                                        {{ money(user.total_verified_deposit_amount) }}
+                                        {{
+                                            money(
+                                                user.total_verified_deposit_amount,
+                                            )
+                                        }}
                                     </div>
                                 </div>
+                            </td>
+                            <td
+                                class="px-4 py-3 text-right tabular-nums"
+                                :class="
+                                    user.available_balance < 0
+                                        ? 'text-red-600 dark:text-red-400'
+                                        : ''
+                                "
+                            >
+                                {{ money(user.available_balance) }}
                             </td>
                             <td class="px-4 py-3 capitalize">
                                 {{ roleLabel(user.role) }}
@@ -158,7 +178,7 @@ const openEditDialog = (user: AdminUser) => {
                         </tr>
                         <tr v-if="users.length === 0">
                             <td
-                                colspan="5"
+                                colspan="6"
                                 class="px-4 py-8 text-center text-muted-foreground"
                             >
                                 No users found.

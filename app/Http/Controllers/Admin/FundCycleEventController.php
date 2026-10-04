@@ -12,6 +12,7 @@ use App\Http\Requests\Admin\StoreFundCycleEventRequest;
 use App\Http\Requests\Admin\UpdateFundCycleEventRequest;
 use App\Http\Requests\Admin\UploadFundCycleEventBannerRequest;
 use App\Ledger\InvestmentReport;
+use App\Ledger\Money;
 use App\Ledger\Postings\InvestmentPostings;
 use App\Models\EventBankDeposit;
 use App\Models\EventBankWithdrawal;
@@ -134,6 +135,7 @@ class FundCycleEventController extends Controller
 
         $investment = $fundCycleEvent->ensureInvestment();
         $ledgerReport = $this->investmentReport->for($investment);
+        $flow = array_map(fn (int $paisa): float => Money::toTaka($paisa), $this->investmentPostings->eventMoneyFlow($investment));
 
         $expenses = $fundCycleEvent->expenses;
         $bankWithdrawals = $fundCycleEvent->bankWithdrawals;
@@ -147,14 +149,10 @@ class FundCycleEventController extends Controller
             ->orderByDesc('paid_at')
             ->orderByDesc('id')
             ->get();
-        $totalWithdrawn = (int) $bankWithdrawals->sum('amount');
-        $totalBankDeposited = (int) $bankDeposits->sum('amount');
-        $totalLoggedExpenses = (int) $expenses->where('paid_from', 'cash')->sum('amount');
         $cycleWithdrawalBudget = $this->withdrawalBudget->forCycle($fundCycleEvent->fund_cycle_id);
         $verifiedPayments = $payments->where('payment_status', 'verified');
         $pendingPayments = $payments->where('payment_status', 'pending');
         $failedPayments = $payments->where('payment_status', 'failed');
-        $verifiedCustomerPayments = (int) $verifiedPayments->sum('amount');
 
         return Inertia::render('admin/EventDetails', [
             'eventStatuses' => FundCycleEventStatus::options(),
@@ -252,7 +250,7 @@ class FundCycleEventController extends Controller
                     ])
                     ->values(),
                 'expense_summary' => [
-                    'total_amount' => (int) $expenses->sum('amount'),
+                    'total_amount' => $flow['expenses'],
                     'entry_count' => $expenses->count(),
                 ],
                 'bank_withdrawals' => $bankWithdrawals
@@ -267,14 +265,18 @@ class FundCycleEventController extends Controller
                     ])
                     ->values(),
                 'withdrawal_summary' => [
-                    'total_amount' => $totalWithdrawn,
+                    'total_amount' => $flow['withdrawn'],
                     'entry_count' => $bankWithdrawals->count(),
                 ],
                 'float_summary' => [
-                    'withdrawn_from_bank' => $totalWithdrawn,
-                    'logged_expenses' => $totalLoggedExpenses,
-                    'remaining_float' => (int) $ledgerReport['cash'],
-                    'is_over_logged' => $ledgerReport['cash'] < 0,
+                    'withdrawn_from_bank' => $flow['withdrawn'],
+                    'cash_received' => $flow['cash_received'],
+                    'logged_expenses' => $flow['cash_spent'],
+                    'cash_refunded' => $flow['cash_refunded'],
+                    'deposited_to_bank' => $flow['cash_deposited'],
+                    'other_movements' => $flow['cash_other'],
+                    'remaining_float' => $flow['cash'],
+                    'is_over_logged' => $flow['cash'] < 0,
                 ],
                 'cycle_withdrawal_budget' => $cycleWithdrawalBudget,
                 'payments' => $payments
@@ -283,7 +285,7 @@ class FundCycleEventController extends Controller
                         'order_id' => $payment->event_order_id,
                         'order_number' => $payment->order?->order_number,
                         'customer_name' => $payment->order?->customer_name,
-                        'amount' => (int) $payment->amount,
+                        'amount' => (float) $payment->amount,
                         'payment_type' => $payment->payment_type?->value,
                         'payment_type_label' => $payment->payment_type?->label() ?? 'Payment',
                         'payment_method' => $payment->payment_method,
@@ -298,7 +300,7 @@ class FundCycleEventController extends Controller
                     ->values(),
                 'payment_summary' => [
                     'entry_count' => $payments->count(),
-                    'verified_amount' => $verifiedCustomerPayments,
+                    'verified_amount' => $flow['sales'],
                     'verified_count' => $verifiedPayments->count(),
                     'pending_count' => $pendingPayments->count(),
                     'failed_count' => $failedPayments->count(),
@@ -316,15 +318,15 @@ class FundCycleEventController extends Controller
                     ])
                     ->values(),
                 'bank_deposit_summary' => [
-                    'total_amount' => $totalBankDeposited,
+                    'total_amount' => $flow['bank_deposited'],
                     'entry_count' => $bankDeposits->count(),
                 ],
                 'bank_deposit_reconciliation' => [
-                    'verified_customer_payments' => $verifiedCustomerPayments,
-                    'deposited_to_bank' => $totalBankDeposited,
-                    'not_yet_deposited' => (int) ($ledgerReport['cash'] + $ledgerReport['bkash']),
-                    'cash_in_hand' => (int) $ledgerReport['cash'],
-                    'bkash_wallet' => (int) $ledgerReport['bkash'],
+                    'verified_customer_payments' => $flow['sales'],
+                    'deposited_to_bank' => $flow['bank_deposited'],
+                    'not_yet_deposited' => round($ledgerReport['cash'] + $ledgerReport['bkash'], 2),
+                    'cash_in_hand' => $ledgerReport['cash'],
+                    'bkash_wallet' => $ledgerReport['bkash'],
                 ],
             ],
             'orderSummary' => $this->eventOrderSummaryService->forEvent($fundCycleEvent),

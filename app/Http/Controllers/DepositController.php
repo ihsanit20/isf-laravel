@@ -12,7 +12,6 @@ use App\Models\Charge;
 use App\Models\ChargeAllocation;
 use App\Models\ChargeCategory;
 use App\Models\DepositSubmission;
-use App\Models\FundCycleAllocation;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -42,16 +41,10 @@ class DepositController extends Controller
             ->latest('id')
             ->get();
 
-        $totalFundCycleAllocatedAmount = (int) FundCycleAllocation::query()
-            ->whereHas('member', fn ($query) => $query->where('managed_by_user_id', $user->id))
-            ->sum('amount');
-
         $summary = $this->buildDepositSummary(
             $deposits,
-            $chargeAllocations,
-            $totalFundCycleAllocatedAmount,
             $this->pendingChargesQuery($user)->exists(),
-            $this->memberPostings->availableBalance($user->id),
+            $this->memberPostings->balanceBreakdown($user->id),
         );
 
         return Inertia::render('Deposits', [
@@ -141,36 +134,31 @@ class DepositController extends Controller
         return to_route('deposits.index');
     }
 
-    private function buildDepositSummary(
-        Collection $deposits,
-        Collection $chargeAllocations,
-        int $totalFundCycleAllocatedAmount,
-        bool $hasPendingCharges,
-        int $availableBalance,
-    ): array {
-        $totalDepositAmount = (int) $deposits->sum('amount');
-        $totalVerifiedAmount = (int) $deposits
-            ->filter(fn (DepositSubmission $depositSubmission): bool => $depositSubmission->status === DepositSubmissionStatus::Verified)
-            ->sum('amount');
+    /**
+     * Submitted totals come from the deposit documents (pending and rejected
+     * deposits never reach the journal); every money figure comes from the
+     * journal, so verified − allocated = allocatable always holds.
+     *
+     * @param  array{deposits: int, fees: int, cycle_allocations: int, cycle_returns: int, payouts: int, other: int, available: int}  $balance
+     */
+    private function buildDepositSummary(Collection $deposits, bool $hasPendingCharges, array $balance): array
+    {
         $totalRejectedDepositCount = $deposits
             ->filter(fn (DepositSubmission $depositSubmission): bool => $depositSubmission->status === DepositSubmissionStatus::Rejected)
             ->count();
-        $totalChargeAllocatedAmount = (int) $chargeAllocations
-            ->filter(fn (ChargeAllocation $allocation): bool => $allocation->reversed_at === null)
-            ->sum('amount');
-        $totalAllocatedAmount = $totalChargeAllocatedAmount + $totalFundCycleAllocatedAmount;
-        $totalAllocatableAmount = (int) Money::toTaka($availableBalance);
 
         return [
-            'total_deposit_amount' => $totalDepositAmount,
-            'total_verified_amount' => $totalVerifiedAmount,
+            'total_deposit_amount' => round((float) $deposits->sum('amount'), 2),
+            'total_verified_amount' => Money::toTaka($balance['deposits']),
             'total_rejected_deposit_count' => $totalRejectedDepositCount,
-            'total_charge_allocated_amount' => $totalChargeAllocatedAmount,
-            'total_fund_cycle_allocated_amount' => $totalFundCycleAllocatedAmount,
-            'total_allocated_amount' => $totalAllocatedAmount,
-            'total_allocatable_amount' => $totalAllocatableAmount,
+            'total_charge_allocated_amount' => Money::toTaka($balance['fees']),
+            'total_fund_cycle_allocated_amount' => Money::toTaka($balance['cycle_allocations']),
+            'total_cycle_returned_amount' => Money::toTaka($balance['cycle_returns']),
+            'total_payout_amount' => Money::toTaka($balance['payouts']),
+            'total_allocated_amount' => Money::toTaka($balance['deposits'] - $balance['available']),
+            'total_allocatable_amount' => Money::toTaka($balance['available']),
             'total_deposit_count' => $deposits->count(),
-            'can_allocate' => $totalAllocatableAmount > 0 && $hasPendingCharges,
+            'can_allocate' => $balance['available'] > 0 && $hasPendingCharges,
         ];
     }
 

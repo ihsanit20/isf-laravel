@@ -48,7 +48,8 @@ test('admins can visit the fund cycle admin page', function () {
             ->has('fundCycles', 1)
             ->where('statuses.0', FundCycle::STATUS_DRAFT)
             ->where('fundCycles.0.slots.0', 'January 2026')
-            ->where('poolSummary.total_verified_deposits', 4000));
+            ->where('fundCycles.0.allocated_amount', 0)
+            ->missing('poolSummary'));
 });
 
 test('members cannot visit the fund cycle admin page', function () {

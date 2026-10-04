@@ -27,7 +27,7 @@ enum FundCycleEventStatus: string
     public static function options(): array
     {
         return array_map(
-            fn(self $status): array => [
+            fn (self $status): array => [
                 'value' => $status->value,
                 'label' => $status->label(),
             ],

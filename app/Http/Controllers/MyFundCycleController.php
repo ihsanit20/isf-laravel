@@ -6,9 +6,9 @@ use App\Ledger\Account;
 use App\Ledger\Money;
 use App\Ledger\Postings\CyclePostings;
 use App\Ledger\Postings\InvestmentPostings;
+use App\Ledger\Postings\MemberPostings;
 use App\Models\CycleInvestment;
 use App\Models\FundCycle;
-use App\Models\FundCycleAllocation;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -21,17 +21,14 @@ class MyFundCycleController extends Controller
         /** @var User $user */
         $user = $request->user();
 
-        $myAllocatedTotals = FundCycleAllocation::query()
-            ->whereHas('member', fn ($query) => $query->where('managed_by_user_id', $user->id))
-            ->selectRaw('fund_cycle_id, SUM(amount) as total')
-            ->groupBy('fund_cycle_id')
-            ->pluck('total', 'fund_cycle_id');
+        $memberPostings = app(MemberPostings::class);
+        $allocatedTotals = $memberPostings->allocatedCapitalBy('fund_cycle_id');
+        $myAllocatedTotals = $memberPostings->allocatedCapitalBy('fund_cycle_id', ['user_id' => $user->id]);
 
         return Inertia::render('FundCycles', [
             'fundCycles' => FundCycle::query()
                 ->where('status', '!=', FundCycle::STATUS_DRAFT)
                 ->withCount('allocations')
-                ->withSum('allocations', 'amount')
                 ->latest('start_date')
                 ->latest('id')
                 ->get()
@@ -46,8 +43,8 @@ class MyFundCycleController extends Controller
                     'maturity_date' => $fundCycle->maturity_date?->format('d M Y'),
                     'settlement_date' => $fundCycle->settlement_date?->format('d M Y'),
                     'allocations_count' => (int) $fundCycle->allocations_count,
-                    'total_allocated_amount' => (int) ($fundCycle->allocations_sum_amount ?? 0),
-                    'my_allocated_amount' => (int) ($myAllocatedTotals[$fundCycle->id] ?? 0),
+                    'total_allocated_amount' => Money::toTaka($allocatedTotals->get($fundCycle->id, 0)),
+                    'my_allocated_amount' => Money::toTaka($myAllocatedTotals->get($fundCycle->id, 0)),
                 ])
                 ->values(),
         ]);
@@ -62,12 +59,11 @@ class MyFundCycleController extends Controller
         /** @var User $user */
         $user = $request->user();
 
-        $fundCycle->loadCount('allocations')->loadSum('allocations', 'amount');
+        $fundCycle->loadCount('allocations');
 
-        $myAllocatedAmount = (int) FundCycleAllocation::query()
-            ->where('fund_cycle_id', $fundCycle->id)
-            ->whereHas('member', fn ($query) => $query->where('managed_by_user_id', $user->id))
-            ->sum('amount');
+        $memberPostings = app(MemberPostings::class);
+        $totalAllocatedAmount = (int) $memberPostings->allocatedCapitalBy('fund_cycle_id', ['fund_cycle_id' => $fundCycle->id])->sum();
+        $myAllocatedAmount = (int) $memberPostings->allocatedCapitalBy('fund_cycle_id', ['fund_cycle_id' => $fundCycle->id, 'user_id' => $user->id])->sum();
 
         $cycleSummary = $cyclePostings->summary($fundCycle);
         $closedInvestments = CycleInvestment::query()
@@ -89,8 +85,8 @@ class MyFundCycleController extends Controller
                 'maturity_date' => $fundCycle->maturity_date?->format('d M Y'),
                 'settlement_date' => $fundCycle->settlement_date?->format('d M Y'),
                 'allocations_count' => (int) $fundCycle->allocations_count,
-                'total_allocated_amount' => (int) ($fundCycle->allocations_sum_amount ?? 0),
-                'my_allocated_amount' => $myAllocatedAmount,
+                'total_allocated_amount' => Money::toTaka($totalAllocatedAmount),
+                'my_allocated_amount' => Money::toTaka($myAllocatedAmount),
             ],
             'events' => $closedInvestments
                 ->map(function (CycleInvestment $investment) use ($investmentPostings): array {

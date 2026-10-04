@@ -82,6 +82,37 @@ class InvestmentPostings
             ->all();
     }
 
+    /**
+     * Where an event's money came from and went, in paisa, read from the
+     * journal. Cash parts add up: withdrawn + cash_received − cash_spent −
+     * cash_refunded − cash_deposited + cash_other = cash.
+     *
+     * @return array<string, int>
+     */
+    public function eventMoneyFlow(CycleInvestment $investment): array
+    {
+        $dims = $investment->dimensions();
+        $cash = $this->ledger->movementsByKind(Account::EventCash, $dims);
+        $bkash = $this->ledger->movementsByKind(Account::Bkash, $dims);
+        $sales = $this->ledger->movementsByKind(Account::EventSales, $dims);
+        $expenses = $this->ledger->movementsByKind([Account::SubBusinessExpense, Account::GatewayFee], $dims);
+
+        $cashKinds = ['event_withdrawal', 'event_sale', 'event_other_income', 'event_expense', 'event_refund', 'event_bank_deposit'];
+
+        return [
+            'withdrawn' => $cash->get('event_withdrawal', 0),
+            'cash_received' => $cash->get('event_sale', 0) + $cash->get('event_other_income', 0),
+            'cash_spent' => -$cash->get('event_expense', 0),
+            'cash_refunded' => -$cash->get('event_refund', 0),
+            'cash_deposited' => -$cash->get('event_bank_deposit', 0),
+            'cash_other' => (int) $cash->except($cashKinds)->sum(),
+            'cash' => (int) $cash->sum(),
+            'bank_deposited' => -($cash->get('event_bank_deposit', 0) + $bkash->get('event_bank_deposit', 0)),
+            'sales' => -$sales->get('event_sale', 0),
+            'expenses' => $expenses->get('event_expense', 0),
+        ];
+    }
+
     // ---------------------------------------------------------------- events
 
     public function eventWithdrawal(EventBankWithdrawal $withdrawal, ?User $by = null): void

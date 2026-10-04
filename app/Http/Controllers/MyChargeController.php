@@ -22,7 +22,7 @@ class MyChargeController extends Controller
                 'member:id,full_name,managed_by_user_id',
                 'allocations',
             ])
-            ->whereHas('member', fn($query) => $query->where('managed_by_user_id', $user->id))
+            ->whereHas('member', fn ($query) => $query->where('managed_by_user_id', $user->id))
             ->latest('effective_at')
             ->latest('id')
             ->get();
@@ -35,7 +35,7 @@ class MyChargeController extends Controller
                 'settled_charges' => $charges->whereIn('status', [Charge::STATUS_POSTED, Charge::STATUS_WAIVED])->count(),
             ],
             'charges' => $charges
-                ->map(fn(Charge $charge): array => [
+                ->map(fn (Charge $charge): array => [
                     'id' => $charge->id,
                     'member_name' => $charge->member?->full_name,
                     'charge_title' => $charge->category?->title,
@@ -57,7 +57,7 @@ class MyChargeController extends Controller
             'allocationSummary' => [
                 'active_charge_allocations' => ChargeAllocation::query()
                     ->whereNull('reversed_at')
-                    ->whereHas('charge.member', fn($query) => $query->where('managed_by_user_id', $user->id))
+                    ->whereHas('charge.member', fn ($query) => $query->where('managed_by_user_id', $user->id))
                     ->count(),
             ],
         ]);

@@ -61,6 +61,7 @@ test('admins see event bank deposits on the event details page', function () {
         'reference_no' => 'DEP-001',
         'created_by_user_id' => $admin->id,
     ]);
+    app(InvestmentPostings::class)->eventBankDeposit($deposit);
 
     actingAs($admin)
         ->get(route('admin.events.show', $event))

@@ -34,7 +34,10 @@ type DepositSummary = {
     total_verified_amount: number;
     total_rejected_deposit_count: number;
     total_charge_allocated_amount: number;
+    total_fund_cycle_allocated_amount: number;
     total_allocated_amount: number;
+    total_cycle_returned_amount: number;
+    total_payout_amount: number;
     total_allocatable_amount: number;
     total_deposit_count: number;
     can_allocate: boolean;
@@ -138,8 +141,17 @@ const statusVariant = (
                     {{ money(summary.total_allocated_amount) }}
                 </p>
                 <p class="mt-1 text-xs text-muted-foreground">
-                    Charges and fund cycle allocations from your verified
-                    deposit pool
+                    Charges {{ money(summary.total_charge_allocated_amount) }}
+                    · Cycles
+                    {{ money(summary.total_fund_cycle_allocated_amount) }}
+                    <template v-if="summary.total_cycle_returned_amount">
+                        · Returned −{{
+                            money(summary.total_cycle_returned_amount)
+                        }}
+                    </template>
+                    <template v-if="summary.total_payout_amount">
+                        · Paid out {{ money(summary.total_payout_amount) }}
+                    </template>
                 </p>
             </div>
             <div

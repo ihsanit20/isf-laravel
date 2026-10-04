@@ -74,7 +74,7 @@ class MyAllocationController extends Controller
         return Inertia::render('Allocations', [
             'summary' => [
                 'total_allocations' => $allocations->count(),
-                'total_allocated_amount' => (int) $allocations->sum('amount'),
+                'total_allocated_amount' => Money::toTaka((int) app(MemberPostings::class)->allocatedCapitalBy('user_id', ['user_id' => $user->id])->sum()),
                 'member_count' => $members->count(),
                 'cycle_count' => $allocations->pluck('fund_cycle_id')->unique()->count(),
                 'available_to_allocate' => $remainingPool,

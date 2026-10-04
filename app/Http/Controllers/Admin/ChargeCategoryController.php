@@ -19,7 +19,7 @@ class ChargeCategoryController extends Controller
                 ->orderByDesc('code')
                 ->orderBy('title')
                 ->get()
-                ->map(fn(ChargeCategory $category): array => [
+                ->map(fn (ChargeCategory $category): array => [
                     'id' => $category->id,
                     'code' => $category->code,
                     'title' => $category->title,

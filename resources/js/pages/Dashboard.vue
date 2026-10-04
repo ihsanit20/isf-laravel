@@ -54,6 +54,8 @@ type AdminOverview = {
         total_verified_deposits: number;
         total_charge_allocations: number;
         total_cycle_allocations: number;
+        total_cycle_returns: number;
+        total_payouts: number;
         remaining_pool: number;
     };
     queues: {
@@ -140,7 +142,7 @@ const personalStats = computed(() => [
     {
         label: 'My Available Balance',
         value: money(props.personal.summary.available_balance),
-        note: 'After charge and cycle allocations',
+        note: 'From the journal: deposits − charges − cycles + returns − payouts',
         icon: Layers3,
     },
 ]);
@@ -194,6 +196,14 @@ const adminPoolStats = computed(() => {
             value: money(
                 props.adminOverview.pool_summary.total_cycle_allocations,
             ),
+        },
+        {
+            label: 'Returned From Cycles',
+            value: money(props.adminOverview.pool_summary.total_cycle_returns),
+        },
+        {
+            label: 'Paid Out',
+            value: money(props.adminOverview.pool_summary.total_payouts),
         },
         {
             label: 'Remaining Pool',
@@ -472,7 +482,7 @@ const adminQueueStats = computed(() => {
                 </div>
             </div>
 
-            <div class="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <div class="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                 <article
                     v-for="stat in adminPoolStats"
                     :key="stat.label"

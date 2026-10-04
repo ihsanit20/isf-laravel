@@ -6,6 +6,7 @@ use App\Enums\GeneralIncomeCategory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Support\Facades\Storage;
 
 #[Fillable([
@@ -43,7 +44,7 @@ class GeneralIncome extends Model
             return null;
         }
 
-        /** @var \Illuminate\Filesystem\FilesystemAdapter $disk */
+        /** @var FilesystemAdapter $disk */
         $disk = Storage::disk(self::attachmentDisk());
 
         return $disk->url($this->receipt_path);
