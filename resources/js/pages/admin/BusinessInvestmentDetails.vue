@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { Head, Link, router } from '@inertiajs/vue3';
-import { Plus, SquarePen, Trash2 } from 'lucide-vue-next';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
+import { CircleAlert, Plus, SquarePen, Trash2 } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 import InvestmentLedgerPanel from '@/components/admin/InvestmentLedgerPanel.vue';
 import type { InvestmentLedger } from '@/components/admin/InvestmentLedgerPanel.vue';
@@ -84,6 +84,16 @@ const isOpen = computed(
     () => !props.ledger.is_closed && !props.ledger.is_cancelled,
 );
 
+const page = usePage();
+
+const actionErrors = computed(() => {
+    const errors = page.props.errors as Record<string, string> | undefined;
+
+    return ['close', 'cancel', 'ledger']
+        .map((key) => errors?.[key])
+        .filter((message): message is string => !!message);
+});
+
 const cancelInvestment = () => {
     if (
         !confirm(
@@ -129,6 +139,18 @@ const closeInvestment = () => {
                 </Button>
             </template>
         </PageHeader>
+
+        <div
+            v-if="actionErrors.length > 0"
+            class="flex gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-300"
+        >
+            <CircleAlert class="mt-0.5 size-4 shrink-0" />
+            <div>
+                <p v-for="message in actionErrors" :key="message">
+                    {{ message }}
+                </p>
+            </div>
+        </div>
 
         <div
             class="-mt-3 flex flex-wrap items-center gap-2 text-sm text-muted-foreground"

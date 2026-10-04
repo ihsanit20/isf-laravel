@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Enums\EventOrderStatus;
 use App\Enums\EventPaymentType;
+use App\Enums\FundCycleEventStatus;
 use App\Ledger\Postings\InvestmentPostings;
 use App\Models\EventOrder;
 use App\Models\EventPayment;
@@ -125,6 +126,14 @@ class EventBkashPaymentService
             return redirect($this->frontendRedirect('failed', $orderNumber, $order->customer_phone));
         }
 
+        // bKash takes the money only on execute, so refuse here rather than
+        // record money the event can no longer account for.
+        if (($refusal = $this->executeRefusal($payment, $order)) !== null) {
+            $this->markPaymentFailed($payment, $refusal);
+
+            return redirect($this->frontendRedirect('failed', $orderNumber, $order->customer_phone));
+        }
+
         try {
             $response = $this->executePayment($paymentId);
         } catch (\Throwable $e) {
@@ -209,8 +218,8 @@ class EventBkashPaymentService
         $confirmed = false;
 
         DB::transaction(function () use ($order, $payment, $trxId, &$confirmed): void {
+            $payment = EventPayment::query()->lockForUpdate()->findOrFail($payment->id);
             $order->refresh();
-            $payment->refresh();
 
             // bKash has already taken the money: always record it, even when the
             // order was confirmed or cancelled meanwhile (refund handles the latter).
@@ -248,7 +257,7 @@ class EventBkashPaymentService
     private function verifyDuePayment(EventPayment $payment, string $trxId): void
     {
         DB::transaction(function () use ($payment, $trxId): void {
-            $payment->refresh();
+            $payment = EventPayment::query()->lockForUpdate()->findOrFail($payment->id);
             $order = $payment->order;
 
             if (! $order || $payment->payment_status === 'verified') {
@@ -275,15 +284,42 @@ class EventBkashPaymentService
         return 'ISF-'.$order->id.$suffix.'-'.Str::lower(Str::random(8));
     }
 
-    private function markPaymentFailed(EventPayment $payment, string $note): void
+    /**
+     * Why this payment must not be executed, or null when it may.
+     */
+    private function executeRefusal(EventPayment $payment, EventOrder $order): ?string
     {
-        if ($payment->payment_status === 'verified') {
-            return;
+        if ($payment->payment_status !== 'pending') {
+            return 'Payment attempt was already expired or superseded.';
         }
 
-        $payment->update([
-            'payment_status' => 'failed',
-            'note' => Str::limit($note, 500),
-        ]);
+        $event = $order->fundCycleEvent;
+
+        if ($event === null || $event->is_finalized || $event->status === FundCycleEventStatus::Cancelled) {
+            return 'The event is finalized or cancelled.';
+        }
+
+        if ($payment->payment_type === EventPaymentType::Due && (float) $payment->amount > $order->dueAmount()) {
+            return 'Payment exceeds the order due balance.';
+        }
+
+        return null;
+    }
+
+    private function markPaymentFailed(EventPayment $payment, string $note): void
+    {
+        // Re-read under lock: a parallel callback may have verified it meanwhile.
+        DB::transaction(function () use ($payment, $note): void {
+            $payment = EventPayment::query()->lockForUpdate()->find($payment->id);
+
+            if ($payment === null || $payment->payment_status === 'verified') {
+                return;
+            }
+
+            $payment->update([
+                'payment_status' => 'failed',
+                'note' => Str::limit($note, 500),
+            ]);
+        });
     }
 }

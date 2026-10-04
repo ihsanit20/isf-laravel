@@ -147,7 +147,7 @@ const isLocked = computed(() => isEventLocked(props.event));
 const actionErrors = computed(() => {
     const errors = page.props.errors as Record<string, string> | undefined;
 
-    return ['close', 'cancel']
+    return ['close', 'cancel', 'ledger']
         .map((key) => errors?.[key])
         .filter((message): message is string => !!message);
 });

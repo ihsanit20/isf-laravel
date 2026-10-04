@@ -129,7 +129,7 @@ class InvestmentPostings
         $investment = $this->investmentForEvent($withdrawal->fund_cycle_event_id);
         $amount = Money::toPaisa($withdrawal->amount);
 
-        $this->repost($withdrawal, 'event-withdrawal', $by, function (string $key) use ($withdrawal, $investment, $amount, $by): void {
+        $this->repost($withdrawal, 'event-withdrawal', $investment, $by, function (string $key) use ($withdrawal, $investment, $amount, $by): void {
             $this->lockAndAssertCycleCash($investment, $amount, 'amount');
 
             $this->ledger->entry('event_withdrawal', "Bank withdrawal for {$investment->title}")
@@ -151,7 +151,7 @@ class InvestmentPostings
             ? Account::GatewayFee
             : Account::SubBusinessExpense;
 
-        $this->repost($expense, 'event-expense', $by, function (string $key) use ($expense, $investment, $amount, $account, $by): void {
+        $this->repost($expense, 'event-expense', $investment, $by, function (string $key) use ($expense, $investment, $amount, $account, $by): void {
             if ($expense->paid_from === 'bank') {
                 $this->lockAndAssertCycleCash($investment, $amount, 'amount');
             }
@@ -172,7 +172,7 @@ class InvestmentPostings
         $investment = $this->investmentForEvent($income->fund_cycle_event_id);
         $amount = Money::toPaisa($income->amount);
 
-        $this->repost($income, 'event-income', $by, function (string $key) use ($income, $investment, $amount, $by): void {
+        $this->repost($income, 'event-income', $investment, $by, function (string $key) use ($income, $investment, $amount, $by): void {
             $this->ledger->entry('event_other_income', EventIncome::categoryLabel($income->category)." for {$investment->title}")
                 ->on($income->income_date)
                 ->source($income)
@@ -190,7 +190,7 @@ class InvestmentPostings
         $amount = Money::toPaisa($deposit->amount);
         $from = $deposit->source === 'bkash' ? Account::Bkash : Account::EventCash;
 
-        $this->repost($deposit, 'event-bank-deposit', $by, function (string $key) use ($deposit, $investment, $amount, $from, $by): void {
+        $this->repost($deposit, 'event-bank-deposit', $investment, $by, function (string $key) use ($deposit, $investment, $amount, $from, $by): void {
             $this->ledger->entry('event_bank_deposit', ($deposit->source === 'bkash' ? 'bKash settlement' : 'Cash deposit')." for {$investment->title}")
                 ->on($deposit->deposit_date)
                 ->source($deposit)
@@ -232,7 +232,7 @@ class InvestmentPostings
         $investment = $this->investmentForEvent($refund->order->fund_cycle_event_id);
         $amount = Money::toPaisa($refund->amount);
 
-        DB::transaction(function () use ($refund, $investment, $amount, $by): void {
+        $this->guarded($investment, 'amount', function () use ($refund, $investment, $amount, $by): void {
             if ($refund->method === 'bank') {
                 $this->lockAndAssertCycleCash($investment, $amount, 'amount');
             }
@@ -288,9 +288,7 @@ class InvestmentPostings
         $cycleBank = ['fund_cycle_id' => $investment->fund_cycle_id];
         $amount = Money::toPaisa($transaction->amount);
 
-        DB::transaction(function () use ($transaction, $investment, $dims, $cycleBank, $amount, $by): void {
-            $this->ledger->lock('cycle:'.$investment->fund_cycle_id, 'investment:'.$investment->id);
-
+        $this->guarded($investment, 'amount', function () use ($transaction, $investment, $dims, $cycleBank, $amount, $by): void {
             if (in_array($transaction->type, ['invest', 'expense'], true)) {
                 $this->ledger->assertAvailable(Account::Bank, $cycleBank, $amount, 'amount', 'Not enough cycle money in the bank.');
             }
@@ -459,9 +457,9 @@ class InvestmentPostings
     /**
      * Reverse previous postings of an editable source, then post again.
      */
-    public function repost(Model $source, string $prefix, ?User $by, callable $post): void
+    public function repost(Model $source, string $prefix, CycleInvestment $investment, ?User $by, callable $post): void
     {
-        DB::transaction(function () use ($source, $prefix, $by, $post): void {
+        $this->guarded($investment, 'amount', function () use ($source, $prefix, $by, $post): void {
             $this->ledger->reverseSource($source, class_basename($source)." #{$source->getKey()} updated", $by);
             $post($this->ledger->versionedKey($prefix.':'.$source->getKey(), $source));
         });
@@ -469,7 +467,12 @@ class InvestmentPostings
 
     public function removed(Model $source, ?User $by = null): void
     {
-        $this->ledger->reverseSource($source, class_basename($source)." #{$source->getKey()} removed", $by);
+        $reverse = fn () => $this->ledger->reverseSource($source, class_basename($source)." #{$source->getKey()} removed", $by);
+        $investment = $this->postedInvestment($source);
+
+        $investment === null
+            ? DB::transaction($reverse)
+            : $this->guarded($investment, 'ledger', $reverse);
     }
 
     /**
@@ -482,6 +485,47 @@ class InvestmentPostings
             'bank' => [Account::Bank, $amount, ['fund_cycle_id' => $investment->fund_cycle_id]],
             default => [Account::EventCash, $amount, $investment->dimensions()],
         };
+    }
+
+    /**
+     * Post under the cycle and investment locks, then refuse the change if it
+     * leaves event cash, bKash, invested capital or the cycle's bank share
+     * negative — money that does not exist.
+     */
+    private function guarded(CycleInvestment $investment, string $field, callable $post): void
+    {
+        DB::transaction(function () use ($investment, $field, $post): void {
+            $this->ledger->lock('cycle:'.$investment->fund_cycle_id, 'investment:'.$investment->id);
+
+            $post();
+
+            $negative = array_filter([
+                'Event cash / float' => $this->cash($investment),
+                'bKash wallet' => $this->bkash($investment),
+                'Invested capital' => $this->outstandingCapital($investment),
+                'Cycle bank money' => $this->cycleCash((int) $investment->fund_cycle_id),
+            ], fn (int $balance): bool => $balance < 0);
+
+            if ($negative !== []) {
+                throw ValidationException::withMessages([
+                    $field => array_map(
+                        fn (string $label, int $balance): string => sprintf('%s would go negative (%s BDT). Record the money coming in first.', $label, Money::format($balance)),
+                        array_keys($negative),
+                        $negative,
+                    ),
+                ]);
+            }
+        });
+    }
+
+    private function postedInvestment(Model $source): ?CycleInvestment
+    {
+        $investmentId = JournalLine::query()
+            ->whereIn('journal_entry_id', $this->ledger->activeEntriesFor($source)->pluck('id'))
+            ->whereNotNull('cycle_investment_id')
+            ->value('cycle_investment_id');
+
+        return $investmentId === null ? null : CycleInvestment::query()->find($investmentId);
     }
 
     private function lockAndAssertCycleCash(CycleInvestment $investment, int $amount, string $field): void
