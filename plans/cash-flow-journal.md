@@ -227,7 +227,7 @@ Dr  1010 Bank (—)                    cycle-এর সব টাকা    relea
 | General income | `Dr 1010 Bank (—)` / `Cr 6090` (platform fee হলে `6020`) |
 | General expense | `Dr 70xx` / `Cr 1010 Bank (—)` |
 
-Platform fund (`3010 + 6xxx − 7xxx`) খরচের চেয়ে কম হলে expense post হয় না। তাই `1010 (—)`-এ member-এর যে টাকা আছে, তা দিয়ে platform-এর খরচ চলে না।
+Platform fund (`3010 + 6xxx − 7xxx`) ঋণাত্মক হতে পারে, মানে platform লোকসানে। তখন খরচটা আসলে bank-এ থাকা সদস্যদের টাকা থেকে যায়, কিন্তু সদস্যদের পাওনা `2010`/`2020`-এ পুরোটাই লেখা থাকে। Expense আটকায় শুধু তখন, যখন মোট bank-এ টাকা নেই।
 
 ---
 

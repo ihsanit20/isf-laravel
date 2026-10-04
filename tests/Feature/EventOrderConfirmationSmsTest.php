@@ -2,8 +2,10 @@
 
 use App\Enums\EventOrderStatus;
 use App\Enums\EventPackageStatus;
+use App\Enums\EventPaymentType;
 use App\Enums\FundCycleEventStatus;
 use App\Models\EventOrder;
+use App\Models\EventPayment;
 use App\Models\FundCycle;
 use App\Models\FundCycleEvent;
 use App\Models\SmsLog;
@@ -113,6 +115,15 @@ test('track by token returns order without phone in request', function () {
         'total_amount' => 500,
         'advance_amount' => 100,
         'confirmed_at' => now(),
+    ]);
+
+    EventPayment::query()->create([
+        'event_order_id' => $order->id,
+        'amount' => 100,
+        'payment_type' => EventPaymentType::Advance,
+        'payment_method' => 'bkash',
+        'payment_status' => 'verified',
+        'verified_at' => now(),
     ]);
 
     $response = get('/api/v1/orders/track-by-token?token=abc123token');

@@ -78,7 +78,7 @@ flowchart TD
 | Joint bank, member, platform-এর ভাগ | `balancesByAccount()` | [TreasuryBalanceService.php:21](../app/Services/TreasuryBalanceService.php#L21) |
 | Order due | `total_amount − verified payments` (operational, journal-এ নেই) | [EventOrder.php:140](../app/Models/EventOrder.php#L140) |
 
-Integrity check: `php artisan ledger:check` (প্রতিদিন রাত ২টায়)। দেখে entry balanced কিনা, মোট debit = credit কিনা, platform fund বা কোনো cycle-এর bank ঋণাত্মক কিনা, আর কোনো user-এর balance উল্টো দিকে গেছে কিনা।
+Integrity check: `php artisan ledger:check` (প্রতিদিন রাত ২টায়)। দেখে entry balanced কিনা, মোট debit = credit কিনা, কোনো cycle-এর bank বা মোট bank ঋণাত্মক কিনা, আর কোনো user-এর balance উল্টো দিকে গেছে কিনা। Platform fund ঋণাত্মক হলে শুধু সতর্ক করে।
 
 ### ২.৩ ধাপে ধাপে প্রবাহ
 
@@ -106,7 +106,7 @@ Integrity check: `php artisan ledger:check` (প্রতিদিন রাত 
 - Settle: সব investment closed আর `cycle bank = capital + result` মিললে settle হয়। Platform কোনো ভাগ পায় না।
 
 **ঘ) Platform-পক্ষ**
-- General income `6xxx`-এ, general expense `7xxx`-এ। Platform fund-এ টাকা না থাকলে expense post হয় না, তাই member-এর টাকায় platform-এর খরচ চলে না।
+- General income `6xxx`-এ, general expense `7xxx`-এ। Platform fund ঋণাত্মক হতে পারে (platform-এর লোকসান)। Expense আটকায় শুধু মোট bank-এ টাকা না থাকলে।
 
 ---
 
@@ -153,7 +153,7 @@ Integrity check: `php artisan ledger:check` (প্রতিদিন রাত 
 - বাকি: unfinalize নেই। আর finalize-এর পরে আসা bKash callback আটকানো হয় না (নিচে N1)।
 
 **B10. ঋণাত্মক balance লুকিয়ে যেত** ✅
-- Treasury আর dashboard এখন journal থেকে সরাসরি পড়ে, `max(0, …)` নেই। `ledger:check` ঋণাত্মক platform fund, cycle bank আর joint bank ধরে।
+- Treasury আর dashboard এখন journal থেকে সরাসরি পড়ে, `max(0, …)` নেই। `ledger:check` ঋণাত্মক cycle bank আর joint bank ধরে, ঋণাত্মক platform fund-এ সতর্ক করে।
 - `max(0, …)` এখন আছে শুধু `dueAmount()`, `remainingQty()` আর payout-এর `requestable_amount`-এ। এর মধ্যে `dueAmount()` B8-এর অংশ।
 
 **B11. Race condition** ✅ (টাকার দিকে)
@@ -219,7 +219,7 @@ Integrity check: `php artisan ledger:check` (প্রতিদিন রাত 
 | 11 | Due মওকুফ বা write-off | ❌ |
 | 12 | bKash fee নিজে থেকে হিসাবে ধরা | ❌ এখনো manual `payment_fee` expense। তবে settlement-এর আগে bKash balance ০ না হলে finalize আটকায়, তাই fee বাদ পড়লে ধরা পড়ে |
 | 13 | bKash pending reconciliation job | ❌ |
-| 14 | সংগঠনের নিজস্ব তহবিল আলাদা | ✅ `3010 + 6xxx − 7xxx`, তহবিল না থাকলে platform expense block |
+| 14 | সংগঠনের নিজস্ব তহবিল আলাদা | ✅ `3010 + 6xxx − 7xxx` আলাদা হিসাব। ঋণাত্মক হতে পারে (platform-এর লোকসান), expense আটকায় শুধু মোট bank-এ টাকা না থাকলে |
 | 15 | Withdrawal-এর আগে আসল bank check, settled cycle-এ বন্ধ | ✅ cycle-এর earmark করা bank দেখা হয়। settle-এর পরে cycle bank ০, তাই আর তোলা যায় না |
 | 16 | Audit log | 🟡 টাকার প্রতিটা বদল journal-এ reversal + নতুন entry হিসেবে থাকে, কে করলেন সেটাও। কিন্তু source row-এর অন্য field (description, date, receipt) বদলালে আগের মান থাকে না |
 | 17 | Report বা export | 🟡 member statement (`my-statement`), admin accounts আর journal page, cycle ledger section আছে। export আর বছরের হিসাব নেই |

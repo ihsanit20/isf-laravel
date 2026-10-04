@@ -4,7 +4,7 @@
 প্রসঙ্গ: [financial-flow-audit.md](financial-flow-audit.md)
 
 > **অবস্থা (২ অক্টোবর ২০২৬): বাস্তবায়িত।**
-> - Journal শুরু থেকেই চালু, তাই backfill বা shadow mode (Phase 2) বাদ দেওয়া হয়েছে।
+> - Shadow mode (Phase 2) বাদ। Journal চালুর আগের data `php artisan ledger:backfill` দিয়ে আনা হয় (৪ অক্টোবর ২০২৬): তারিখ অনুযায়ী replay, সব check চালু, finalized event close, শেষে `ledger:check`।
 > - Phase 1, 3, 4, 5 শেষ।
 > - কোড আছে `app/Ledger/`-এ। Test আছে `tests/Feature/Ledger/`-এ, এই নথির §৯-এর পূর্ণ উদাহরণসহ।
 > - Integrity check: `php artisan ledger:check`, প্রতিদিন রাত ২টায় চলে।
@@ -61,7 +61,7 @@
 - User-এর টাকা সবসময় **2xxx (দায়)**-এ থাকে।
 - Cycle-এর আয়-ব্যয় (**4xxx/5xxx**) project শেষ হলে **2030**-এ যায়, অর্থাৎ সদস্যদের পাওনা হয়।
 - Platform-এর আয়-ব্যয় (**6xxx/7xxx**) আর **3010** শুধু platform-এর।
-- **Platform-এর নিজের তহবিল** = `3010 + 6xxx − 7xxx`। এটা ঋণাত্মক হলে platform-এর expense post হবে না। ফলে **সদস্যের টাকা দিয়ে platform-এর খরচ চালানো কাঠামোগতভাবেই অসম্ভব**।
+- **Platform-এর নিজের তহবিল** = `3010 + 6xxx − 7xxx`। এটা ঋণাত্মক হতে পারে, মানে platform লোকসানে আছে। সদস্যদের পাওনা তখনও 2xxx-এ পুরোটা লেখা থাকে। Platform-এর expense আটকায় শুধু তখন, যখন মোট bank-এ (`1010`) টাকা নেই। *(৪ অক্টোবর ২০২৬-এর সিদ্ধান্ত; আগে platform fund ঋণাত্মক হলে block হতো।)*
 
 **Bank-এর কোন টাকা কোন cycle-এর (earmark):**
 - Bank একটাই। কিন্তু bank-এর line-এ `fund_cycle_id` থাকলে বোঝা যায় টাকাটা কোন cycle-এর।
@@ -350,7 +350,7 @@ Admin event বা business page থেকে **"Charge যোগ করুন"*
 | অন্য খরচ | 70xx | 1010 Bank (—) |
 | অন্য আয় | 1010 Bank (—) | 6090 |
 
-Guard: Platform-এর নিজের তহবিল (`3010 + 6xxx − 7xxx`) খরচের চেয়ে কম হলে entry block হবে।
+Guard: মোট bank (`1010`, সব cycle মিলিয়ে) খরচের চেয়ে কম হলে entry block হবে। Platform fund ঋণাত্মক হওয়া চলবে; `ledger:check` তখন সতর্ক করে, error দেয় না।
 
 ---
 

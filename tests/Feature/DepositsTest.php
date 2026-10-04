@@ -367,7 +367,7 @@ test('admins can view the deposit review page', function () {
         ->assertOk()
         ->assertInertia(fn(Assert $page) => $page
             ->component('admin/Deposits')
-            ->has('deposits', 1));
+            ->has('deposits.data', 1));
 });
 
 test('members cannot view the admin deposit review page', function () {

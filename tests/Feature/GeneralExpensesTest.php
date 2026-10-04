@@ -1,10 +1,12 @@
 <?php
 
+use App\Enums\DepositSubmissionStatus;
 use App\Enums\GeneralExpenseCategory;
 use App\Enums\GeneralIncomeCategory;
 use App\Ledger\Account;
 use App\Ledger\Ledger;
 use App\Ledger\Postings\PlatformPostings;
+use App\Models\DepositSubmission;
 use App\Models\GeneralExpense;
 use App\Models\GeneralIncome;
 use App\Models\User;
@@ -113,7 +115,7 @@ test('admins can update a general expense', function () {
     expect(Storage::disk('public')->exists($expense->receipt_path))->toBeTrue();
 });
 
-test('platform expenses are posted to the journal and cannot exceed the platform fund', function () {
+test('platform expenses may run the platform fund negative but not the bank', function () {
     $admin = User::factory()->create(['role' => 'admin']);
     fundPlatform(1000);
 
@@ -135,4 +137,24 @@ test('platform expenses are posted to the journal and cannot exceed the platform
     ])->assertSessionHasErrors(['amount']);
 
     expect(GeneralExpense::query()->count())->toBe(1);
+
+    $member = User::factory()->create();
+    DepositSubmission::query()->create([
+        'user_id' => $member->id,
+        'amount' => 5000,
+        'payment_method' => DepositSubmission::PAYMENT_METHOD_BANK_TRANSFER,
+        'deposit_date' => '2026-04-14',
+        'proof_path' => 'proofs/x.png',
+        'status' => DepositSubmissionStatus::Verified,
+        'verified_at' => now(),
+    ]);
+
+    post(route('admin.general-expenses.store'), [
+        'expense_date' => '2026-04-15',
+        'category' => GeneralExpenseCategory::BankCharge->value,
+        'amount' => 700,
+    ])->assertSessionHasNoErrors();
+
+    expect(app(Ledger::class)->platformFund())->toBe(-10000)
+        ->and(app(Ledger::class)->creditBalance(Account::MemberBalance, ['user_id' => $member->id]))->toBe(500000);
 });

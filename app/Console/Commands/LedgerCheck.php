@@ -36,9 +36,10 @@ class LedgerCheck extends Command
             $problems[] = 'Trial balance is off by '.Money::format($total).' BDT.';
         }
 
-        if (($platform = $ledger->platformFund()) < 0) {
-            $problems[] = 'Platform fund is negative: '.Money::format($platform).' BDT.';
-        }
+        // A negative platform fund (a platform loss) or general bank share
+        // (platform spent cycle-earmarked money) is reported, not an error.
+        $platform = $ledger->platformFund();
+        $generalBank = $ledger->balance(Account::Bank, ['fund_cycle_id' => null]);
 
         $ledger->balancesBy('user_id', Account::MemberBalance)
             ->filter(fn (int $balance, $userId): bool => $userId !== null && $userId !== '' && $balance > 0)
@@ -60,6 +61,14 @@ class LedgerCheck extends Command
 
         if ($problems === []) {
             $this->info('Journal OK. Joint bank: '.Money::format($bank).' BDT, platform fund: '.Money::format($platform).' BDT.');
+
+            if ($platform < 0) {
+                $this->warn('Platform fund is negative: the platform is running at a loss.');
+            }
+
+            if ($generalBank < 0) {
+                $this->warn('Bank share outside fund cycles is negative ('.Money::format($generalBank).' BDT): cycle-earmarked money is covering it.');
+            }
 
             return self::SUCCESS;
         }

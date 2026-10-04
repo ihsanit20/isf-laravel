@@ -1,6 +1,8 @@
 <?php
 
+use App\Enums\DepositSubmissionStatus;
 use App\Enums\MemberStatus;
+use App\Models\DepositSubmission;
 use App\Models\FundCycle;
 use App\Models\FundCycleAllocation;
 use App\Models\Member;
@@ -50,6 +52,16 @@ test('authenticated users can view their allocation list', function () {
         'created_by_user_id' => User::factory()->create(['role' => 'admin'])->id,
     ]);
 
+    DepositSubmission::query()->create([
+        'user_id' => $user->id,
+        'amount' => 3400,
+        'payment_method' => DepositSubmission::PAYMENT_METHOD_BANK_TRANSFER,
+        'deposit_date' => now()->subDays(2)->toDateString(),
+        'proof_path' => 'deposit-proofs/proof.jpg',
+        'status' => DepositSubmissionStatus::Verified,
+        'verified_at' => now()->subDays(2),
+    ]);
+
     FundCycleAllocation::query()->create([
         'fund_cycle_id' => $cycleOne->id,
         'member_id' => $memberOne->id,
@@ -93,11 +105,15 @@ test('authenticated users can view their allocation list', function () {
             ->has('memberTabs', 2)
             ->where('memberTabs.0.member.full_name', 'Family Member')
             ->where('memberTabs.0.member.units', 2)
-            ->has('memberTabs.0.rows', 1)
-            ->where('memberTabs.0.rows.0.status', 'allocated')
-            ->where('memberTabs.0.rows.0.cycle_name', 'May 2026 Cycle')
-            ->where('memberTabs.0.rows.0.slot_key', 'May 2026')
-            ->where('memberTabs.0.rows.0.amount', 2400));
+            ->has('memberTabs.0.rows', 2)
+            ->where('memberTabs.0.rows.0.status', 'unallocated')
+            ->where('memberTabs.0.rows.0.cycle_name', 'April 2026 Cycle')
+            ->where('memberTabs.0.rows.0.slot_key', 'April 2026')
+            ->where('memberTabs.0.rows.0.amount', 2000)
+            ->where('memberTabs.0.rows.1.status', 'allocated')
+            ->where('memberTabs.0.rows.1.cycle_name', 'May 2026 Cycle')
+            ->where('memberTabs.0.rows.1.slot_key', 'May 2026')
+            ->where('memberTabs.0.rows.1.amount', 2400));
 });
 
 test('guests are redirected from my allocations', function () {

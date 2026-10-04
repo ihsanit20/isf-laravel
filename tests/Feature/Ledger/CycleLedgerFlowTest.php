@@ -65,9 +65,10 @@ test('journal entries are immutable and idempotent', function () {
     expect($ledger->creditBalance(Account::MemberBalance, ['user_id' => $user->id]))->toBe(0);
 });
 
-test('platform cannot spend member money', function () {
+test('platform may run at a loss but never past the bank', function () {
     $admin = ledgerAdmin();
-    ledgerVerifiedDeposit(ledgerAdmin(), 10000);
+    $member = ledgerAdmin();
+    ledgerVerifiedDeposit($member, 10000);
 
     $expense = GeneralExpense::query()->create([
         'expense_date' => '2026-01-05',
@@ -76,7 +77,19 @@ test('platform cannot spend member money', function () {
         'created_by_user_id' => $admin->id,
     ]);
 
-    expect(fn () => app(PlatformPostings::class)->expenseRecorded($expense))
+    app(PlatformPostings::class)->expenseRecorded($expense);
+
+    expect(app(Ledger::class)->platformFund())->toBe(-10000)
+        ->and(app(Ledger::class)->creditBalance(Account::MemberBalance, ['user_id' => $member->id]))->toBe(1000000);
+
+    $tooBig = GeneralExpense::query()->create([
+        'expense_date' => '2026-01-06',
+        'category' => 'sms_charge',
+        'amount' => 10000,
+        'created_by_user_id' => $admin->id,
+    ]);
+
+    expect(fn () => app(PlatformPostings::class)->expenseRecorded($tooBig))
         ->toThrow(ValidationException::class);
 });
 

@@ -60,6 +60,7 @@ class MemberPostings
             $allocation->charge->category?->title ?? 'Charge',
             $member->full_name,
         ))
+            ->on($allocation->confirmed_at)
             ->source($allocation)
             ->key('charge-allocation:'.$allocation->id)
             ->by($by)

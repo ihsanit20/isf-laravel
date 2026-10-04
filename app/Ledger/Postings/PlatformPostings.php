@@ -9,11 +9,11 @@ use App\Models\GeneralExpense;
 use App\Models\GeneralIncome;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\ValidationException;
 
 /**
- * The platform's own income and expense. Never touches member money:
- * an expense is refused when the platform's own fund cannot cover it.
+ * The platform's own income and expense. The platform fund may go negative
+ * (a platform loss); member balances stay intact in 2xxx either way. An
+ * expense is refused only when the joint bank as a whole cannot pay it.
  */
 class PlatformPostings
 {
@@ -49,16 +49,14 @@ class PlatformPostings
             $this->ledger->reverseSource($expense, "General expense #{$expense->id} updated", $by);
 
             $amount = Money::toPaisa($expense->amount);
-            $available = $this->fund();
 
-            if ($amount > $available) {
-                throw ValidationException::withMessages([
-                    'amount' => sprintf(
-                        'Platform fund is not enough for this expense (available: %s BDT). Member money cannot be used for platform expenses.',
-                        number_format($available / 100, 2),
-                    ),
-                ]);
-            }
+            $this->ledger->assertAvailable(
+                Account::Bank,
+                [],
+                $amount,
+                'amount',
+                'Not enough money in the bank for this expense.',
+            );
 
             $this->ledger->entry('platform_expense', $expense->category->label().' (general expense)')
                 ->on($expense->expense_date)

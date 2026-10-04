@@ -317,11 +317,11 @@ class JournalController extends Controller
             $matched = JournalLine::query()
                 ->whereIn('journal_entry_id', $this->filteredQuery($filters)->select('journal_entries.id'))
                 ->tap(fn (Builder $lines) => $this->applyLineFilters($lines, $lineFilters))
-                ->selectRaw('COUNT(*) as lines, COALESCE(SUM(debit), 0) as debit, COALESCE(SUM(credit), 0) as credit')
+                ->selectRaw('COUNT(*) as line_count, COALESCE(SUM(debit), 0) as debit, COALESCE(SUM(credit), 0) as credit')
                 ->first();
 
             $summary['matched'] = [
-                'lines' => (int) $matched->lines,
+                'lines' => (int) $matched->line_count,
                 'debit' => Money::toTaka((int) $matched->debit),
                 'credit' => Money::toTaka((int) $matched->credit),
                 'net' => Money::toTaka((int) $matched->debit - (int) $matched->credit),
