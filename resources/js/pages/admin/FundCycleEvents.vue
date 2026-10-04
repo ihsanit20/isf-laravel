@@ -3,8 +3,19 @@ import { Head, Link } from '@inertiajs/vue3';
 import { Eye, Pencil, Plus } from 'lucide-vue-next';
 import { ref } from 'vue';
 import FundCycleEventFormDialog from '@/components/admin/FundCycleEventFormDialog.vue';
-import { Badge } from '@/components/ui/badge';
+import PageHeader from '@/components/shared/PageHeader.vue';
+import StatusBadge from '@/components/shared/StatusBadge.vue';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableEmpty,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
 
 type FundCycleEventPage = {
     id: number;
@@ -77,201 +88,124 @@ const formatDateTime = (value: string): string => {
 <template>
     <Head :title="`${props.fundCycle.name} - Events`" />
 
-    <div class="flex h-full flex-1 flex-col gap-4 rounded-xl p-4">
-        <section
-            class="rounded-xl border border-sidebar-border/70 bg-background p-6 shadow-sm dark:border-sidebar-border"
+    <div class="flex flex-1 flex-col gap-6 p-4 md:p-6">
+        <PageHeader
+            :title="`${props.fundCycle.name} · Events`"
+            description="Pre-order events this cycle invests in. Finalize an event to close it into the cycle result."
         >
-            <div
-                class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between"
-            >
-                <div class="max-w-3xl">
-                    <p
-                        class="text-xs font-medium tracking-[0.2em] text-muted-foreground uppercase"
-                    >
-                        Fund Cycle Events
-                    </p>
-                    <h1 class="mt-2 text-2xl font-semibold tracking-tight">
-                        {{ props.fundCycle.name }}
-                    </h1>
-                    <p class="mt-2 text-sm text-muted-foreground">
-                        Events will be managed under this cycle from this
-                        dedicated page.
-                    </p>
-                </div>
+            <template #actions>
+                <Button variant="outline" as-child>
+                    <Link :href="`/admin/fund-cycles/${props.fundCycle.id}`">
+                        Cycle details
+                    </Link>
+                </Button>
+                <Button @click="isCreateDialogOpen = true">
+                    <Plus class="size-4" />
+                    Add event
+                </Button>
+            </template>
+        </PageHeader>
 
-                <div class="flex flex-wrap gap-2">
-                    <Button @click="isCreateDialogOpen = true">
-                        <Plus class="size-4" />
-                        Add Event
-                    </Button>
-                    <Button variant="outline" as-child>
-                        <Link
-                            :href="`/admin/fund-cycles/${props.fundCycle.id}`"
-                        >
-                            Back to Details
-                        </Link>
-                    </Button>
-                    <Button variant="outline" as-child>
-                        <Link
-                            :href="`/admin/fund-cycles/${props.fundCycle.id}/allocations`"
-                        >
-                            Allocations
-                        </Link>
-                    </Button>
-                </div>
-            </div>
-
-            <div class="mt-6 grid gap-4 text-sm md:grid-cols-2 xl:grid-cols-5">
-                <div>
-                    <div class="text-xs text-muted-foreground">Status</div>
-                    <div class="mt-1">
-                        <Badge variant="outline">{{
-                            props.fundCycle.status_label
-                        }}</Badge>
-                    </div>
-                </div>
-                <div>
-                    <div class="text-xs text-muted-foreground">Start</div>
-                    <div class="mt-1 font-medium text-foreground">
-                        {{ props.fundCycle.start_date || '-' }}
-                    </div>
-                </div>
-                <div>
-                    <div class="text-xs text-muted-foreground">Lock</div>
-                    <div class="mt-1 font-medium text-foreground">
-                        {{ props.fundCycle.lock_date || '-' }}
-                    </div>
-                </div>
-                <div>
-                    <div class="text-xs text-muted-foreground">Maturity</div>
-                    <div class="mt-1 font-medium text-foreground">
-                        {{ props.fundCycle.maturity_date || '-' }}
-                    </div>
-                </div>
-                <div>
-                    <div class="text-xs text-muted-foreground">Settlement</div>
-                    <div class="mt-1 font-medium text-foreground">
-                        {{ props.fundCycle.settlement_date || '-' }}
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <section
-            class="overflow-hidden rounded-xl border border-sidebar-border/70 bg-background shadow-sm dark:border-sidebar-border"
+        <div
+            class="-mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground"
         >
-            <div class="overflow-x-auto">
-                <table
-                    class="min-w-full divide-y divide-sidebar-border/70 text-sm"
-                >
-                    <thead class="bg-muted/40 text-left">
-                        <tr>
-                            <th class="px-4 py-3 font-medium">Banner</th>
-                            <th class="px-4 py-3 font-medium">Title</th>
-                            <th class="px-4 py-3 font-medium">Slug</th>
-                            <th class="px-4 py-3 font-medium">Status</th>
-                            <th class="px-4 py-3 font-medium">Finalized</th>
-                            <th class="px-4 py-3 font-medium">Order Window</th>
-                            <th class="px-4 py-3 font-medium">Delivery</th>
-                            <th class="px-4 py-3 font-medium">Created At</th>
-                            <th class="px-4 py-3 font-medium">Action</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-sidebar-border/70">
-                        <tr v-for="event in props.events" :key="event.id">
-                            <td class="px-4 py-3">
+            <StatusBadge
+                :status="props.fundCycle.status"
+                :label="props.fundCycle.status_label"
+            />
+            <span>Start {{ props.fundCycle.start_date || '—' }}</span>
+            <span>Lock {{ props.fundCycle.lock_date || '—' }}</span>
+            <span>Maturity {{ props.fundCycle.maturity_date || '—' }}</span>
+            <span>Settlement {{ props.fundCycle.settlement_date || '—' }}</span>
+        </div>
+
+        <Card class="py-0">
+            <Table>
+                <TableHeader>
+                    <TableRow>
+                        <TableHead class="pl-4">Event</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Order window</TableHead>
+                        <TableHead>Delivery</TableHead>
+                        <TableHead class="pr-4 text-right" />
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    <TableRow v-for="event in props.events" :key="event.id">
+                        <TableCell class="pl-4 whitespace-normal">
+                            <div class="flex items-center gap-3">
                                 <img
                                     v-if="event.banner_image_url"
                                     :src="event.banner_image_url"
                                     :alt="event.title"
-                                    class="h-12 w-20 rounded object-cover"
+                                    class="h-10 w-16 shrink-0 rounded object-cover"
                                 />
-                                <span v-else class="text-muted-foreground"
-                                    >-</span
-                                >
-                            </td>
-                            <td class="px-4 py-3 font-medium">
-                                <div>{{ event.title }}</div>
                                 <div
-                                    v-if="event.description"
-                                    class="mt-1 line-clamp-2 max-w-sm text-xs text-muted-foreground"
-                                >
-                                    {{ event.description }}
-                                </div>
-                            </td>
-                            <td class="px-4 py-3 text-muted-foreground">
-                                {{ event.slug }}
-                            </td>
-                            <td class="px-4 py-3">
-                                <Badge variant="outline">{{
-                                    event.status_label
-                                }}</Badge>
-                            </td>
-                            <td class="px-4 py-3">
-                                <Badge
-                                    :variant="
-                                        event.is_finalized
-                                            ? 'default'
-                                            : 'secondary'
-                                    "
-                                >
-                                    {{ event.is_finalized ? 'Yes' : 'No' }}
-                                </Badge>
-                            </td>
-                            <td class="px-4 py-3 text-muted-foreground">
-                                <div>
-                                    Open:
-                                    {{ formatDateTime(event.order_open_at) }}
-                                </div>
-                                <div>
-                                    Close:
-                                    {{ formatDateTime(event.order_close_at) }}
-                                </div>
-                            </td>
-                            <td class="px-4 py-3 text-muted-foreground">
-                                {{ event.expected_delivery_date || '-' }}
-                            </td>
-                            <td class="px-4 py-3 text-muted-foreground">
-                                {{ event.created_at || '-' }}
-                            </td>
-                            <td class="px-4 py-3">
-                                <div class="flex gap-2">
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        as-child
+                                    v-else
+                                    class="h-10 w-16 shrink-0 rounded bg-muted"
+                                />
+                                <div class="min-w-0">
+                                    <Link
+                                        :href="`/admin/events/${event.id}`"
+                                        class="font-medium hover:underline"
                                     >
-                                        <Link
-                                            :href="`/admin/events/${event.id}`"
-                                        >
-                                            <Eye class="size-4" />
-                                            Details
-                                        </Link>
-                                    </Button>
-                                    <Button
-                                        v-if="!event.is_finalized"
-                                        variant="outline"
-                                        size="sm"
-                                        @click="openEditDialog(event)"
-                                    >
-                                        <Pencil class="size-4" />
-                                        Edit
-                                    </Button>
+                                        {{ event.title }}
+                                    </Link>
+                                    <p class="text-xs text-muted-foreground">
+                                        /{{ event.slug }}
+                                    </p>
                                 </div>
-                            </td>
-                        </tr>
-                        <tr v-if="props.events.length === 0">
-                            <td
-                                colspan="9"
-                                class="px-4 py-8 text-center text-muted-foreground"
-                            >
-                                No events found for this cycle.
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </section>
+                            </div>
+                        </TableCell>
+                        <TableCell>
+                            <div class="flex flex-wrap gap-1">
+                                <StatusBadge
+                                    :status="event.status"
+                                    :label="event.status_label"
+                                />
+                                <StatusBadge
+                                    v-if="event.is_finalized"
+                                    status="finalized"
+                                />
+                            </div>
+                        </TableCell>
+                        <TableCell class="text-xs text-muted-foreground">
+                            <p>
+                                Open {{ formatDateTime(event.order_open_at) }}
+                            </p>
+                            <p>
+                                Close {{ formatDateTime(event.order_close_at) }}
+                            </p>
+                        </TableCell>
+                        <TableCell class="text-muted-foreground">
+                            {{ event.expected_delivery_date || '—' }}
+                        </TableCell>
+                        <TableCell class="pr-4">
+                            <div class="flex justify-end gap-2">
+                                <Button
+                                    v-if="!event.is_finalized"
+                                    variant="outline"
+                                    size="sm"
+                                    @click="openEditDialog(event)"
+                                >
+                                    <Pencil class="size-4" />
+                                    Edit
+                                </Button>
+                                <Button size="sm" as-child>
+                                    <Link :href="`/admin/events/${event.id}`">
+                                        <Eye class="size-4" />
+                                        Details
+                                    </Link>
+                                </Button>
+                            </div>
+                        </TableCell>
+                    </TableRow>
+                    <TableEmpty v-if="props.events.length === 0" :colspan="5">
+                        No events in this cycle yet.
+                    </TableEmpty>
+                </TableBody>
+            </Table>
+        </Card>
 
         <FundCycleEventFormDialog
             v-model:isOpen="isCreateDialogOpen"

@@ -12,5 +12,11 @@ export type NavItem = {
     icon?: LucideIcon;
     isActive?: boolean;
     dividerBefore?: boolean;
+    matchPrefix?: boolean;
     items?: NavItem[];
+};
+
+export type NavGroup = {
+    label: string;
+    items: NavItem[];
 };

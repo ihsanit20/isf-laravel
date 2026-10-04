@@ -21,9 +21,15 @@ import {
 import { useCurrentUrl } from '@/composables/useCurrentUrl';
 import type { NavItem } from '@/types';
 
-defineProps<{
-    items: NavItem[];
-}>();
+withDefaults(
+    defineProps<{
+        items: NavItem[];
+        label?: string;
+    }>(),
+    {
+        label: 'Platform',
+    },
+);
 
 const { isCurrentOrParentUrl, isCurrentUrl } = useCurrentUrl();
 
@@ -33,7 +39,7 @@ const isItemActive = (item: NavItem): boolean =>
 
 <template>
     <SidebarGroup class="px-2 py-0">
-        <SidebarGroupLabel>Platform</SidebarGroupLabel>
+        <SidebarGroupLabel>{{ label }}</SidebarGroupLabel>
         <SidebarMenu>
             <template
                 v-for="(item, index) in items"
@@ -93,7 +99,11 @@ const isItemActive = (item: NavItem): boolean =>
                 <SidebarMenuItem v-else>
                     <SidebarMenuButton
                         as-child
-                        :is-active="isCurrentUrl(item.href)"
+                        :is-active="
+                            item.matchPrefix
+                                ? isCurrentOrParentUrl(item.href)
+                                : isCurrentUrl(item.href)
+                        "
                         :tooltip="item.title"
                     >
                         <Link :href="item.href">

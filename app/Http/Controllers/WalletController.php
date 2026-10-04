@@ -8,17 +8,18 @@ use App\Ledger\Money;
 use App\Models\FundCycle;
 use App\Models\JournalLine;
 use App\Models\LedgerAccount;
-use App\Models\Member;
+use App\Models\PayoutRequest;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
 /**
- * A user's own statement: every movement of their available balance with a
- * running total, plus what is currently invested in each cycle.
+ * A user's wallet: every movement of their available balance with a running
+ * total, what is currently invested in each cycle, and their withdrawal
+ * requests.
  */
-class StatementController extends Controller
+class WalletController extends Controller
 {
     public function index(Request $request, Ledger $ledger): Response
     {
@@ -56,8 +57,16 @@ class StatementController extends Controller
             ->filter();
         $cycles = FundCycle::query()->whereIn('id', $capital->keys())->get(['id', 'name', 'status'])->keyBy('id');
 
-        return Inertia::render('Statement', [
-            'availableBalance' => Money::toTaka($ledger->creditBalance(Account::MemberBalance, ['user_id' => $user->id])),
+        $payouts = PayoutRequest::query()
+            ->where('user_id', $user->id)
+            ->latest('id')
+            ->get();
+
+        $available = $ledger->creditBalance(Account::MemberBalance, ['user_id' => $user->id]);
+        $pending = Money::toPaisa($payouts->where('status', PayoutRequest::STATUS_PENDING)->sum('amount'));
+
+        return Inertia::render('Wallet', [
+            'availableBalance' => Money::toTaka($available),
             'investedCapital' => Money::toTaka((int) $capital->sum()),
             'investments' => $capital
                 ->map(fn (int $amount, int|string $cycleId): array => [
@@ -67,8 +76,17 @@ class StatementController extends Controller
                     'amount' => Money::toTaka($amount),
                 ])
                 ->values(),
-            'members' => Member::query()->where('managed_by_user_id', $user->id)->pluck('full_name', 'id'),
             'lines' => $lines->reverse()->values(),
+            'payoutSummary' => [
+                'pending_amount' => Money::toTaka($pending),
+                'requestable_amount' => Money::toTaka(max(0, $available - $pending)),
+            ],
+            'paymentMethods' => collect(PayoutRequest::PAYMENT_METHODS)
+                ->map(fn (string $method): array => ['value' => $method, 'label' => str($method)->replace('_', ' ')->title()->toString()])
+                ->values(),
+            'payouts' => $payouts
+                ->map(fn (PayoutRequest $payout): array => PayoutController::transform($payout))
+                ->values(),
         ]);
     }
 }

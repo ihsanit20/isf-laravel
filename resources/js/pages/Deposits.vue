@@ -1,8 +1,35 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
-import { CalendarDays, Plus } from 'lucide-vue-next';
-import { Badge } from '@/components/ui/badge';
+import {
+    BadgeCheck,
+    Clock3,
+    FileText,
+    Plus,
+    Wallet,
+    WalletCards,
+} from 'lucide-vue-next';
+import { computed } from 'vue';
+import EmptyState from '@/components/shared/EmptyState.vue';
+import PageHeader from '@/components/shared/PageHeader.vue';
+import StatCard from '@/components/shared/StatCard.vue';
+import StatusBadge from '@/components/shared/StatusBadge.vue';
 import { Button } from '@/components/ui/button';
+import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle,
+} from '@/components/ui/card';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
+import { formatMoney } from '@/lib/format';
 
 type DepositStatus = 'pending' | 'verified' | 'rejected';
 
@@ -34,7 +61,10 @@ type DepositSummary = {
     total_verified_amount: number;
     total_rejected_deposit_count: number;
     total_charge_allocated_amount: number;
+    total_fund_cycle_allocated_amount: number;
     total_allocated_amount: number;
+    total_cycle_returned_amount: number;
+    total_payout_amount: number;
     total_allocatable_amount: number;
     total_deposit_count: number;
     can_allocate: boolean;
@@ -48,219 +78,184 @@ type Props = {
 
 defineOptions({
     layout: {
-        breadcrumbs: [
-            {
-                title: 'My Deposits',
-                href: '/my-deposits',
-            },
-        ],
+        breadcrumbs: [{ title: 'Deposits', href: '/my-deposits' }],
     },
 });
 
-defineProps<Props>();
+const props = defineProps<Props>();
 
-const money = (amount: number): string => `${amount.toLocaleString()} BDT`;
+const pendingDeposits = computed(() =>
+    props.deposits.filter((deposit) => deposit.status === 'pending'),
+);
 
-const statusLabel = (status: DepositStatus): string =>
-    status.replace('_', ' ').replace(/\b\w/g, (char) => char.toUpperCase());
-
-const statusVariant = (
-    status: DepositStatus,
-): 'default' | 'secondary' | 'destructive' | 'outline' => {
-    if (status === 'verified') {
-        return 'default';
-    }
-
-    if (status === 'rejected') {
-        return 'destructive';
-    }
-
-    return 'secondary';
-};
+const pendingAmount = computed(() =>
+    pendingDeposits.value.reduce((sum, deposit) => sum + deposit.amount, 0),
+);
 </script>
 
 <template>
-    <Head title="My Deposits" />
+    <Head title="Deposits" />
 
-    <div class="flex h-full flex-1 flex-col gap-4 rounded-xl p-4">
-        <section
-            class="rounded-[28px] border border-sidebar-border/70 bg-linear-to-br from-background via-background to-amber-50 p-6 shadow-sm"
+    <div class="flex flex-1 flex-col gap-6 p-4 md:p-6">
+        <PageHeader
+            title="Deposits"
+            description="Send money to the ISF account and submit the proof here. Once an admin verifies it, the amount is added to your balance."
         >
-            <div
-                class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between"
-            >
-                <div class="max-w-2xl">
-                    <p
-                        class="text-xs font-medium tracking-[0.2em] text-muted-foreground uppercase"
-                    >
-                        Total Verified Deposits
-                    </p>
-                    <h1 class="mt-2 text-3xl font-semibold tracking-tight">
-                        {{ money(summary.total_verified_amount) }}
-                    </h1>
-                    <p class="mt-3 text-sm leading-6 text-muted-foreground">
-                        Deposits stay independent from charge settlement. Submit
-                        deposits first, then settle any pending charges from the
-                        verified deposit pool when needed.
-                    </p>
-                </div>
-
-                <div class="flex flex-wrap gap-3">
-                    <Button as-child class="shrink-0">
-                        <Link href="/my-deposits/create">
-                            <Plus class="size-4" />
-                            Submit Deposit
-                        </Link>
-                    </Button>
-                </div>
-            </div>
-        </section>
-
-        <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <div
-                class="rounded-3xl border border-sidebar-border/70 bg-background px-5 py-5 shadow-sm"
-            >
-                <p class="text-xs text-muted-foreground">
-                    Total Submitted Deposits
-                </p>
-                <p class="mt-2 text-xl font-semibold text-foreground">
-                    {{ money(summary.total_deposit_amount) }}
-                </p>
-                <p class="mt-1 text-xs text-muted-foreground">
-                    Verified: {{ money(summary.total_verified_amount) }}
-                </p>
-            </div>
-            <div
-                class="rounded-3xl border border-sidebar-border/70 bg-background px-5 py-5 shadow-sm"
-            >
-                <p class="text-xs text-muted-foreground">Allocated Total</p>
-                <p class="mt-2 text-xl font-semibold text-foreground">
-                    {{ money(summary.total_allocated_amount) }}
-                </p>
-                <p class="mt-1 text-xs text-muted-foreground">
-                    Charges and fund cycle allocations from your verified
-                    deposit pool
-                </p>
-            </div>
-            <div
-                class="rounded-3xl border border-sidebar-border/70 bg-background px-5 py-5 shadow-sm"
-            >
-                <p class="text-xs text-muted-foreground">
-                    Available To Allocate
-                </p>
-                <p class="mt-2 text-xl font-semibold text-foreground">
-                    {{ money(summary.total_allocatable_amount) }}
-                </p>
-            </div>
-            <div
-                class="rounded-3xl border border-sidebar-border/70 bg-background px-5 py-5 shadow-sm"
-            >
-                <p class="text-xs text-muted-foreground">Deposit Count</p>
-                <p class="mt-2 text-xl font-semibold text-foreground">
-                    {{ summary.total_deposit_count }}
-                </p>
-                <p class="mt-1 text-xs text-muted-foreground">
-                    Rejected: {{ summary.total_rejected_deposit_count }}
-                </p>
-            </div>
-        </section>
-
-        <section v-if="deposits.length > 0" class="space-y-4">
-            <div>
-                <h2
-                    class="text-lg font-semibold tracking-tight text-foreground"
-                >
-                    Deposit History
-                </h2>
-                <p class="mt-1 text-sm text-muted-foreground">
-                    Deposits stay independent from allocation history.
-                </p>
-            </div>
-
-            <div
-                class="overflow-hidden rounded-[28px] border border-sidebar-border/70 bg-background shadow-sm"
-            >
-                <div class="overflow-x-auto">
-                    <table
-                        class="min-w-full divide-y divide-sidebar-border/70 text-sm"
-                    >
-                        <thead class="bg-muted/40 text-left">
-                            <tr>
-                                <th class="px-4 py-3 font-medium">Deposit</th>
-                                <th class="px-4 py-3 font-medium">Status</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-sidebar-border/70">
-                            <tr
-                                v-for="deposit in deposits"
-                                :key="deposit.id"
-                                class="align-top"
-                            >
-                                <td class="px-4 py-4">
-                                    <div class="font-medium text-foreground">
-                                        Deposit #{{ deposit.id }}
-                                    </div>
-                                    <div
-                                        class="mt-1 text-xs text-muted-foreground"
-                                    >
-                                        {{ money(deposit.amount) }}
-                                    </div>
-                                    <div
-                                        v-if="deposit.rejection_reason"
-                                        class="mt-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700"
-                                    >
-                                        {{ deposit.rejection_reason }}
-                                    </div>
-                                </td>
-                                <td class="px-4 py-4">
-                                    <Badge
-                                        :variant="statusVariant(deposit.status)"
-                                    >
-                                        {{ statusLabel(deposit.status) }}
-                                    </Badge>
-                                    <div
-                                        class="mt-2 flex items-start gap-2 text-sm text-muted-foreground"
-                                    >
-                                        <CalendarDays
-                                            class="mt-0.5 size-4 shrink-0"
-                                        />
-                                        <span>{{
-                                            deposit.verified_at ||
-                                            'Pending review'
-                                        }}</span>
-                                    </div>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </section>
-
-        <section
-            v-else
-            class="rounded-[28px] border border-dashed border-sidebar-border/80 bg-background p-10 text-center shadow-sm"
-        >
-            <div class="mx-auto max-w-md">
-                <p
-                    class="text-sm font-medium tracking-[0.2em] text-muted-foreground uppercase"
-                >
-                    No Deposits Yet
-                </p>
-                <h2 class="mt-3 text-2xl font-semibold tracking-tight">
-                    No deposit submissions found
-                </h2>
-                <p class="mt-3 text-sm leading-6 text-muted-foreground">
-                    Submit your first bank deposit with proof, then use the
-                    verified balance to settle pending charges.
-                </p>
-                <Button as-child class="mt-6">
+            <template #actions>
+                <Button as-child>
                     <Link href="/my-deposits/create">
                         <Plus class="size-4" />
-                        Submit Deposit
+                        New deposit
                     </Link>
                 </Button>
-            </div>
-        </section>
+            </template>
+        </PageHeader>
+
+        <div class="grid gap-4 md:grid-cols-3">
+            <StatCard
+                label="Verified deposits"
+                :value="formatMoney(props.summary.total_verified_amount)"
+                :hint="`${props.summary.total_deposit_count} deposits submitted`"
+                :icon="BadgeCheck"
+            />
+            <StatCard
+                label="Waiting for verification"
+                :value="formatMoney(pendingAmount)"
+                :hint="`${pendingDeposits.length} pending`"
+                :icon="Clock3"
+            />
+            <StatCard
+                label="Available balance"
+                :value="formatMoney(props.summary.total_allocatable_amount)"
+                hint="Ready for charges and investments"
+                :icon="Wallet"
+            />
+        </div>
+
+        <EmptyState
+            v-if="props.deposits.length === 0"
+            :icon="WalletCards"
+            title="No deposits yet"
+            description="Your first deposit starts the journey: after verification you can pay member charges and invest in fund cycles."
+        >
+            <Button as-child>
+                <Link href="/my-deposits/create">Submit a deposit</Link>
+            </Button>
+        </EmptyState>
+
+        <Card v-else class="py-0">
+            <Table>
+                <TableHeader>
+                    <TableRow>
+                        <TableHead class="pl-4">Date</TableHead>
+                        <TableHead class="text-right">Amount</TableHead>
+                        <TableHead>Method</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead class="pr-4">Details</TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    <TableRow
+                        v-for="deposit in props.deposits"
+                        :key="deposit.id"
+                    >
+                        <TableCell class="pl-4">
+                            {{ deposit.deposit_date }}
+                        </TableCell>
+                        <TableCell class="text-right font-medium tabular-nums">
+                            {{ formatMoney(deposit.amount) }}
+                        </TableCell>
+                        <TableCell>
+                            {{ deposit.payment_method_label }}
+                            <p
+                                v-if="deposit.reference_no"
+                                class="text-xs text-muted-foreground"
+                            >
+                                Ref {{ deposit.reference_no }}
+                            </p>
+                        </TableCell>
+                        <TableCell>
+                            <StatusBadge :status="deposit.status" />
+                        </TableCell>
+                        <TableCell
+                            class="max-w-xs pr-4 text-sm whitespace-normal"
+                        >
+                            <p
+                                v-if="deposit.rejection_reason"
+                                class="text-rose-600 dark:text-rose-400"
+                            >
+                                {{ deposit.rejection_reason }}
+                            </p>
+                            <p
+                                v-else-if="deposit.verified_at"
+                                class="text-muted-foreground"
+                            >
+                                Verified {{ deposit.verified_at }}
+                            </p>
+                            <p
+                                v-if="deposit.notes"
+                                class="text-muted-foreground"
+                            >
+                                {{ deposit.notes }}
+                            </p>
+                            <a
+                                v-if="deposit.proof_url"
+                                :href="deposit.proof_url"
+                                target="_blank"
+                                rel="noopener"
+                                class="inline-flex items-center gap-1 text-xs underline underline-offset-4"
+                            >
+                                <FileText class="size-3" />
+                                Proof
+                            </a>
+                        </TableCell>
+                    </TableRow>
+                </TableBody>
+            </Table>
+        </Card>
+
+        <Card v-if="props.chargeAllocations.length > 0" class="gap-4">
+            <CardHeader>
+                <CardTitle>Charges paid from balance</CardTitle>
+                <CardDescription>
+                    Member charges are paid from the Members page.
+                </CardDescription>
+            </CardHeader>
+            <CardContent class="px-0">
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead class="pl-6">Member</TableHead>
+                            <TableHead>Charge</TableHead>
+                            <TableHead class="text-right">Amount</TableHead>
+                            <TableHead class="pr-6">Paid</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        <TableRow
+                            v-for="allocation in props.chargeAllocations"
+                            :key="allocation.id"
+                        >
+                            <TableCell class="pl-6">
+                                {{ allocation.member_name }}
+                            </TableCell>
+                            <TableCell>{{ allocation.charge_title }}</TableCell>
+                            <TableCell class="text-right tabular-nums">
+                                {{ formatMoney(allocation.amount) }}
+                            </TableCell>
+                            <TableCell class="pr-6 text-muted-foreground">
+                                {{ allocation.confirmed_at }}
+                                <StatusBadge
+                                    v-if="allocation.reversed_at"
+                                    status="cancelled"
+                                    label="Reversed"
+                                    class="ml-1"
+                                />
+                            </TableCell>
+                        </TableRow>
+                    </TableBody>
+                </Table>
+            </CardContent>
+        </Card>
     </div>
 </template>

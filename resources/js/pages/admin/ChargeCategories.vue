@@ -3,8 +3,20 @@ import { Head } from '@inertiajs/vue3';
 import { Plus, SquarePen } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 import ChargeCategoryFormDialog from '@/components/admin/ChargeCategoryFormDialog.vue';
-import { Badge } from '@/components/ui/badge';
+import PageHeader from '@/components/shared/PageHeader.vue';
+import StatusBadge from '@/components/shared/StatusBadge.vue';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableEmpty,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
+import { formatMoney } from '@/lib/format';
 
 type ChargeCategoryItem = {
     id: number;
@@ -24,10 +36,6 @@ defineOptions({
     layout: {
         breadcrumbs: [
             {
-                title: 'Settings',
-                href: '/admin/settings',
-            },
-            {
                 title: 'Charge Categories',
                 href: '/admin/charge-categories',
             },
@@ -43,8 +51,6 @@ const selectedCategory = ref<ChargeCategoryItem | null>(null);
 
 const editableCategory = computed(() => selectedCategory.value);
 
-const money = (amount: number): string => `${amount.toLocaleString()} BDT`;
-
 const openEditDialog = (category: ChargeCategoryItem) => {
     selectedCategory.value = category;
     isEditDialogOpen.value = true;
@@ -54,111 +60,81 @@ const openEditDialog = (category: ChargeCategoryItem) => {
 <template>
     <Head title="Charge Categories" />
 
-    <div class="flex h-full flex-1 flex-col gap-4 rounded-xl p-4">
-        <section
-            class="rounded-xl border border-sidebar-border/70 bg-background p-6 shadow-sm dark:border-sidebar-border"
+    <div class="flex flex-1 flex-col gap-6 p-4 md:p-6">
+        <PageHeader
+            title="Charge categories"
+            description="Member charge types and their default amounts. System categories keep their code; the title can change."
         >
-            <div
-                class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between"
-            >
-                <div class="max-w-2xl">
-                    <h1 class="text-2xl font-semibold tracking-tight">
-                        Charge Categories
-                    </h1>
-                    <p class="mt-2 text-sm text-muted-foreground">
-                        Manage reusable member charge types and their default
-                        amounts without coupling system logic to editable
-                        titles.
-                    </p>
-                </div>
-
-                <Button class="shrink-0" @click="isCreateDialogOpen = true">
+            <template #actions>
+                <Button @click="isCreateDialogOpen = true">
                     <Plus class="size-4" />
-                    Add Category
+                    Add category
                 </Button>
-            </div>
-        </section>
+            </template>
+        </PageHeader>
 
-        <section
-            class="overflow-hidden rounded-xl border border-sidebar-border/70 bg-background shadow-sm dark:border-sidebar-border"
-        >
-            <div class="overflow-x-auto">
-                <table
-                    class="min-w-full divide-y divide-sidebar-border/70 text-sm"
-                >
-                    <thead class="bg-muted/40 text-left">
-                        <tr>
-                            <th class="px-4 py-3 font-medium">Code</th>
-                            <th class="px-4 py-3 font-medium">Title</th>
-                            <th class="px-4 py-3 font-medium">
-                                Default Amount
-                            </th>
-                            <th class="px-4 py-3 font-medium">Status</th>
-                            <th class="px-4 py-3 font-medium">Created At</th>
-                            <th class="px-4 py-3 font-medium">Action</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-sidebar-border/70">
-                        <tr
-                            v-for="category in chargeCategories"
-                            :key="category.id"
-                        >
-                            <td class="px-4 py-3 font-medium">
-                                {{ category.code }}
-                                <Badge
-                                    v-if="category.is_system"
-                                    variant="outline"
-                                    class="ml-2"
-                                    >System</Badge
-                                >
-                            </td>
-                            <td class="px-4 py-3 text-muted-foreground">
-                                {{ category.title }}
-                            </td>
-                            <td class="px-4 py-3 text-muted-foreground">
-                                {{ money(category.default_amount) }}
-                            </td>
-                            <td class="px-4 py-3">
-                                <Badge
-                                    :variant="
-                                        category.is_active
-                                            ? 'default'
-                                            : 'secondary'
-                                    "
-                                >
-                                    {{
-                                        category.is_active
-                                            ? 'Active'
-                                            : 'Inactive'
-                                    }}
-                                </Badge>
-                            </td>
-                            <td class="px-4 py-3 text-muted-foreground">
-                                {{ category.created_at || '-' }}
-                            </td>
-                            <td class="px-4 py-3">
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    @click="openEditDialog(category)"
-                                >
-                                    <SquarePen class="size-4" />
-                                    Edit
-                                </Button>
-                            </td>
-                        </tr>
-                        <tr v-if="chargeCategories.length === 0">
-                            <td
-                                colspan="6"
-                                class="px-4 py-8 text-center text-muted-foreground"
+        <Card class="py-0">
+            <Table>
+                <TableHeader>
+                    <TableRow>
+                        <TableHead class="pl-4">Title</TableHead>
+                        <TableHead>Code</TableHead>
+                        <TableHead class="text-right">Default amount</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Created</TableHead>
+                        <TableHead class="pr-4 text-right" />
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    <TableRow
+                        v-for="category in chargeCategories"
+                        :key="category.id"
+                    >
+                        <TableCell class="pl-4 font-medium">
+                            {{ category.title }}
+                        </TableCell>
+                        <TableCell>
+                            <code class="text-xs">{{ category.code }}</code>
+                            <span
+                                v-if="category.is_system"
+                                class="ml-2 rounded-md bg-muted px-1.5 py-0.5 text-xs"
                             >
-                                No charge categories found.
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </section>
+                                System
+                            </span>
+                        </TableCell>
+                        <TableCell class="text-right tabular-nums">
+                            {{ formatMoney(category.default_amount) }}
+                        </TableCell>
+                        <TableCell>
+                            <StatusBadge
+                                :status="
+                                    category.is_active ? 'active' : 'inactive'
+                                "
+                            />
+                        </TableCell>
+                        <TableCell class="text-muted-foreground">
+                            {{ category.created_at || '—' }}
+                        </TableCell>
+                        <TableCell class="pr-4 text-right">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                @click="openEditDialog(category)"
+                            >
+                                <SquarePen class="size-4" />
+                                Edit
+                            </Button>
+                        </TableCell>
+                    </TableRow>
+                    <TableEmpty
+                        v-if="chargeCategories.length === 0"
+                        :colspan="6"
+                    >
+                        No charge categories yet.
+                    </TableEmpty>
+                </TableBody>
+            </Table>
+        </Card>
 
         <ChargeCategoryFormDialog
             v-model:isOpen="isCreateDialogOpen"

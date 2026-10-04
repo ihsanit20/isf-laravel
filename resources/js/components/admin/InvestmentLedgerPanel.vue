@@ -3,8 +3,10 @@ import { router } from '@inertiajs/vue3';
 import { CircleAlert, CircleCheck, Plus, Trash2 } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 import LedgerEntryDialog from '@/components/admin/LedgerEntryDialog.vue';
-import { Badge } from '@/components/ui/badge';
+import StatCard from '@/components/shared/StatCard.vue';
+import StatusBadge from '@/components/shared/StatusBadge.vue';
 import { Button } from '@/components/ui/button';
+import { amountToneClass, formatMoney, formatSignedMoney } from '@/lib/format';
 
 export type InvestmentLedger = {
     id: number;
@@ -48,9 +50,6 @@ const emit = defineEmits<{ close: [] }>();
 
 const isChargeDialogOpen = ref(false);
 
-const money = (amount: number): string =>
-    `${amount.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })} BDT`;
-
 const incomeLines = computed(() =>
     props.ledger.lines.filter((line) => line.kind === 'income'),
 );
@@ -73,77 +72,53 @@ const removeCharge = (chargeId: number) => {
 
 <template>
     <div class="space-y-6">
-        <div class="grid gap-4 md:grid-cols-4">
-            <div class="rounded-xl border border-sidebar-border/70 p-4">
-                <p class="text-xs text-muted-foreground">Total income</p>
-                <p class="mt-1 text-xl font-semibold tabular-nums">
-                    {{ money(ledger.total_income) }}
-                </p>
-            </div>
-            <div class="rounded-xl border border-sidebar-border/70 p-4">
-                <p class="text-xs text-muted-foreground">
-                    Total expense (incl. charges)
-                </p>
-                <p class="mt-1 text-xl font-semibold tabular-nums">
-                    {{ money(ledger.total_expense) }}
-                </p>
-            </div>
-            <div class="rounded-xl border border-sidebar-border/70 p-4">
-                <p class="text-xs text-muted-foreground">
-                    {{ ledger.is_closed ? 'Final result' : 'Running result' }}
-                </p>
-                <p
-                    class="mt-1 text-xl font-semibold tabular-nums"
-                    :class="
-                        ledger.result >= 0
-                            ? 'text-emerald-600 dark:text-emerald-400'
-                            : 'text-destructive'
-                    "
-                >
-                    {{ money(ledger.result) }}
-                </p>
-            </div>
-            <div class="rounded-xl border border-sidebar-border/70 p-4">
-                <p class="text-xs text-muted-foreground">Cycle bank money</p>
-                <p class="mt-1 text-xl font-semibold tabular-nums">
-                    {{ money(ledger.cycle_cash) }}
-                </p>
-            </div>
+        <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <StatCard
+                label="Total income"
+                :value="formatMoney(ledger.total_income)"
+            />
+            <StatCard
+                label="Total expense (incl. charges)"
+                :value="formatMoney(ledger.total_expense)"
+            />
+            <StatCard
+                :label="ledger.is_closed ? 'Final result' : 'Running result'"
+                :value="formatSignedMoney(ledger.result)"
+                :value-class="amountToneClass(ledger.result)"
+            />
+            <StatCard
+                label="Cycle bank money"
+                :value="formatMoney(ledger.cycle_cash)"
+            />
         </div>
 
-        <div class="grid gap-4 md:grid-cols-3">
-            <div class="rounded-xl border border-sidebar-border/70 p-4 text-sm">
-                <p class="text-xs text-muted-foreground">
-                    Cash / float in hand
-                </p>
-                <p class="mt-1 font-semibold tabular-nums">
-                    {{ money(ledger.cash) }}
-                </p>
+        <dl
+            class="grid gap-x-8 gap-y-2 rounded-xl bg-muted/50 px-4 py-3 text-sm sm:grid-cols-3"
+        >
+            <div class="flex justify-between gap-2">
+                <dt class="text-muted-foreground">Cash / float in hand</dt>
+                <dd class="font-medium tabular-nums">
+                    {{ formatMoney(ledger.cash) }}
+                </dd>
             </div>
-            <div class="rounded-xl border border-sidebar-border/70 p-4 text-sm">
-                <p class="text-xs text-muted-foreground">bKash wallet</p>
-                <p class="mt-1 font-semibold tabular-nums">
-                    {{ money(ledger.bkash) }}
-                </p>
+            <div class="flex justify-between gap-2">
+                <dt class="text-muted-foreground">bKash wallet</dt>
+                <dd class="font-medium tabular-nums">
+                    {{ formatMoney(ledger.bkash) }}
+                </dd>
             </div>
-            <div class="rounded-xl border border-sidebar-border/70 p-4 text-sm">
-                <p class="text-xs text-muted-foreground">
-                    Capital still invested
-                </p>
-                <p class="mt-1 font-semibold tabular-nums">
-                    {{ money(ledger.invested_capital) }}
-                </p>
+            <div class="flex justify-between gap-2">
+                <dt class="text-muted-foreground">Capital still invested</dt>
+                <dd class="font-medium tabular-nums">
+                    {{ formatMoney(ledger.invested_capital) }}
+                </dd>
             </div>
-        </div>
+        </dl>
 
         <div class="grid gap-4 md:grid-cols-2">
-            <div class="rounded-xl border border-sidebar-border/70">
-                <p
-                    class="border-b border-sidebar-border/70 px-4 py-2 text-sm font-medium"
-                >
-                    Income
-                </p>
-                <dl class="divide-y divide-sidebar-border/70 text-sm">
+            <div class="rounded-xl border">
+                <p class="border-b px-4 py-2 text-sm font-medium">Income</p>
+                <dl class="divide-y divide-border text-sm">
                     <div
                         v-for="line in incomeLines"
                         :key="line.code"
@@ -152,7 +127,9 @@ const removeCharge = (chargeId: number) => {
                         <dt class="text-muted-foreground">
                             {{ line.code }} · {{ line.label }}
                         </dt>
-                        <dd class="tabular-nums">{{ money(line.amount) }}</dd>
+                        <dd class="tabular-nums">
+                            {{ formatMoney(line.amount) }}
+                        </dd>
                     </div>
                     <p
                         v-if="incomeLines.length === 0"
@@ -162,13 +139,9 @@ const removeCharge = (chargeId: number) => {
                     </p>
                 </dl>
             </div>
-            <div class="rounded-xl border border-sidebar-border/70">
-                <p
-                    class="border-b border-sidebar-border/70 px-4 py-2 text-sm font-medium"
-                >
-                    Expense
-                </p>
-                <dl class="divide-y divide-sidebar-border/70 text-sm">
+            <div class="rounded-xl border">
+                <p class="border-b px-4 py-2 text-sm font-medium">Expense</p>
+                <dl class="divide-y divide-border text-sm">
                     <div
                         v-for="line in expenseLines"
                         :key="line.code"
@@ -177,7 +150,9 @@ const removeCharge = (chargeId: number) => {
                         <dt class="text-muted-foreground">
                             {{ line.code }} · {{ line.label }}
                         </dt>
-                        <dd class="tabular-nums">{{ money(line.amount) }}</dd>
+                        <dd class="tabular-nums">
+                            {{ formatMoney(line.amount) }}
+                        </dd>
                     </div>
                     <p
                         v-if="expenseLines.length === 0"
@@ -189,9 +164,9 @@ const removeCharge = (chargeId: number) => {
             </div>
         </div>
 
-        <div class="rounded-xl border border-sidebar-border/70">
+        <div class="rounded-xl border">
             <div
-                class="flex items-center justify-between gap-2 border-b border-sidebar-border/70 px-4 py-2"
+                class="flex items-center justify-between gap-2 border-b px-4 py-2"
             >
                 <div>
                     <p class="text-sm font-medium">
@@ -212,7 +187,7 @@ const removeCharge = (chargeId: number) => {
                 </Button>
             </div>
             <table class="min-w-full text-sm">
-                <tbody class="divide-y divide-sidebar-border/70">
+                <tbody class="divide-y divide-border">
                     <tr v-for="charge in ledger.charges" :key="charge.id">
                         <td class="px-4 py-2">{{ charge.charged_at }}</td>
                         <td class="px-4 py-2">{{ charge.type_label }}</td>
@@ -220,7 +195,7 @@ const removeCharge = (chargeId: number) => {
                             {{ charge.note || '-' }}
                         </td>
                         <td class="px-4 py-2 text-right tabular-nums">
-                            {{ money(charge.amount) }}
+                            {{ formatMoney(charge.amount) }}
                         </td>
                         <td class="w-10 px-2 py-2">
                             <Button
@@ -282,7 +257,7 @@ const removeCharge = (chargeId: number) => {
             </div>
         </div>
         <p v-else class="text-sm text-muted-foreground">
-            <Badge variant="secondary">Closed</Badge>
+            <StatusBadge status="closed" />
             <span class="ml-2">{{ ledger.closed_at }}</span>
         </p>
 

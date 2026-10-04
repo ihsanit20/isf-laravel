@@ -3,8 +3,15 @@ import { Link, router } from '@inertiajs/vue3';
 import { CircleAlert, CircleCheck, Plus, Trash2 } from 'lucide-vue-next';
 import { ref } from 'vue';
 import LedgerEntryDialog from '@/components/admin/LedgerEntryDialog.vue';
-import { Badge } from '@/components/ui/badge';
+import StatCard from '@/components/shared/StatCard.vue';
+import StatusBadge from '@/components/shared/StatusBadge.vue';
 import { Button } from '@/components/ui/button';
+import {
+    amountToneClass,
+    formatMoney,
+    formatSignedMoney,
+    titleCase,
+} from '@/lib/format';
 
 export type CycleLedger = {
     capital: number;
@@ -55,9 +62,6 @@ const props = defineProps<{
 const isTransactionDialogOpen = ref(false);
 const isBusinessDialogOpen = ref(false);
 
-const money = (amount: number): string =>
-    `${amount.toLocaleString(undefined, { maximumFractionDigits: 2 })} BDT`;
-
 const removeTransaction = (transaction: CycleTransaction) => {
     if (!confirm('Remove this cycle entry? A reversal entry will be posted.')) {
         return;
@@ -85,9 +89,7 @@ const settle = () => {
 </script>
 
 <template>
-    <section
-        class="space-y-6 rounded-xl border border-sidebar-border/70 bg-background p-6 shadow-sm dark:border-sidebar-border"
-    >
+    <section class="space-y-6 rounded-xl border bg-card p-6 shadow-xs">
         <div
             class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between"
         >
@@ -98,50 +100,32 @@ const settle = () => {
                     result.
                 </p>
             </div>
-            <Badge :variant="ledger.is_settled ? 'default' : 'secondary'">
-                {{ ledger.is_settled ? 'Settled' : 'Open' }}
-            </Badge>
+            <StatusBadge :status="ledger.is_settled ? 'settled' : 'running'" />
         </div>
 
-        <div class="grid gap-4 md:grid-cols-4">
-            <div class="rounded-xl border border-sidebar-border/70 p-4">
-                <p class="text-xs text-muted-foreground">Member capital</p>
-                <p class="mt-1 text-xl font-semibold tabular-nums">
-                    {{ money(ledger.capital) }}
-                </p>
-            </div>
-            <div class="rounded-xl border border-sidebar-border/70 p-4">
-                <p class="text-xs text-muted-foreground">Cycle money in bank</p>
-                <p class="mt-1 text-xl font-semibold tabular-nums">
-                    {{ money(ledger.cash) }}
-                </p>
-            </div>
-            <div class="rounded-xl border border-sidebar-border/70 p-4">
-                <p class="text-xs text-muted-foreground">
-                    Deployed (cash, bKash, business)
-                </p>
-                <p class="mt-1 text-xl font-semibold tabular-nums">
-                    {{ money(ledger.deployed) }}
-                </p>
-            </div>
-            <div class="rounded-xl border border-sidebar-border/70 p-4">
-                <p class="text-xs text-muted-foreground">Cycle result</p>
-                <p
-                    class="mt-1 text-xl font-semibold tabular-nums"
-                    :class="
-                        ledger.result >= 0
-                            ? 'text-emerald-600 dark:text-emerald-400'
-                            : 'text-destructive'
-                    "
-                >
-                    {{ money(ledger.result) }}
-                </p>
-            </div>
+        <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <StatCard
+                label="Member capital"
+                :value="formatMoney(ledger.capital)"
+            />
+            <StatCard
+                label="Cycle money in bank"
+                :value="formatMoney(ledger.cash)"
+            />
+            <StatCard
+                label="Deployed (cash, bKash, business)"
+                :value="formatMoney(ledger.deployed)"
+            />
+            <StatCard
+                label="Cycle result"
+                :value="formatSignedMoney(ledger.result)"
+                :value-class="amountToneClass(ledger.result)"
+            />
         </div>
 
-        <div class="rounded-xl border border-sidebar-border/70">
+        <div class="rounded-xl border">
             <div
-                class="flex items-center justify-between gap-2 border-b border-sidebar-border/70 px-4 py-2"
+                class="flex items-center justify-between gap-2 border-b px-4 py-2"
             >
                 <p class="text-sm font-medium">Sub-businesses</p>
                 <Button
@@ -155,36 +139,32 @@ const settle = () => {
                 </Button>
             </div>
             <table class="min-w-full text-sm">
-                <tbody class="divide-y divide-sidebar-border/70">
+                <tbody class="divide-y divide-border">
                     <tr
                         v-for="investment in ledger.investments"
                         :key="investment.id"
                     >
-                        <td class="px-4 py-2">
-                            <Badge variant="outline">{{
-                                investment.type
-                            }}</Badge>
+                        <td class="px-4 py-2 text-xs text-muted-foreground">
+                            {{ titleCase(investment.type) }}
                         </td>
                         <td class="px-4 py-2">
                             <Link
                                 v-if="investment.url"
                                 :href="investment.url"
-                                class="text-primary underline underline-offset-4"
+                                class="font-medium hover:underline"
                             >
                                 {{ investment.title }}
                             </Link>
                             <span v-else>{{ investment.title }}</span>
                         </td>
-                        <td class="px-4 py-2 text-muted-foreground">
-                            {{ investment.status }}
+                        <td class="px-4 py-2">
+                            <StatusBadge :status="investment.status" />
                         </td>
                         <td
                             class="px-4 py-2 text-right tabular-nums"
-                            :class="
-                                investment.result < 0 ? 'text-destructive' : ''
-                            "
+                            :class="amountToneClass(investment.result)"
                         >
-                            {{ money(investment.result) }}
+                            {{ formatSignedMoney(investment.result) }}
                         </td>
                     </tr>
                     <tr>
@@ -193,25 +173,28 @@ const settle = () => {
                         </td>
                         <td class="px-4 py-2 text-right tabular-nums">
                             {{
-                                money(
+                                formatSignedMoney(
                                     ledger.cycle_income - ledger.cycle_expense,
                                 )
                             }}
                         </td>
                     </tr>
-                    <tr class="font-medium">
+                    <tr class="bg-muted/50 font-medium">
                         <td colspan="3" class="px-4 py-2">Total</td>
-                        <td class="px-4 py-2 text-right tabular-nums">
-                            {{ money(ledger.result) }}
+                        <td
+                            class="px-4 py-2 text-right tabular-nums"
+                            :class="amountToneClass(ledger.result)"
+                        >
+                            {{ formatSignedMoney(ledger.result) }}
                         </td>
                     </tr>
                 </tbody>
             </table>
         </div>
 
-        <div class="rounded-xl border border-sidebar-border/70">
+        <div class="rounded-xl border">
             <div
-                class="flex items-center justify-between gap-2 border-b border-sidebar-border/70 px-4 py-2"
+                class="flex items-center justify-between gap-2 border-b px-4 py-2"
             >
                 <div>
                     <p class="text-sm font-medium">
@@ -233,7 +216,7 @@ const settle = () => {
                 </Button>
             </div>
             <table class="min-w-full text-sm">
-                <tbody class="divide-y divide-sidebar-border/70">
+                <tbody class="divide-y divide-border">
                     <tr
                         v-for="transaction in transactions"
                         :key="transaction.id"
@@ -242,15 +225,16 @@ const settle = () => {
                             {{ transaction.transaction_date }}
                         </td>
                         <td class="px-4 py-2">
-                            <Badge
-                                :variant="
+                            <span
+                                class="text-xs font-medium"
+                                :class="
                                     transaction.direction === 'income'
-                                        ? 'default'
-                                        : 'secondary'
+                                        ? 'text-emerald-600 dark:text-emerald-400'
+                                        : 'text-rose-600 dark:text-rose-400'
                                 "
                             >
-                                {{ transaction.direction }}
-                            </Badge>
+                                {{ titleCase(transaction.direction) }}
+                            </span>
                         </td>
                         <td class="px-4 py-2">
                             {{ transaction.category_label }}
@@ -259,7 +243,7 @@ const settle = () => {
                             {{ transaction.description || '-' }}
                         </td>
                         <td class="px-4 py-2 text-right tabular-nums">
-                            {{ money(transaction.amount) }}
+                            {{ formatMoney(transaction.amount) }}
                         </td>
                         <td class="w-10 px-2 py-2">
                             <Button
@@ -281,8 +265,8 @@ const settle = () => {
             </table>
         </div>
 
-        <div class="rounded-xl border border-sidebar-border/70">
-            <div class="border-b border-sidebar-border/70 px-4 py-2">
+        <div class="rounded-xl border">
+            <div class="border-b px-4 py-2">
                 <p class="text-sm font-medium">
                     {{
                         ledger.is_settled ? 'Settlement' : 'Settlement preview'
@@ -294,7 +278,7 @@ const settle = () => {
                 </p>
             </div>
             <table class="min-w-full text-sm">
-                <thead class="bg-muted/40 text-left">
+                <thead class="bg-muted/50 text-left">
                     <tr>
                         <th class="px-4 py-2 font-medium">Member</th>
                         <th class="px-4 py-2 text-right font-medium">
@@ -306,25 +290,25 @@ const settle = () => {
                         </th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-sidebar-border/70">
+                <tbody class="divide-y divide-border">
                     <tr
                         v-for="member in ledger.members"
                         :key="member.member_id"
                     >
                         <td class="px-4 py-2">{{ member.name }}</td>
                         <td class="px-4 py-2 text-right tabular-nums">
-                            {{ money(member.capital) }}
+                            {{ formatMoney(member.capital) }}
                         </td>
                         <td
                             class="px-4 py-2 text-right tabular-nums"
-                            :class="member.share < 0 ? 'text-destructive' : ''"
+                            :class="amountToneClass(member.share)"
                         >
-                            {{ money(member.share) }}
+                            {{ formatSignedMoney(member.share) }}
                         </td>
                         <td
                             class="px-4 py-2 text-right font-medium tabular-nums"
                         >
-                            {{ money(member.payout) }}
+                            {{ formatMoney(member.payout) }}
                         </td>
                     </tr>
                     <tr v-if="ledger.members.length === 0">
@@ -337,7 +321,7 @@ const settle = () => {
 
             <div
                 v-if="!ledger.is_settled"
-                class="space-y-2 border-t border-sidebar-border/70 p-4 text-sm"
+                class="space-y-2 border-t p-4 text-sm"
             >
                 <p
                     v-for="blocker in ledger.blockers"

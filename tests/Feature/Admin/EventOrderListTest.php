@@ -4,6 +4,7 @@ use App\Enums\EventOrderStatus;
 use App\Enums\EventPackageStatus;
 use App\Enums\EventPackageUnitType;
 use App\Enums\FundCycleEventStatus;
+use App\Ledger\Postings\InvestmentPostings;
 use App\Models\EventOrder;
 use App\Models\EventOrderItem;
 use App\Models\EventPayment;
@@ -76,12 +77,12 @@ function createEventWithFilterableOrders(): array
         'created_at' => now()->subDay(),
     ]);
 
-    EventPayment::query()->create([
+    app(InvestmentPostings::class)->customerPaymentVerified(EventPayment::query()->create([
         'event_order_id' => $confirmedVerified->id,
         'amount' => 500,
         'payment_method' => 'bkash',
         'payment_status' => 'verified',
-    ]);
+    ]));
 
     $pendingPayment = EventOrder::query()->create([
         'fund_cycle_event_id' => $event->id,

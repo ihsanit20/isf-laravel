@@ -205,6 +205,29 @@ class Ledger
     }
 
     /**
+     * Debit − credit per entry kind, with reversals folded into the kind they
+     * reverse (so a reversed fee nets to zero under `fee_settled`).
+     *
+     * @param  Account|list<Account>  $accounts
+     * @param  array<string, int|null>  $dims
+     * @return Collection<string, int>
+     */
+    public function movementsByKind(Account|array $accounts, array $dims = []): Collection
+    {
+        return $this->linesQuery($accounts, $dims)
+            ->join('journal_entries', 'journal_entries.id', '=', 'journal_lines.journal_entry_id')
+            ->selectRaw('journal_entries.kind as kind')
+            ->selectRaw('COALESCE(SUM(debit), 0) - COALESCE(SUM(credit), 0) as balance')
+            ->groupBy('journal_entries.kind')
+            ->pluck('balance', 'kind')
+            ->reduce(function (Collection $carry, $balance, string $kind): Collection {
+                $base = str($kind)->beforeLast('.reversal')->toString();
+
+                return $carry->put($base, $carry->get($base, 0) + (int) $balance);
+            }, collect());
+    }
+
+    /**
      * @return Collection<string, int> debit − credit keyed by account code
      */
     public function balancesByAccount(array $dims = []): Collection

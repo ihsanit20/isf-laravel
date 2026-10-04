@@ -1,8 +1,19 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
-import { CalendarDays, Layers3 } from 'lucide-vue-next';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { ArrowRight, Landmark } from 'lucide-vue-next';
+import { computed } from 'vue';
+import EmptyState from '@/components/shared/EmptyState.vue';
+import PageHeader from '@/components/shared/PageHeader.vue';
+import StatusBadge from '@/components/shared/StatusBadge.vue';
+import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardFooter,
+    CardHeader,
+    CardTitle,
+} from '@/components/ui/card';
+import { formatMoney } from '@/lib/format';
 
 type FundCycleItem = {
     id: number;
@@ -25,146 +36,140 @@ type Props = {
 
 defineOptions({
     layout: {
-        breadcrumbs: [
-            {
-                title: 'Fund Cycles',
-                href: '/fund-cycles',
-            },
-        ],
+        breadcrumbs: [{ title: 'Fund Cycles', href: '/fund-cycles' }],
     },
 });
 
-defineProps<Props>();
+const props = defineProps<Props>();
 
-const money = (amount: number): string =>
-    `${amount.toLocaleString(undefined, { maximumFractionDigits: 2 })} BDT`;
-
-const statusVariant = (
-    status: string,
-): 'default' | 'secondary' | 'destructive' | 'outline' => {
-    if (status === 'open') {
-        return 'default';
-    }
-
-    if (status === 'settled') {
-        return 'secondary';
-    }
-
-    return 'outline';
-};
+const groups = computed(() =>
+    [
+        {
+            title: 'Open',
+            description: 'Taking new investments until the lock date.',
+            cycles: props.fundCycles.filter((cycle) => cycle.status === 'open'),
+        },
+        {
+            title: 'Running',
+            description:
+                'Money is working in events and businesses. Results come in as each one finishes.',
+            cycles: props.fundCycles.filter((cycle) =>
+                ['locked', 'matured'].includes(cycle.status),
+            ),
+        },
+        {
+            title: 'Settled',
+            description:
+                'Capital and profit or loss returned to each member’s balance.',
+            cycles: props.fundCycles.filter(
+                (cycle) => cycle.status === 'settled',
+            ),
+        },
+    ].filter((group) => group.cycles.length > 0),
+);
 </script>
 
 <template>
     <Head title="Fund Cycles" />
 
-    <div class="flex h-full flex-1 flex-col gap-4 rounded-xl p-4">
-        <section
-            class="rounded-xl border border-sidebar-border/70 bg-background p-6 shadow-sm dark:border-sidebar-border"
-        >
-            <div class="max-w-2xl">
-                <h1 class="text-2xl font-semibold tracking-tight">
-                    Fund Cycles
-                </h1>
-                <p class="mt-2 text-sm text-muted-foreground">
-                    Browse fund cycles, their timelines, total allocations, and
-                    your own allocation in each cycle.
+    <div class="flex flex-1 flex-col gap-6 p-4 md:p-6">
+        <PageHeader
+            title="Fund Cycles"
+            description="Members pool money into a cycle. The cycle runs events and businesses, then settles and returns capital plus each member’s share of the result."
+        />
+
+        <EmptyState
+            v-if="groups.length === 0"
+            :icon="Landmark"
+            title="No fund cycles yet"
+            description="Cycles appear here once an admin opens one."
+        />
+
+        <section v-for="group in groups" :key="group.title" class="grid gap-3">
+            <div>
+                <h2 class="text-lg font-semibold">{{ group.title }}</h2>
+                <p class="text-sm text-muted-foreground">
+                    {{ group.description }}
                 </p>
             </div>
-        </section>
 
-        <section v-if="fundCycles.length > 0" class="grid gap-4">
-            <article
-                v-for="fundCycle in fundCycles"
-                :key="fundCycle.id"
-                class="rounded-[26px] border border-sidebar-border/70 bg-background p-5 shadow-sm"
-            >
-                <div class="flex items-start justify-between gap-3">
-                    <div>
-                        <p
-                            class="text-xs font-medium tracking-[0.2em] text-muted-foreground uppercase"
-                        >
-                            Cycle #{{ fundCycle.id }}
-                        </p>
-                        <h2 class="mt-2 text-xl font-semibold tracking-tight">
-                            {{ fundCycle.name }}
-                        </h2>
-                    </div>
-
-                    <Badge :variant="statusVariant(fundCycle.status)">
-                        {{ fundCycle.status_label }}
-                    </Badge>
-                </div>
-
-                <div class="mt-5 grid gap-3 text-sm md:grid-cols-2">
-                    <div class="rounded-2xl bg-background/75 px-3 py-3">
-                        <div
-                            class="flex items-center gap-2 text-xs text-muted-foreground"
-                        >
-                            <CalendarDays class="size-4" />
-                            Timeline
-                        </div>
-                        <div class="mt-2 space-y-1 text-foreground">
-                            <p>
-                                Start: {{ fundCycle.start_date || 'Not set' }}
-                            </p>
-                            <p>Lock: {{ fundCycle.lock_date || 'Not set' }}</p>
-                            <p>
-                                Maturity:
-                                {{ fundCycle.maturity_date || 'Not set' }}
-                            </p>
-                            <p>
-                                Settlement:
-                                {{ fundCycle.settlement_date || 'Not set' }}
-                            </p>
-                        </div>
-                    </div>
-                    <div class="rounded-2xl bg-background/75 px-3 py-3">
-                        <div
-                            class="flex items-center gap-2 text-xs text-muted-foreground"
-                        >
-                            <Layers3 class="size-4" />
-                            Allocation
-                        </div>
-                        <p class="mt-2 text-sm text-muted-foreground">
-                            Unit amount: {{ money(fundCycle.unit_amount) }}
-                        </p>
-                        <p class="mt-1 text-sm text-muted-foreground">
-                            Total allocation:
-                            {{ money(fundCycle.total_allocated_amount) }}
-                        </p>
-                        <p class="mt-1 font-medium text-foreground">
-                            My allocation:
-                            {{ money(fundCycle.my_allocated_amount) }}
-                        </p>
-                    </div>
-                </div>
-
-                <div class="mt-4">
-                    <Button as-child variant="outline" size="sm">
-                        <Link :href="`/fund-cycles/${fundCycle.id}`">
-                            View Details
-                        </Link>
-                    </Button>
-                </div>
-            </article>
-        </section>
-
-        <section
-            v-else
-            class="rounded-[28px] border border-dashed border-sidebar-border/80 bg-background p-10 text-center shadow-sm"
-        >
-            <div class="mx-auto max-w-md">
-                <p
-                    class="text-sm font-medium tracking-[0.2em] text-muted-foreground uppercase"
+            <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                <Link
+                    v-for="cycle in group.cycles"
+                    :key="cycle.id"
+                    :href="`/fund-cycles/${cycle.id}`"
+                    class="group rounded-xl focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
                 >
-                    No Fund Cycles
-                </p>
-                <h2 class="mt-3 text-2xl font-semibold tracking-tight">
-                    No fund cycles found
-                </h2>
-                <p class="mt-3 text-sm leading-6 text-muted-foreground">
-                    Fund cycles will appear here once they are published.
-                </p>
+                    <Card
+                        class="h-full gap-4 transition-colors group-hover:border-foreground/20"
+                    >
+                        <CardHeader>
+                            <div class="flex items-start justify-between gap-2">
+                                <CardTitle class="text-base">
+                                    {{ cycle.name }}
+                                </CardTitle>
+                                <StatusBadge
+                                    :status="cycle.status"
+                                    :label="cycle.status_label"
+                                />
+                            </div>
+                            <CardDescription>
+                                {{ formatMoney(cycle.unit_amount) }} per unit
+                                per month
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent class="grid gap-3 text-sm">
+                            <dl class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <dt class="text-xs text-muted-foreground">
+                                        My investment
+                                    </dt>
+                                    <dd class="font-medium tabular-nums">
+                                        {{
+                                            formatMoney(
+                                                cycle.my_allocated_amount,
+                                            )
+                                        }}
+                                    </dd>
+                                </div>
+                                <div>
+                                    <dt class="text-xs text-muted-foreground">
+                                        Cycle total
+                                    </dt>
+                                    <dd class="font-medium tabular-nums">
+                                        {{
+                                            formatMoney(
+                                                cycle.total_allocated_amount,
+                                            )
+                                        }}
+                                    </dd>
+                                </div>
+                            </dl>
+                            <p class="text-xs text-muted-foreground">
+                                <template v-if="cycle.status === 'open'">
+                                    Locks {{ cycle.lock_date ?? 'not set' }}
+                                </template>
+                                <template
+                                    v-else-if="cycle.status === 'settled'"
+                                >
+                                    Settled
+                                    {{ cycle.settlement_date ?? '' }}
+                                </template>
+                                <template v-else>
+                                    Matures
+                                    {{ cycle.maturity_date ?? 'not set' }}
+                                </template>
+                                · {{ cycle.allocations_count }} allocations
+                            </p>
+                        </CardContent>
+                        <CardFooter
+                            class="mt-auto text-sm font-medium text-muted-foreground group-hover:text-foreground"
+                        >
+                            View details
+                            <ArrowRight class="ml-1 size-4" />
+                        </CardFooter>
+                    </Card>
+                </Link>
             </div>
         </section>
     </div>

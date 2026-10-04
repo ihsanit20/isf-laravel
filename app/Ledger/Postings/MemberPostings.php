@@ -9,8 +9,11 @@ use App\Models\ChargeAllocation;
 use App\Models\ChargeCategory;
 use App\Models\DepositSubmission;
 use App\Models\FundCycleAllocation;
+use App\Models\JournalLine;
+use App\Models\LedgerAccount;
 use App\Models\PayoutRequest;
 use App\Models\User;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 class MemberPostings
@@ -20,6 +23,57 @@ class MemberPostings
     public function availableBalance(int $userId): int
     {
         return $this->ledger->creditBalance(Account::MemberBalance, ['user_id' => $userId]);
+    }
+
+    /**
+     * How a member balance (one user, or everyone when null) came to be, in
+     * paisa. Outflows are positive amounts; the parts always add up:
+     * deposits − fees − cycle_allocations + cycle_returns − payouts + other = available.
+     *
+     * @return array{deposits: int, fees: int, cycle_allocations: int, cycle_returns: int, payouts: int, other: int, available: int}
+     */
+    public function balanceBreakdown(?int $userId = null): array
+    {
+        $movements = $this->ledger
+            ->movementsByKind(Account::MemberBalance, $userId === null ? [] : ['user_id' => $userId])
+            ->map(fn (int $balance): int => -$balance);
+
+        $known = ['deposit_verified', 'fee_settled', 'cycle_allocated', 'cycle_settled', 'member_payout'];
+
+        return [
+            'deposits' => $movements->get('deposit_verified', 0),
+            'fees' => -$movements->get('fee_settled', 0),
+            'cycle_allocations' => -$movements->get('cycle_allocated', 0),
+            'cycle_returns' => $movements->get('cycle_settled', 0),
+            'payouts' => -$movements->get('member_payout', 0),
+            'other' => (int) $movements->except($known)->sum(),
+            'available' => (int) $movements->sum(),
+        ];
+    }
+
+    /**
+     * Capital allocated to fund cycles, read from the allocation postings so it
+     * stays the same after a cycle is settled.
+     *
+     * @param  array<string, int|null>  $dims
+     * @return Collection<int|string, int> paisa keyed by the group column value
+     */
+    public function allocatedCapitalBy(string $groupColumn, array $dims = []): Collection
+    {
+        return JournalLine::query()
+            ->join('journal_entries', 'journal_entries.id', '=', 'journal_lines.journal_entry_id')
+            ->where('journal_lines.ledger_account_id', LedgerAccount::idFor(Account::CycleCapital))
+            ->where('journal_entries.kind', 'like', 'cycle_allocated%')
+            ->tap(function ($query) use ($dims): void {
+                foreach ($dims as $column => $value) {
+                    $query->where('journal_lines.'.$column, $value);
+                }
+            })
+            ->selectRaw("journal_lines.{$groupColumn} as group_key")
+            ->selectRaw('COALESCE(SUM(credit), 0) - COALESCE(SUM(debit), 0) as balance')
+            ->groupBy("journal_lines.{$groupColumn}")
+            ->pluck('balance', 'group_key')
+            ->map(fn ($balance): int => (int) $balance);
     }
 
     /**

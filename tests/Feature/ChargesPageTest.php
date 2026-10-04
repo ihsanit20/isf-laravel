@@ -7,10 +7,11 @@ use App\Models\ChargeCategory;
 use App\Models\Member;
 use App\Models\User;
 use Inertia\Testing\AssertableInertia as Assert;
+
 use function Pest\Laravel\actingAs;
 use function Pest\Laravel\get;
 
-test('authenticated users can view their charge list', function () {
+test('members page lists each member charges', function () {
     $user = User::factory()->create();
     $otherUser = User::factory()->create();
 
@@ -67,18 +68,26 @@ test('authenticated users can view their charge list', function () {
 
     actingAs($user);
 
-    get(route('charges.index'))
+    get(route('members.index'))
         ->assertOk()
-        ->assertInertia(fn(Assert $page) => $page
-            ->component('Charges')
-            ->where('summary.total_charges', 2)
-            ->where('summary.total_charge_amount', 250)
-            ->where('summary.pending_charges', 1)
-            ->where('summary.settled_charges', 1)
-            ->where('allocationSummary.active_charge_allocations', 1)
-            ->has('charges', 2)
-            ->where('charges.0.member_name', 'Primary Member')
-            ->where('charges.0.charge_title', $category->title));
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('Members')
+            ->has('members', 1)
+            ->where('members.0.full_name', 'Primary Member')
+            ->has('members.0.charges', 2)
+            ->where('members.0.charges.0.id', $pendingCharge->id)
+            ->where('members.0.charges.0.status', Charge::STATUS_PENDING)
+            ->where('members.0.charges.0.paid_at', null)
+            ->where('members.0.charges.1.id', $postedCharge->id)
+            ->where('members.0.charges.1.title', $category->title)
+            ->where('members.0.charges.1.status', Charge::STATUS_POSTED));
+});
+
+test('old my charges page redirects to members', function () {
+    actingAs(User::factory()->create());
+
+    get(route('charges.index'))
+        ->assertRedirect('/my-membership');
 });
 
 test('guests are redirected from my charges', function () {

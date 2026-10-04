@@ -17,7 +17,7 @@ class ReviewMemberRequest extends FormRequest
     {
         return [
             'status' => ['required', Rule::in([MemberStatus::Approved->value, MemberStatus::Rejected->value, MemberStatus::Exited->value])],
-            'rejection_note' => ['nullable', 'string', 'max:255', Rule::requiredIf(fn(): bool => $this->string('status')->toString() === MemberStatus::Rejected->value)],
+            'rejection_note' => ['nullable', 'string', 'max:255', Rule::requiredIf(fn (): bool => $this->string('status')->toString() === MemberStatus::Rejected->value)],
         ];
     }
 }

@@ -243,7 +243,7 @@ watch(
 
                 <!-- Active toggle -->
                 <div
-                    class="flex items-center gap-3 rounded-lg border border-sidebar-border/70 px-4 py-3"
+                    class="flex items-center gap-3 rounded-lg border px-4 py-3"
                 >
                     <input
                         id="pp-active"

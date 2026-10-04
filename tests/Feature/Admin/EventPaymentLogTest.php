@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\FundCycleEventStatus;
+use App\Ledger\Postings\InvestmentPostings;
 use App\Models\EventOrder;
 use App\Models\EventPayment;
 use App\Models\FundCycle;
@@ -60,6 +61,7 @@ test('admins see event payment log on the event details page', function () {
         'verified_at' => now()->subDay(),
         'verified_by_user_id' => $admin->id,
     ]);
+    app(InvestmentPostings::class)->customerPaymentVerified($verified);
 
     $pending = EventPayment::query()->create([
         'event_order_id' => $order->id,
@@ -111,19 +113,19 @@ test('event payment log only includes payments for that event', function () {
         'advance_amount' => 100,
     ]);
 
-    EventPayment::query()->create([
+    app(InvestmentPostings::class)->customerPaymentVerified(EventPayment::query()->create([
         'event_order_id' => $order->id,
         'amount' => 100,
         'payment_method' => 'bkash',
         'payment_status' => 'verified',
-    ]);
+    ]));
 
-    EventPayment::query()->create([
+    app(InvestmentPostings::class)->customerPaymentVerified(EventPayment::query()->create([
         'event_order_id' => $otherOrder->id,
         'amount' => 999,
         'payment_method' => 'bkash',
         'payment_status' => 'verified',
-    ]);
+    ]));
 
     actingAs($admin)
         ->get(route('admin.events.show', $event))

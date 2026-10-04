@@ -4,10 +4,11 @@ namespace App\Services;
 
 use App\Enums\EventOrderStatus;
 use App\Enums\EventPackageUnitType;
+use App\Ledger\Money;
+use App\Ledger\Postings\InvestmentPostings;
 use App\Models\EventOrder;
 use App\Models\EventOrderItem;
 use App\Models\EventPackage;
-use App\Models\EventPayment;
 use App\Models\EventPickupPoint;
 use App\Models\FundCycleEvent;
 use Illuminate\Database\Eloquent\Builder;
@@ -126,15 +127,7 @@ class EventOrderSummaryService
                         $paymentStatus => $this->countByPaymentStatus($eventId, $paymentStatus),
                     ])
                     ->all(),
-                'verified_amount' => $this->formatMoney(
-                    EventPayment::query()
-                        ->where('payment_status', 'verified')
-                        ->whereHas(
-                            'order',
-                            fn (Builder $query) => $query->where('fund_cycle_event_id', $eventId),
-                        )
-                        ->sum('amount'),
-                ),
+                'verified_amount' => $this->formatMoney($this->verifiedSales($eventId)),
             ],
             'focus' => $this->buildFocusSummary($eventId, $statusCounts),
             'pickup_points' => $this->formatPickupBreakdown(
@@ -394,15 +387,7 @@ class EventOrderSummaryService
             ->count();
 
         return [
-            'verified_amount' => $this->formatMoney(
-                EventPayment::query()
-                    ->where('payment_status', 'verified')
-                    ->whereHas(
-                        'order',
-                        fn (Builder $query) => $query->where('fund_cycle_event_id', $eventId),
-                    )
-                    ->sum('amount'),
-            ),
+            'verified_amount' => $this->formatMoney($this->verifiedSales($eventId)),
             'confirmed_order_count' => (int) (clone $salesQuery)->count(),
             'confirmed_order_amount' => $this->formatMoney($salesMoney->total_amount ?? 0),
             'confirmed_due_amount' => $this->formatMoney($salesMoney->total_due_amount ?? 0),
@@ -415,6 +400,16 @@ class EventOrderSummaryService
             'delivered_order_count' => (int) ($statusCounts[EventOrderStatus::Delivered->value] ?? 0),
             'cancelled_order_count' => (int) ($statusCounts[EventOrderStatus::Cancelled->value] ?? 0),
         ];
+    }
+
+    /**
+     * Verified customer payments for the event, in taka, from the journal.
+     */
+    private function verifiedSales(int $eventId): float
+    {
+        $investment = FundCycleEvent::query()->findOrFail($eventId)->ensureInvestment();
+
+        return Money::toTaka(app(InvestmentPostings::class)->eventMoneyFlow($investment)['sales']);
     }
 
     private function formatMoney(float|int|string|null $amount): string

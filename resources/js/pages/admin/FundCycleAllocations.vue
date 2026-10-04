@@ -1,9 +1,13 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
+import { Plus } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 import FundCycleAllocationDialog from '@/components/admin/FundCycleAllocationDialog.vue';
-import { Badge } from '@/components/ui/badge';
+import PageHeader from '@/components/shared/PageHeader.vue';
+import StatCard from '@/components/shared/StatCard.vue';
+import StatusBadge from '@/components/shared/StatusBadge.vue';
 import { Button } from '@/components/ui/button';
+import { formatMoney } from '@/lib/format';
 
 type AllocationItem = {
     id: number;
@@ -95,8 +99,6 @@ const selectedSlot = ref<string>('');
 const showMissingOnly = ref(false);
 const isAllocateDialogOpen = ref(false);
 
-const money = (amount: number): string => `${amount.toLocaleString()} BDT`;
-
 const filteredAllocations = computed(() => {
     let filtered = props.fundCycle.allocations;
 
@@ -177,77 +179,56 @@ const clearFilters = () => {
 <template>
     <Head :title="`${props.fundCycle.name} - Allocations`" />
 
-    <div class="flex h-full flex-1 flex-col gap-4 rounded-xl p-4">
-        <section
-            class="rounded-xl border border-sidebar-border/70 bg-background p-6 shadow-sm dark:border-sidebar-border"
+    <div class="flex flex-1 flex-col gap-6 p-4 md:p-6">
+        <PageHeader
+            :title="`${props.fundCycle.name} · Allocations`"
+            description="Allocated and missing months by user. Post an allocation on a member’s behalf from here."
         >
+            <template #actions>
+                <Button variant="outline" as-child>
+                    <Link :href="`/admin/fund-cycles/${props.fundCycle.id}`">
+                        Cycle details
+                    </Link>
+                </Button>
+                <Button @click="isAllocateDialogOpen = true">
+                    <Plus class="size-4" />
+                    Allocate
+                </Button>
+            </template>
+        </PageHeader>
+
+        <div class="grid gap-4 sm:grid-cols-3">
             <div
-                class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between"
+                class="flex items-center rounded-xl border bg-card p-4 shadow-xs"
             >
-                <div class="max-w-3xl">
-                    <h1 class="text-2xl font-semibold tracking-tight">
-                        {{ props.fundCycle.name }} Allocations
-                    </h1>
-                    <p class="mt-2 text-sm text-muted-foreground">
-                        Review allocated and missing slots by user, then post
-                        new allocations.
-                    </p>
-                </div>
-
-                <div class="flex flex-wrap gap-2">
-                    <Button
-                        variant="default"
-                        @click="isAllocateDialogOpen = true"
-                    >
-                        Allocate
-                    </Button>
-                    <Button variant="outline" as-child>
-                        <Link
-                            :href="`/admin/fund-cycles/${props.fundCycle.id}`"
-                        >
-                            Back to Details
-                        </Link>
-                    </Button>
-                </div>
+                <StatusBadge
+                    :status="props.fundCycle.status"
+                    :label="props.fundCycle.status_label"
+                />
             </div>
+            <StatCard
+                label="Allocated"
+                :value="formatMoney(props.fundCycle.allocated_amount)"
+                :hint="`${props.fundCycle.allocations_count} entries`"
+                value-class="text-emerald-600 dark:text-emerald-400"
+            />
+            <StatCard
+                label="Missing"
+                :value="formatMoney(props.fundCycle.remaining_amount)"
+                :hint="`${props.fundCycle.remaining_allocations} entries`"
+                :value-class="
+                    props.fundCycle.remaining_allocations > 0
+                        ? 'text-amber-600 dark:text-amber-400'
+                        : ''
+                "
+            />
+        </div>
 
-            <div class="mt-4 grid gap-4 text-sm md:grid-cols-3">
-                <div>
-                    <div class="text-xs text-muted-foreground">Status</div>
-                    <div class="mt-1">
-                        <Badge variant="outline">{{
-                            props.fundCycle.status_label
-                        }}</Badge>
-                    </div>
-                </div>
-                <div>
-                    <div class="text-xs text-muted-foreground">Allocated</div>
-                    <div class="mt-1 font-semibold text-foreground">
-                        {{ props.fundCycle.allocations_count }} entries
-                    </div>
-                    <div class="mt-0.5 text-xs text-primary">
-                        {{ money(props.fundCycle.allocated_amount) }}
-                    </div>
-                </div>
-                <div>
-                    <div class="text-xs text-muted-foreground">Remaining</div>
-                    <div class="mt-1 font-semibold text-foreground">
-                        {{ props.fundCycle.remaining_allocations }} entries
-                    </div>
-                    <div class="mt-0.5 text-xs text-primary">
-                        {{ money(props.fundCycle.remaining_amount) }}
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <section
-            class="rounded-xl border border-sidebar-border/70 bg-background p-4 shadow-sm dark:border-sidebar-border"
-        >
+        <section class="rounded-xl border bg-card p-4 shadow-xs">
             <div class="flex flex-wrap items-center gap-3">
                 <select
                     v-model="selectedUser"
-                    class="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
+                    class="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs dark:bg-input/30"
                 >
                     <option value="">All Users</option>
                     <option
@@ -261,7 +242,7 @@ const clearFilters = () => {
 
                 <select
                     v-model="selectedSlot"
-                    class="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
+                    class="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs dark:bg-input/30"
                 >
                     <option value="">All Slots</option>
                     <option
@@ -304,10 +285,8 @@ const clearFilters = () => {
             </div>
         </section>
 
-        <section
-            class="overflow-hidden rounded-xl border border-sidebar-border/70 bg-background shadow-sm dark:border-sidebar-border"
-        >
-            <div class="border-b border-sidebar-border/70 px-4 py-3">
+        <section class="overflow-hidden rounded-xl border bg-card shadow-xs">
+            <div class="border-b px-4 py-3">
                 <h2 class="text-base font-medium">
                     {{
                         showMissingOnly
@@ -321,10 +300,8 @@ const clearFilters = () => {
                 v-if="!showMissingOnly && slotGroups.length > 0"
                 class="overflow-x-auto"
             >
-                <table
-                    class="min-w-full divide-y divide-sidebar-border/70 text-sm"
-                >
-                    <thead class="bg-muted/40 text-left">
+                <table class="min-w-full divide-y divide-border text-sm">
+                    <thead class="bg-muted/50 text-left">
                         <tr>
                             <th class="px-4 py-3 font-medium">Slot</th>
                             <th class="px-4 py-3 font-medium">User / Member</th>
@@ -333,7 +310,7 @@ const clearFilters = () => {
                             <th class="px-4 py-3 font-medium">Notes</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-sidebar-border/70">
+                    <tbody class="divide-y divide-border">
                         <template
                             v-for="slotGroup in slotGroups"
                             :key="slotGroup.slotKey"
@@ -365,7 +342,7 @@ const clearFilters = () => {
                                 <td
                                     class="px-4 py-3 font-medium text-foreground"
                                 >
-                                    {{ money(allocation.amount) }}
+                                    {{ formatMoney(allocation.amount) }}
                                 </td>
                                 <td class="px-4 py-3 text-muted-foreground">
                                     {{ allocation.allocated_at || '-' }}
@@ -383,17 +360,15 @@ const clearFilters = () => {
                 v-else-if="showMissingOnly && missingSlotGroups.length > 0"
                 class="overflow-x-auto"
             >
-                <table
-                    class="min-w-full divide-y divide-sidebar-border/70 text-sm"
-                >
-                    <thead class="bg-muted/40 text-left">
+                <table class="min-w-full divide-y divide-border text-sm">
+                    <thead class="bg-muted/50 text-left">
                         <tr>
                             <th class="px-4 py-3 font-medium">Slot</th>
                             <th class="px-4 py-3 font-medium">User</th>
                             <th class="px-4 py-3 font-medium">Members</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-sidebar-border/70">
+                    <tbody class="divide-y divide-border">
                         <template
                             v-for="slotGroup in missingSlotGroups"
                             :key="slotGroup.slotKey"

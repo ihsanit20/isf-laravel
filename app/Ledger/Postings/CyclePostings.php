@@ -106,9 +106,7 @@ class CyclePostings
                 'type' => $investment->type,
                 'title' => $investment->title,
                 'status' => $investment->status,
-                'result' => $isSettled
-                    ? $this->settledInvestmentResult($investment)
-                    : $this->investments->result($investment),
+                'result' => $this->investments->result($investment),
             ])
             ->values()
             ->all();
@@ -278,16 +276,6 @@ class CyclePostings
         }
 
         return (int) $query->selectRaw('COALESCE(SUM(credit), 0) - COALESCE(SUM(debit), 0) as balance')->value('balance');
-    }
-
-    private function settledInvestmentResult(CycleInvestment $investment): int
-    {
-        return (int) JournalLine::query()
-            ->where('ledger_account_id', LedgerAccount::idFor(Account::CycleResult))
-            ->where('cycle_investment_id', $investment->id)
-            ->whereHas('entry', fn ($entry) => $entry->where('kind', 'investment_closed'))
-            ->selectRaw('COALESCE(SUM(credit), 0) - COALESCE(SUM(debit), 0) as balance')
-            ->value('balance');
     }
 
     /**

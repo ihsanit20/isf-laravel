@@ -1,27 +1,32 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
-import {
-    BadgeCheck,
-    CalendarDays,
-    Clock3,
-    Layers3,
-    ReceiptText,
-    Shield,
-    UsersRound,
-    WalletCards,
-} from 'lucide-vue-next';
+import { ArrowRight, CircleCheck, Shield } from 'lucide-vue-next';
 import { computed } from 'vue';
-import { Badge } from '@/components/ui/badge';
+import ActivityList from '@/components/shared/ActivityList.vue';
+import type { ActivityItem } from '@/components/shared/ActivityList.vue';
+import MoneyFlow from '@/components/shared/MoneyFlow.vue';
+import type { MoneyFlowStep } from '@/components/shared/MoneyFlow.vue';
+import PageHeader from '@/components/shared/PageHeader.vue';
+import StatusBadge from '@/components/shared/StatusBadge.vue';
 import { Button } from '@/components/ui/button';
+import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle,
+} from '@/components/ui/card';
+import { formatMoney } from '@/lib/format';
+import { cn } from '@/lib/utils';
 import { dashboard } from '@/routes';
 
-type ActivityTone = 'success' | 'warning' | 'danger';
-type ActivityItem = {
-    id: string;
-    title: string;
-    description: string;
-    timestamp: string | null;
-    tone: ActivityTone;
+type PersonalMember = {
+    id: number;
+    full_name: string;
+    status: string;
+    is_active: boolean;
+    units: number;
+    capital_in_cycles: number;
 };
 
 type PersonalDashboard = {
@@ -46,6 +51,15 @@ type PersonalDashboard = {
         unit_amount: number;
         status_label: string;
     } | null;
+    balance: {
+        deposits: number;
+        fees: number;
+        cycle_allocations: number;
+        cycle_returns: number;
+        payouts: number;
+        available: number;
+    };
+    members: PersonalMember[];
     recent_activity: ActivityItem[];
 };
 
@@ -54,7 +68,10 @@ type AdminOverview = {
         total_verified_deposits: number;
         total_charge_allocations: number;
         total_cycle_allocations: number;
+        total_cycle_returns: number;
+        total_payouts: number;
         remaining_pool: number;
+        platform_fund: number;
     };
     queues: {
         pending_deposits: number;
@@ -77,507 +94,345 @@ type Props = {
 
 defineOptions({
     layout: {
-        breadcrumbs: [
-            {
-                title: 'Dashboard',
-                href: dashboard(),
-            },
-        ],
+        breadcrumbs: [{ title: 'Overview', href: dashboard() }],
     },
 });
 
 const props = defineProps<Props>();
 
-const money = (amount: number): string => `${amount.toLocaleString()} BDT`;
-
-const activityVariant = (
-    tone: ActivityTone,
-): 'default' | 'secondary' | 'destructive' => {
-    if (tone === 'success') {
-        return 'default';
-    }
-
-    if (tone === 'danger') {
-        return 'destructive';
-    }
-
-    return 'secondary';
-};
-
-const cycleStatusVariant = (
-    status: string,
-): 'default' | 'secondary' | 'outline' => {
-    if (status === 'open') {
-        return 'default';
-    }
-
-    if (status === 'locked' || status === 'matured') {
-        return 'secondary';
-    }
-
-    return 'outline';
-};
-
-const personalStats = computed(() => [
-    {
-        label: 'My Members',
-        value: props.personal.summary.total_members.toLocaleString(),
-        note: `${props.personal.summary.approved_members} approved, ${props.personal.summary.active_members} active`,
-        icon: UsersRound,
-    },
-    {
-        label: 'My Units',
-        value: props.personal.summary.total_units.toLocaleString(),
-        note: 'Total units across your member accounts',
-        icon: BadgeCheck,
-    },
-    {
-        label: 'My Verified Deposits',
-        value: money(props.personal.summary.verified_deposits),
-        note: 'Only verified deposits enter the pool',
-        icon: WalletCards,
-    },
-    {
-        label: 'My Available Balance',
-        value: money(props.personal.summary.available_balance),
-        note: 'After charge and cycle allocations',
-        icon: Layers3,
-    },
-]);
-
-const personalActions = computed(() => [
-    {
-        label: 'My Pending Deposits',
-        value: props.personal.actions.pending_deposit_count,
-        note: 'Waiting for admin verification',
-    },
-    {
-        label: 'My Charges',
-        value: props.personal.actions.my_charge_count,
-        note:
-            props.personal.actions.pending_charge_count > 0
-                ? `${props.personal.actions.pending_charge_count} pending across your members`
-                : 'No pending charges right now',
-    },
-    {
-        label: 'My Cycle Allocations',
-        value: props.personal.actions.my_cycle_allocation_count,
-        note: 'Already posted from your pool',
-    },
-    {
-        label: 'Open Fund Cycles',
-        value: props.personal.actions.open_cycle_count,
-        note: 'Cycles available across the system',
-    },
-]);
-
-const adminPoolStats = computed(() => {
-    if (!props.adminOverview) {
-        return [];
-    }
+const flowSteps = computed<MoneyFlowStep[]>(() => {
+    const balance = props.personal.balance;
 
     return [
+        { label: 'Deposited', amount: balance.deposits, hint: 'Verified' },
+        { label: 'Charges', amount: balance.fees, sign: '−' },
+        { label: 'Invested', amount: balance.cycle_allocations, sign: '−' },
         {
-            label: 'Verified Deposit Pool',
-            value: money(
-                props.adminOverview.pool_summary.total_verified_deposits,
-            ),
+            label: 'Returned',
+            amount: balance.cycle_returns,
+            sign: '+',
+            hint: 'From settled cycles',
         },
+        { label: 'Withdrawn', amount: balance.payouts, sign: '−' },
         {
-            label: 'Charge Allocations',
-            value: money(
-                props.adminOverview.pool_summary.total_charge_allocations,
-            ),
-        },
-        {
-            label: 'Cycle Allocations',
-            value: money(
-                props.adminOverview.pool_summary.total_cycle_allocations,
-            ),
-        },
-        {
-            label: 'Remaining Pool',
-            value: money(props.adminOverview.pool_summary.remaining_pool),
+            label: 'Available',
+            amount: balance.available,
+            highlight: true,
         },
     ];
 });
 
-const adminQueueStats = computed(() => {
+type NextStep = {
+    key: string;
+    title: string;
+    description: string;
+    href: string;
+    action: string;
+};
+
+const nextSteps = computed<NextStep[]>(() => {
+    const { summary, actions, next_cycle, balance } = props.personal;
+    const steps: NextStep[] = [];
+
+    if (summary.total_members === 0) {
+        steps.push({
+            key: 'member',
+            title: 'Add your first member',
+            description:
+                'Investments are made per member. Apply for yourself or a family member.',
+            href: '/my-membership/create',
+            action: 'Add member',
+        });
+    }
+
+    if (actions.pending_deposit_count > 0) {
+        steps.push({
+            key: 'pending-deposits',
+            title: `${actions.pending_deposit_count} deposit(s) waiting for verification`,
+            description: 'An admin will verify them soon.',
+            href: '/my-deposits',
+            action: 'View',
+        });
+    } else if (balance.deposits === 0) {
+        steps.push({
+            key: 'deposit',
+            title: 'Make your first deposit',
+            description: 'Send money to the ISF account and submit the proof.',
+            href: '/my-deposits/create',
+            action: 'New deposit',
+        });
+    }
+
+    if (actions.pending_charge_count > 0) {
+        steps.push({
+            key: 'charges',
+            title: `${actions.pending_charge_count} unpaid charge(s)`,
+            description:
+                'Pay them from your balance. The registration fee activates a member.',
+            href: '/my-membership',
+            action: 'Pay',
+        });
+    }
+
+    if (next_cycle && summary.active_members > 0) {
+        steps.push({
+            key: 'cycle',
+            title: `${next_cycle.name} is open`,
+            description: next_cycle.lock_date
+                ? `Invest before ${next_cycle.lock_date}.`
+                : 'Taking investments now.',
+            href: '/my-allocations',
+            action: 'Invest',
+        });
+    }
+
+    return steps;
+});
+
+const adminQueues = computed(() => {
     if (!props.adminOverview) {
         return [];
     }
 
+    const queues = props.adminOverview.queues;
+
     return [
         {
-            label: 'Pending Deposit Reviews',
-            value: props.adminOverview.queues.pending_deposits,
+            label: 'Deposits to verify',
+            value: queues.pending_deposits,
+            href: '/admin/deposits',
         },
         {
-            label: 'Pending Member Approvals',
-            value: props.adminOverview.queues.pending_members,
+            label: 'Members to approve',
+            value: queues.pending_members,
+            href: '/admin/members',
         },
         {
-            label: 'Approved Not Activated',
-            value: props.adminOverview.queues.approved_not_activated_members,
+            label: 'Approved, not activated',
+            value: queues.approved_not_activated_members,
+            href: '/admin/members',
         },
         {
-            label: 'Pending Charges',
-            value: props.adminOverview.queues.pending_charges,
+            label: 'Unpaid charges',
+            value: queues.pending_charges,
+            href: '/admin/charges',
         },
+    ];
+});
+
+const adminPool = computed(() => {
+    if (!props.adminOverview) {
+        return [];
+    }
+
+    const pool = props.adminOverview.pool_summary;
+
+    return [
+        { label: 'Verified deposits', value: pool.total_verified_deposits },
+        { label: 'Charges paid', value: pool.total_charge_allocations },
+        { label: 'Invested in cycles', value: pool.total_cycle_allocations },
+        { label: 'Returned from cycles', value: pool.total_cycle_returns },
+        { label: 'Paid out', value: pool.total_payouts },
+        { label: 'Members’ available', value: pool.remaining_pool },
+        { label: 'Platform fund', value: pool.platform_fund },
     ];
 });
 </script>
 
 <template>
-    <Head title="Dashboard" />
+    <Head title="Overview" />
 
-    <div class="flex h-full flex-1 flex-col gap-6 rounded-xl p-4">
-        <section
-            class="rounded-[28px] border border-sidebar-border/70 bg-linear-to-br from-background via-background to-emerald-50 p-6 shadow-sm"
-        >
-            <div
-                class="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between"
-            >
-                <div class="max-w-3xl">
-                    <p
-                        class="text-xs font-medium tracking-[0.2em] text-muted-foreground uppercase"
-                    >
-                        My ISF
-                    </p>
-                    <h1 class="mt-2 text-3xl font-semibold tracking-tight">
-                        Personal balance and member activity in one place
-                    </h1>
-                    <p
-                        class="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground"
-                    >
-                        Your dashboard tracks membership, deposit verification,
-                        charge settlement, and fund cycle participation without
-                        mixing personal and admin operations.
-                    </p>
-                </div>
+    <div class="flex flex-1 flex-col gap-6 p-4 md:p-6">
+        <PageHeader
+            title="Overview"
+            description="Where your money is: deposited, invested in cycles, returned, and available."
+        />
 
-                <div class="flex flex-wrap gap-3">
-                    <Button as-child>
-                        <Link href="/my-membership">My Membership</Link>
-                    </Button>
-                    <Button as-child variant="outline">
-                        <Link href="/my-deposits">My Deposits</Link>
-                    </Button>
-                    <Button v-if="adminOverview" as-child variant="outline">
-                        <Link href="/admin/deposits">Admin Deposits</Link>
-                    </Button>
-                </div>
-            </div>
-        </section>
+        <MoneyFlow :steps="flowSteps" />
 
-        <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <article
-                v-for="stat in personalStats"
-                :key="stat.label"
-                class="rounded-3xl border border-sidebar-border/70 bg-background px-5 py-5 shadow-sm"
-            >
-                <component
-                    :is="stat.icon"
-                    class="size-5 text-muted-foreground"
-                />
-                <p class="mt-4 text-xs text-muted-foreground">
-                    {{ stat.label }}
-                </p>
-                <p class="mt-2 text-2xl font-semibold text-foreground">
-                    {{ stat.value }}
-                </p>
-                <p class="mt-2 text-xs text-muted-foreground">
-                    {{ stat.note }}
-                </p>
-            </article>
-        </section>
-
-        <section class="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
-            <article
-                class="rounded-[28px] border border-sidebar-border/70 bg-background p-6 shadow-sm"
-            >
-                <div class="flex items-center gap-3">
-                    <ReceiptText class="size-5 text-muted-foreground" />
-                    <div>
-                        <h2 class="text-lg font-semibold tracking-tight">
-                            Action Needed
-                        </h2>
-                        <p class="text-sm text-muted-foreground">
-                            Current items affecting your membership flow.
-                        </p>
-                    </div>
-                </div>
-
-                <div class="mt-5 grid gap-3 md:grid-cols-2">
+        <div class="grid gap-4 xl:grid-cols-[1.2fr_1fr]">
+            <Card class="gap-4">
+                <CardHeader>
+                    <CardTitle>Next steps</CardTitle>
+                </CardHeader>
+                <CardContent>
                     <div
-                        v-for="item in personalActions"
-                        :key="item.label"
-                        class="rounded-3xl border border-sidebar-border/70 bg-muted/20 px-4 py-4"
+                        v-if="nextSteps.length === 0"
+                        class="flex items-center gap-2 text-sm text-muted-foreground"
                     >
-                        <p class="text-xs text-muted-foreground">
-                            {{ item.label }}
-                        </p>
-                        <p class="mt-2 text-2xl font-semibold text-foreground">
-                            {{ item.value.toLocaleString() }}
-                        </p>
-                        <p class="mt-1 text-xs text-muted-foreground">
-                            {{ item.note }}
-                        </p>
+                        <CircleCheck class="size-4 text-emerald-600" />
+                        All caught up.
                     </div>
-                </div>
-            </article>
+                    <ul v-else class="divide-y">
+                        <li
+                            v-for="step in nextSteps"
+                            :key="step.key"
+                            class="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0"
+                        >
+                            <div class="min-w-0">
+                                <p class="font-medium">{{ step.title }}</p>
+                                <p class="text-sm text-muted-foreground">
+                                    {{ step.description }}
+                                </p>
+                            </div>
+                            <Button as-child size="sm" variant="outline">
+                                <Link :href="step.href">{{ step.action }}</Link>
+                            </Button>
+                        </li>
+                    </ul>
+                </CardContent>
+            </Card>
 
-            <article
-                class="rounded-[28px] border border-sidebar-border/70 bg-background p-6 shadow-sm"
-            >
-                <div class="flex items-center gap-3">
-                    <CalendarDays class="size-5 text-muted-foreground" />
-                    <div>
-                        <h2 class="text-lg font-semibold tracking-tight">
-                            Next Fund Cycle
-                        </h2>
-                        <p class="text-sm text-muted-foreground">
-                            Closest open cycle relevant to allocation planning.
-                        </p>
+            <Card class="gap-4">
+                <CardHeader>
+                    <div class="flex items-center justify-between">
+                        <CardTitle>Members</CardTitle>
+                        <Button as-child size="sm" variant="ghost">
+                            <Link href="/my-membership">
+                                All
+                                <ArrowRight class="size-4" />
+                            </Link>
+                        </Button>
                     </div>
-                </div>
+                    <CardDescription>
+                        {{ props.personal.summary.active_members }} active of
+                        {{ props.personal.summary.total_members }} ·
+                        {{ props.personal.summary.total_units }} units
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <p
+                        v-if="props.personal.members.length === 0"
+                        class="text-sm text-muted-foreground"
+                    >
+                        No members yet.
+                    </p>
+                    <ul v-else class="divide-y">
+                        <li
+                            v-for="member in props.personal.members"
+                            :key="member.id"
+                            class="flex items-center justify-between gap-3 py-2 first:pt-0 last:pb-0"
+                        >
+                            <div class="min-w-0">
+                                <p class="truncate text-sm font-medium">
+                                    {{ member.full_name }}
+                                </p>
+                                <p class="text-xs text-muted-foreground">
+                                    {{ formatMoney(member.capital_in_cycles) }}
+                                    in cycles
+                                </p>
+                            </div>
+                            <StatusBadge
+                                :status="
+                                    member.is_active ? 'active' : member.status
+                                "
+                            />
+                        </li>
+                    </ul>
+                </CardContent>
+            </Card>
+        </div>
 
-                <div v-if="personal.next_cycle" class="mt-5 space-y-4">
-                    <div>
-                        <p class="text-xl font-semibold text-foreground">
-                            {{ personal.next_cycle.name }}
-                        </p>
-                        <div class="mt-2 flex items-center gap-2">
-                            <Badge>{{
-                                personal.next_cycle.status_label
-                            }}</Badge>
-                            <span class="text-sm text-muted-foreground">
-                                Unit amount
-                                {{ money(personal.next_cycle.unit_amount) }}
+        <Card class="gap-4">
+            <CardHeader>
+                <CardTitle>Recent activity</CardTitle>
+            </CardHeader>
+            <CardContent>
+                <ActivityList :items="props.personal.recent_activity" />
+            </CardContent>
+        </Card>
+
+        <section v-if="props.adminOverview" class="grid gap-4">
+            <div class="flex items-center gap-2 pt-2">
+                <Shield class="size-5 text-muted-foreground" />
+                <h2 class="text-lg font-semibold">Admin</h2>
+            </div>
+
+            <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                <Link
+                    v-for="queue in adminQueues"
+                    :key="queue.label"
+                    :href="queue.href"
+                    :class="
+                        cn(
+                            'rounded-xl border bg-card p-4 shadow-xs transition-colors hover:border-foreground/20',
+                            queue.value > 0 &&
+                                'border-amber-300 dark:border-amber-800',
+                        )
+                    "
+                >
+                    <p class="text-sm text-muted-foreground">
+                        {{ queue.label }}
+                    </p>
+                    <p class="mt-2 text-2xl font-semibold tabular-nums">
+                        {{ queue.value }}
+                    </p>
+                </Link>
+            </div>
+
+            <div class="grid gap-4 xl:grid-cols-[1.4fr_1fr]">
+                <Card class="gap-4">
+                    <CardHeader>
+                        <CardTitle>Member money</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <dl class="grid gap-x-6 gap-y-3 sm:grid-cols-2">
+                            <div
+                                v-for="item in adminPool"
+                                :key="item.label"
+                                class="flex justify-between gap-2 text-sm"
+                            >
+                                <dt class="text-muted-foreground">
+                                    {{ item.label }}
+                                </dt>
+                                <dd class="font-medium tabular-nums">
+                                    {{ formatMoney(item.value) }}
+                                </dd>
+                            </div>
+                        </dl>
+                    </CardContent>
+                </Card>
+
+                <Card class="gap-4">
+                    <CardHeader>
+                        <div class="flex items-center justify-between">
+                            <CardTitle>Fund cycles</CardTitle>
+                            <Button as-child size="sm" variant="ghost">
+                                <Link href="/admin/fund-cycles">
+                                    Manage
+                                    <ArrowRight class="size-4" />
+                                </Link>
+                            </Button>
+                        </div>
+                    </CardHeader>
+                    <CardContent class="flex flex-wrap gap-2">
+                        <div
+                            v-for="item in props.adminOverview.cycle_statuses"
+                            :key="item.status"
+                            class="flex items-center gap-2 rounded-lg border px-3 py-2"
+                        >
+                            <StatusBadge
+                                :status="item.status"
+                                :label="item.label"
+                            />
+                            <span class="font-semibold tabular-nums">
+                                {{ item.count }}
                             </span>
                         </div>
-                    </div>
-
-                    <div
-                        class="rounded-3xl border border-sidebar-border/70 bg-muted/20 px-4 py-4"
-                    >
-                        <p class="text-xs text-muted-foreground">Lock date</p>
-                        <p class="mt-2 text-lg font-semibold text-foreground">
-                            {{
-                                personal.next_cycle.lock_date || 'Not fixed yet'
-                            }}
-                        </p>
-                    </div>
-
-                    <Button
-                        as-child
-                        variant="outline"
-                        class="w-full justify-center"
-                    >
-                        <Link href="/my-membership"
-                            >Review eligible members</Link
-                        >
-                    </Button>
-                </div>
-
-                <div
-                    v-else
-                    class="mt-5 rounded-3xl border border-dashed border-sidebar-border/70 bg-muted/10 px-4 py-6 text-sm text-muted-foreground"
-                >
-                    No open fund cycle is available right now.
-                </div>
-            </article>
-        </section>
-
-        <section
-            class="rounded-[28px] border border-sidebar-border/70 bg-background p-6 shadow-sm"
-        >
-            <div class="flex items-center gap-3">
-                <Clock3 class="size-5 text-muted-foreground" />
-                <div>
-                    <h2 class="text-lg font-semibold tracking-tight">
-                        Recent Personal Activity
-                    </h2>
-                    <p class="text-sm text-muted-foreground">
-                        Latest membership, deposit, and allocation events.
-                    </p>
-                </div>
+                    </CardContent>
+                </Card>
             </div>
 
-            <div
-                v-if="personal.recent_activity.length > 0"
-                class="mt-5 space-y-3"
-            >
-                <article
-                    v-for="item in personal.recent_activity"
-                    :key="item.id"
-                    class="flex flex-col gap-3 rounded-3xl border border-sidebar-border/70 bg-muted/15 px-4 py-4 md:flex-row md:items-start md:justify-between"
-                >
-                    <div>
-                        <div class="flex items-center gap-2">
-                            <p class="font-medium text-foreground">
-                                {{ item.title }}
-                            </p>
-                            <Badge :variant="activityVariant(item.tone)">
-                                {{ item.tone }}
-                            </Badge>
-                        </div>
-                        <p class="mt-2 text-sm text-muted-foreground">
-                            {{ item.description }}
-                        </p>
-                    </div>
-
-                    <p class="text-xs text-muted-foreground">
-                        {{ item.timestamp || 'No timestamp' }}
-                    </p>
-                </article>
-            </div>
-
-            <div
-                v-else
-                class="mt-5 rounded-3xl border border-dashed border-sidebar-border/70 bg-muted/10 px-4 py-6 text-sm text-muted-foreground"
-            >
-                No personal activity is available yet.
-            </div>
-        </section>
-
-        <section
-            v-if="adminOverview"
-            class="rounded-[28px] border border-sidebar-border/70 bg-linear-to-br from-background via-background to-amber-50 p-6 shadow-sm"
-        >
-            <div
-                class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between"
-            >
-                <div>
-                    <div class="flex items-center gap-3">
-                        <Shield class="size-5 text-muted-foreground" />
-                        <h2 class="text-xl font-semibold tracking-tight">
-                            Admin Overview
-                        </h2>
-                    </div>
-                    <p class="mt-2 max-w-2xl text-sm text-muted-foreground">
-                        Operational data stays separate here so you can review
-                        queues, pool movement, and cycle progress without mixing
-                        them with your personal membership state.
-                    </p>
-                </div>
-
-                <div class="flex flex-wrap gap-3">
-                    <Button as-child variant="outline">
-                        <Link href="/admin/members">Admin Members</Link>
-                    </Button>
-                    <Button as-child variant="outline">
-                        <Link href="/admin/fund-cycles">Fund Cycles</Link>
-                    </Button>
-                </div>
-            </div>
-
-            <div class="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                <article
-                    v-for="stat in adminPoolStats"
-                    :key="stat.label"
-                    class="rounded-3xl border border-sidebar-border/70 bg-background px-5 py-5 shadow-sm"
-                >
-                    <p class="text-xs text-muted-foreground">
-                        {{ stat.label }}
-                    </p>
-                    <p class="mt-2 text-xl font-semibold text-foreground">
-                        {{ stat.value }}
-                    </p>
-                </article>
-            </div>
-
-            <div class="mt-4 grid gap-4 xl:grid-cols-[0.9fr_1.1fr]">
-                <article
-                    class="rounded-3xl border border-sidebar-border/70 bg-background p-5 shadow-sm"
-                >
-                    <h3 class="text-base font-semibold tracking-tight">
-                        Review Queues
-                    </h3>
-                    <div class="mt-4 space-y-3">
-                        <div
-                            v-for="item in adminQueueStats"
-                            :key="item.label"
-                            class="flex items-center justify-between rounded-2xl border border-sidebar-border/70 bg-muted/15 px-4 py-3"
-                        >
-                            <p class="text-sm text-muted-foreground">
-                                {{ item.label }}
-                            </p>
-                            <p class="text-lg font-semibold text-foreground">
-                                {{ item.value.toLocaleString() }}
-                            </p>
-                        </div>
-                    </div>
-                </article>
-
-                <article
-                    class="rounded-3xl border border-sidebar-border/70 bg-background p-5 shadow-sm"
-                >
-                    <h3 class="text-base font-semibold tracking-tight">
-                        Cycle Status
-                    </h3>
-                    <div class="mt-4 flex flex-wrap gap-3">
-                        <div
-                            v-for="item in adminOverview.cycle_statuses"
-                            :key="item.status"
-                            class="min-w-35 flex-1 rounded-2xl border border-sidebar-border/70 bg-muted/15 px-4 py-4"
-                        >
-                            <Badge :variant="cycleStatusVariant(item.status)">
-                                {{ item.label }}
-                            </Badge>
-                            <p
-                                class="mt-3 text-2xl font-semibold text-foreground"
-                            >
-                                {{ item.count.toLocaleString() }}
-                            </p>
-                        </div>
-                    </div>
-                </article>
-            </div>
-
-            <article
-                class="mt-4 rounded-3xl border border-sidebar-border/70 bg-background p-5 shadow-sm"
-            >
-                <h3 class="text-base font-semibold tracking-tight">
-                    Recent Admin Activity
-                </h3>
-
-                <div
-                    v-if="adminOverview.recent_activity.length > 0"
-                    class="mt-4 space-y-3"
-                >
-                    <div
-                        v-for="item in adminOverview.recent_activity"
-                        :key="item.id"
-                        class="flex flex-col gap-3 rounded-2xl border border-sidebar-border/70 bg-muted/15 px-4 py-4 md:flex-row md:items-start md:justify-between"
-                    >
-                        <div>
-                            <div class="flex items-center gap-2">
-                                <p class="font-medium text-foreground">
-                                    {{ item.title }}
-                                </p>
-                                <Badge :variant="activityVariant(item.tone)">
-                                    {{ item.tone }}
-                                </Badge>
-                            </div>
-                            <p class="mt-2 text-sm text-muted-foreground">
-                                {{ item.description }}
-                            </p>
-                        </div>
-
-                        <p class="text-xs text-muted-foreground">
-                            {{ item.timestamp || 'No timestamp' }}
-                        </p>
-                    </div>
-                </div>
-
-                <div
-                    v-else
-                    class="mt-4 rounded-2xl border border-dashed border-sidebar-border/70 bg-muted/10 px-4 py-6 text-sm text-muted-foreground"
-                >
-                    No recent admin activity is available yet.
-                </div>
-            </article>
+            <Card class="gap-4">
+                <CardHeader>
+                    <CardTitle>Recent admin activity</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <ActivityList
+                        :items="props.adminOverview.recent_activity"
+                    />
+                </CardContent>
+            </Card>
         </section>
     </div>
 </template>

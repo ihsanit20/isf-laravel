@@ -9,7 +9,6 @@ use App\Ledger\Ledger;
 use App\Ledger\Money;
 use App\Ledger\Postings\MemberPostings;
 use App\Models\Charge;
-use App\Models\ChargeAllocation;
 use App\Models\DepositSubmission;
 use App\Models\FundCycle;
 use App\Models\FundCycleAllocation;
@@ -49,24 +48,13 @@ class DashboardController extends Controller
             ->count();
         $totalUnits = (int) (clone $managedMembersQuery)->sum('units');
 
-        $verifiedDeposits = (int) DepositSubmission::query()
-            ->where('user_id', $user->id)
-            ->where('status', DepositSubmissionStatus::Verified)
-            ->sum('amount');
+        $balance = app(MemberPostings::class)->balanceBreakdown($user->id);
         $pendingDepositCount = DepositSubmission::query()
             ->where('user_id', $user->id)
             ->where('status', DepositSubmissionStatus::Pending)
             ->count();
-        $chargeAllocatedAmount = (int) ChargeAllocation::query()
-            ->whereNull('reversed_at')
-            ->whereHas('charge.member', fn ($query) => $query->where('managed_by_user_id', $user->id))
-            ->sum('amount');
         $myChargesQuery = Charge::query()
             ->whereHas('member', fn ($query) => $query->where('managed_by_user_id', $user->id));
-        $cycleAllocatedAmount = (int) FundCycleAllocation::query()
-            ->whereHas('member', fn ($query) => $query->where('managed_by_user_id', $user->id))
-            ->sum('amount');
-        $availableBalance = (int) Money::toTaka(app(MemberPostings::class)->availableBalance($user->id));
 
         $myChargeCount = (clone $myChargesQuery)->count();
         $pendingChargeCount = (clone $myChargesQuery)
@@ -93,8 +81,8 @@ class DashboardController extends Controller
                 'approved_members' => $approvedMembers,
                 'active_members' => $activeMembers,
                 'total_units' => $totalUnits,
-                'verified_deposits' => $verifiedDeposits,
-                'available_balance' => $availableBalance,
+                'verified_deposits' => Money::toTaka($balance['deposits']),
+                'available_balance' => Money::toTaka($balance['available']),
             ],
             'actions' => [
                 'pending_deposit_count' => $pendingDepositCount,
@@ -109,27 +97,55 @@ class DashboardController extends Controller
                 'unit_amount' => $nextOpenCycle->unit_amount,
                 'status_label' => FundCycle::statusLabel($nextOpenCycle->status),
             ] : null,
+            'balance' => [
+                'deposits' => Money::toTaka($balance['deposits']),
+                'fees' => Money::toTaka($balance['fees']),
+                'cycle_allocations' => Money::toTaka($balance['cycle_allocations']),
+                'cycle_returns' => Money::toTaka($balance['cycle_returns']),
+                'payouts' => Money::toTaka($balance['payouts']),
+                'available' => Money::toTaka($balance['available']),
+            ],
+            'members' => $this->buildPersonalMembers($user),
             'recent_activity' => $this->buildPersonalRecentActivity($user),
         ];
     }
 
+    private function buildPersonalMembers(User $user): array
+    {
+        $capitalByMember = app(Ledger::class)
+            ->balancesBy('member_id', Account::CycleCapital, ['user_id' => $user->id])
+            ->map(fn (int $balance): int => -$balance);
+
+        return Member::query()
+            ->where('managed_by_user_id', $user->id)
+            ->latest('applied_at')
+            ->latest('id')
+            ->get(['id', 'full_name', 'status', 'units', 'activated_at'])
+            ->map(fn (Member $member): array => [
+                'id' => $member->id,
+                'full_name' => $member->full_name,
+                'status' => $member->status->value,
+                'is_active' => $member->isActive(),
+                'units' => $member->units,
+                'capital_in_cycles' => Money::toTaka($capitalByMember->get($member->id, 0)),
+            ])
+            ->values()
+            ->all();
+    }
+
     private function buildAdminDashboard(): array
     {
-        $totalVerifiedDeposits = (int) DepositSubmission::query()
-            ->where('status', DepositSubmissionStatus::Verified)
-            ->sum('amount');
-        $totalChargeAllocations = (int) ChargeAllocation::query()
-            ->whereNull('reversed_at')
-            ->sum('amount');
-        $totalCycleAllocations = (int) FundCycleAllocation::query()->sum('amount');
+        $pool = app(MemberPostings::class)->balanceBreakdown();
 
         return [
             'pool_summary' => [
-                'total_verified_deposits' => $totalVerifiedDeposits,
-                'total_charge_allocations' => $totalChargeAllocations,
-                'total_cycle_allocations' => $totalCycleAllocations,
-                'remaining_pool' => (int) Money::toTaka(app(Ledger::class)->creditBalance(Account::MemberBalance)),
-                'platform_fund' => (int) Money::toTaka(app(Ledger::class)->platformFund()),
+                'total_verified_deposits' => Money::toTaka($pool['deposits']),
+                'total_charge_allocations' => Money::toTaka($pool['fees']),
+                'total_cycle_allocations' => Money::toTaka($pool['cycle_allocations']),
+                'total_cycle_returns' => Money::toTaka($pool['cycle_returns']),
+                'total_payouts' => Money::toTaka($pool['payouts']),
+                'remaining_pool' => Money::toTaka($pool['available']),
+                'platform_fund' => Money::toTaka(app(Ledger::class)->platformFund()),
             ],
             'queues' => [
                 'pending_deposits' => DepositSubmission::query()

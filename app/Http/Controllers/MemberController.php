@@ -4,8 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Enums\MemberStatus;
 use App\Http\Requests\Members\StoreMemberRequest;
+use App\Ledger\Account;
+use App\Ledger\Ledger;
 use App\Ledger\Money;
 use App\Ledger\Postings\MemberPostings;
+use App\Models\Charge;
 use App\Models\ChargeCategory;
 use App\Models\Member;
 use App\Models\User;
@@ -16,10 +19,13 @@ use Inertia\Response;
 
 class MemberController extends Controller
 {
-    public function index(Request $request): Response
+    public function index(Request $request, Ledger $ledger): Response
     {
         /** @var User $user */
         $user = $request->user();
+
+        $capitalByMember = $ledger->balancesBy('member_id', Account::CycleCapital, ['user_id' => $user->id])
+            ->map(fn (int $balance): int => -$balance);
 
         return Inertia::render('Members', [
             'allocationSummary' => [
@@ -30,7 +36,7 @@ class MemberController extends Controller
                 ->latest('applied_at')
                 ->latest('id')
                 ->get()
-                ->map(fn (Member $member): array => $this->transformMember($member))
+                ->map(fn (Member $member): array => $this->transformMember($member, $capitalByMember->get($member->id, 0)))
                 ->values(),
         ]);
     }
@@ -61,7 +67,7 @@ class MemberController extends Controller
         return to_route('members.index');
     }
 
-    private function transformMember(Member $member): array
+    private function transformMember(Member $member, int $capitalInCycles): array
     {
         $registrationCharge = $member->charges->first(
             fn ($charge) => $charge->category?->code === ChargeCategory::CODE_REGISTRATION_FEE,
@@ -88,6 +94,22 @@ class MemberController extends Controller
                 'status' => $registrationCharge->status,
                 'paid_at' => $registrationChargePaidAt,
             ] : null,
+            'capital_in_cycles' => Money::toTaka($capitalInCycles),
+            'charges' => $member->charges
+                ->sortByDesc('effective_at')
+                ->map(fn (Charge $charge): array => [
+                    'id' => $charge->id,
+                    'title' => $charge->category?->title,
+                    'code' => $charge->category?->code,
+                    'amount' => $charge->amount,
+                    'status' => $charge->status,
+                    'effective_at' => $charge->effective_at?->format('d M Y'),
+                    'paid_at' => $charge->allocations
+                        ->whereNull('reversed_at')
+                        ->sortByDesc('confirmed_at')
+                        ->first()?->confirmed_at?->format('d M Y, h:i A'),
+                ])
+                ->values(),
         ];
     }
 }

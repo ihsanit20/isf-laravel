@@ -6,20 +6,22 @@ import {
     BookMarked,
     Briefcase,
     CalendarDays,
-    HandCoins,
     Cog,
     FileBadge2,
+    HandCoins,
     Info,
-    LayoutGrid,
     Landmark,
+    LayoutGrid,
     Layers3,
     NotebookTabs,
-    ReceiptText,
     Scale,
     ScrollText,
+    Tags,
     TrendingUp,
-    UserRound,
+    UserCog,
     Users,
+    UsersRound,
+    Wallet,
     WalletCards,
 } from 'lucide-vue-next';
 import { computed } from 'vue';
@@ -37,133 +39,99 @@ import {
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
 import { dashboard } from '@/routes';
-import type { NavItem, UserRole } from '@/types';
+import type { NavGroup, NavItem, UserRole } from '@/types';
 
 const adminRoles: UserRole[] = ['admin', 'super_admin'];
 
 const page = usePage();
 
-const mainNavItems = computed<NavItem[]>(() => {
-    const items: NavItem[] = [
-        {
-            title: 'Dashboard',
-            href: dashboard(),
-            icon: LayoutGrid,
-        },
-        {
-            title: 'My Membership',
-            href: '/my-membership',
-            icon: UserRound,
-        },
-        {
-            title: 'My Deposits',
-            href: '/my-deposits',
-            icon: WalletCards,
-        },
-        {
-            title: 'My Allocations',
-            href: '/my-allocations',
-            icon: Layers3,
-        },
-        {
-            title: 'My Charges',
-            href: '/my-charges',
-            icon: BadgeDollarSign,
-        },
-        {
-            title: 'Fund Cycles',
-            href: '/fund-cycles',
-            icon: Landmark,
-        },
-        {
-            title: 'My Statement',
-            href: '/my-statement',
-            icon: ReceiptText,
-        },
-        {
-            title: 'My Payouts',
-            href: '/my-payouts',
-            icon: HandCoins,
-        },
-    ];
+const memberNavItems: NavItem[] = [
+    { title: 'Overview', href: dashboard(), icon: LayoutGrid },
+    { title: 'Deposits', href: '/my-deposits', icon: WalletCards },
+    { title: 'Members', href: '/my-membership', icon: UsersRound },
+    { title: 'Investments', href: '/my-allocations', icon: Layers3 },
+    {
+        title: 'Fund Cycles',
+        href: '/fund-cycles',
+        icon: Landmark,
+        matchPrefix: true,
+    },
+    { title: 'Wallet', href: '/my-wallet', icon: Wallet },
+];
 
-    if (adminRoles.includes(page.props.auth.user.role)) {
-        items.push({
-            title: 'Deposit Reviews',
-            href: '/admin/deposits',
-            icon: FileBadge2,
-            dividerBefore: true,
-        });
+const adminNavGroups: NavGroup[] = [
+    {
+        label: 'Reviews',
+        items: [
+            { title: 'Deposits', href: '/admin/deposits', icon: FileBadge2 },
+            { title: 'Members', href: '/admin/members', icon: Users },
+            { title: 'Payouts', href: '/admin/payouts', icon: HandCoins },
+            {
+                title: 'Charges',
+                href: '/admin/charges',
+                icon: BadgeDollarSign,
+            },
+        ],
+    },
+    {
+        label: 'Fund',
+        items: [
+            {
+                title: 'Fund Cycles',
+                href: '/admin/fund-cycles',
+                icon: Landmark,
+                matchPrefix: true,
+            },
+            {
+                title: 'Events',
+                href: '/admin/events',
+                icon: CalendarDays,
+                matchPrefix: true,
+            },
+            {
+                title: 'Businesses',
+                href: '/admin/businesses',
+                icon: Briefcase,
+                matchPrefix: true,
+            },
+        ],
+    },
+    {
+        label: 'Accounts',
+        items: [
+            { title: 'Accounts', href: '/admin/accounts', icon: Scale },
+            {
+                title: 'Journal',
+                href: '/admin/accounts/journal',
+                icon: NotebookTabs,
+            },
+            {
+                title: 'Incomes',
+                href: '/admin/general-incomes',
+                icon: TrendingUp,
+            },
+            {
+                title: 'Expenses',
+                href: '/admin/general-expenses',
+                icon: BookMarked,
+            },
+            {
+                title: 'Charge Categories',
+                href: '/admin/charge-categories',
+                icon: Tags,
+            },
+        ],
+    },
+    {
+        label: 'System',
+        items: [
+            { title: 'Users', href: '/admin/users', icon: UserCog },
+            { title: 'Settings', href: '/admin/settings', icon: Cog },
+        ],
+    },
+];
 
-        items.push({
-            title: 'Charge List',
-            href: '/admin/charges',
-            icon: BadgeDollarSign,
-        });
-
-        items.push({
-            title: 'General Expenses',
-            href: '/admin/general-expenses',
-            icon: BookMarked,
-        });
-
-        items.push({
-            title: 'General Incomes',
-            href: '/admin/general-incomes',
-            icon: TrendingUp,
-        });
-
-        items.push({
-            title: 'Member List',
-            href: '/admin/members',
-            icon: Users,
-        });
-
-        items.push({
-            title: 'Fund Cycles',
-            href: '/admin/fund-cycles',
-            icon: Landmark,
-        });
-
-        items.push({
-            title: 'Events',
-            href: '/admin/events',
-            icon: CalendarDays,
-        });
-
-        items.push({
-            title: 'Business Investments',
-            href: '/admin/businesses',
-            icon: Briefcase,
-        });
-
-        items.push({
-            title: 'Payout Requests',
-            href: '/admin/payouts',
-            icon: HandCoins,
-        });
-
-        items.push({
-            title: 'Accounts',
-            href: '/admin/accounts',
-            icon: Scale,
-        });
-
-        items.push({
-            title: 'Journal',
-            href: '/admin/accounts/journal',
-            icon: NotebookTabs,
-        });
-
-        items.push({
-            title: 'Settings',
-            href: '/admin/settings',
-            icon: Cog,
-        });
-    }
-
-    return items;
-});
+const isAdmin = computed(() => adminRoles.includes(page.props.auth.user.role));
 
 const footerNavItems: NavItem[] = [
     {
@@ -194,7 +162,15 @@ const footerNavItems: NavItem[] = [
         </SidebarHeader>
 
         <SidebarContent>
-            <NavMain :items="mainNavItems" />
+            <NavMain label="My Fund" :items="memberNavItems" />
+            <template v-if="isAdmin">
+                <NavMain
+                    v-for="group in adminNavGroups"
+                    :key="group.label"
+                    :label="group.label"
+                    :items="group.items"
+                />
+            </template>
         </SidebarContent>
 
         <SidebarFooter>

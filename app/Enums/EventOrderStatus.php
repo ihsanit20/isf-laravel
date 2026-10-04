@@ -12,7 +12,7 @@ enum EventOrderStatus: string
     public function label(): string
     {
         return match ($this) {
-            self::Pending   => 'Pending',
+            self::Pending => 'Pending',
             self::Confirmed => 'Confirmed',
             self::Cancelled => 'Cancelled',
             self::Delivered => 'Delivered',
@@ -27,7 +27,7 @@ enum EventOrderStatus: string
     public static function options(): array
     {
         return array_map(
-            fn($case) => ['value' => $case->value, 'label' => $case->label()],
+            fn ($case) => ['value' => $case->value, 'label' => $case->label()],
             self::cases(),
         );
     }

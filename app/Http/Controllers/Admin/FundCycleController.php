@@ -2,19 +2,14 @@
 
 namespace App\Http\Controllers\Admin;
 
-use App\Enums\DepositSubmissionStatus;
 use App\Enums\MemberStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreFundCycleAllocationRequest;
 use App\Http\Requests\Admin\StoreFundCycleRequest;
 use App\Http\Requests\Admin\UpdateFundCycleRequest;
-use App\Ledger\Account;
-use App\Ledger\Ledger;
 use App\Ledger\Money;
 use App\Ledger\Postings\CyclePostings;
 use App\Ledger\Postings\MemberPostings;
-use App\Models\ChargeAllocation;
-use App\Models\DepositSubmission;
 use App\Models\FundCycle;
 use App\Models\FundCycleAllocation;
 use App\Models\FundCycleEvent;
@@ -29,18 +24,11 @@ class FundCycleController extends Controller
 {
     public function index(): Response
     {
-        $totalVerifiedDeposits = (int) DepositSubmission::query()
-            ->where('status', DepositSubmissionStatus::Verified)
-            ->sum('amount');
-        $totalChargeAllocations = (int) ChargeAllocation::query()
-            ->whereNull('reversed_at')
-            ->sum('amount');
-        $totalCycleAllocations = (int) FundCycleAllocation::query()->sum('amount');
+        $allocatedByCycle = app(MemberPostings::class)->allocatedCapitalBy('fund_cycle_id');
 
         return Inertia::render('admin/FundCycles', [
             'fundCycles' => FundCycle::query()
                 ->withCount('allocations')
-                ->withSum('allocations', 'amount')
                 ->with(['creator:id,name'])
                 ->latest('start_date')
                 ->latest('id')
@@ -61,7 +49,7 @@ class FundCycleController extends Controller
                     'allocations_count' => $fundCycle->allocations_count,
                     'created_by' => $fundCycle->creator?->name,
                     'created_at' => $fundCycle->created_at?->format('d M Y, h:i A'),
-                    'allocated_amount' => (int) ($fundCycle->allocations_sum_amount ?? 0),
+                    'allocated_amount' => Money::toTaka($allocatedByCycle->get($fundCycle->id, 0)),
                 ])
                 ->values(),
             'statuses' => FundCycle::statuses(),
@@ -75,20 +63,13 @@ class FundCycleController extends Controller
                     'units' => $member->units,
                 ])
                 ->values(),
-            'poolSummary' => [
-                'total_verified_deposits' => $totalVerifiedDeposits,
-                'total_charge_allocations' => $totalChargeAllocations,
-                'total_cycle_allocations' => $totalCycleAllocations,
-                'remaining_pool' => (int) Money::toTaka(app(Ledger::class)->creditBalance(Account::MemberBalance)),
-            ],
         ]);
     }
 
     public function show(FundCycle $fundCycle): Response
     {
         $fundCycle->load(['creator:id,name'])
-            ->loadCount('allocations')
-            ->loadSum('allocations', 'amount');
+            ->loadCount('allocations');
 
         $usersWithMembers = $this->usersWithApprovedMembers();
         $slots = collect($fundCycle->slots ?? []);
@@ -97,7 +78,7 @@ class FundCycleController extends Controller
         $totalUnits = $usersWithMembers->sum(fn ($user) => $user->managedMembers->sum('units'));
         $totalUsers = $usersWithMembers->count();
         $totalSlots = $slots->count();
-        $allocatedAmount = (int) ($fundCycle->allocations_sum_amount ?? 0);
+        $allocatedAmount = $this->allocatedAmount($fundCycle);
         $allocationsCount = (int) ($fundCycle->allocations_count ?? 0);
         $expectedAllocations = $totalUnits * $totalSlots;
         $expectedAmount = $expectedAllocations * $fundCycle->unit_amount;
@@ -173,7 +154,7 @@ class FundCycleController extends Controller
 
         $totalUsers = $usersWithMembers->count();
         $totalSlots = $slots->count();
-        $allocatedAmount = (int) $fundCycle->allocations->sum('amount');
+        $allocatedAmount = $this->allocatedAmount($fundCycle);
         $allocationsCount = $fundCycle->allocations->count();
         $expectedAllocations = $totalUnits * $totalSlots;
         $expectedAmount = $expectedAllocations * $fundCycle->unit_amount;
@@ -313,6 +294,13 @@ class FundCycleController extends Controller
                 ])
                 ->values(),
         ];
+    }
+
+    private function allocatedAmount(FundCycle $fundCycle): float
+    {
+        return Money::toTaka((int) app(MemberPostings::class)
+            ->allocatedCapitalBy('fund_cycle_id', ['fund_cycle_id' => $fundCycle->id])
+            ->sum());
     }
 
     private function usersWithApprovedMembers()

@@ -2,6 +2,7 @@
 
 use App\Enums\EventExpenseCategory;
 use App\Enums\FundCycleEventStatus;
+use App\Ledger\Postings\InvestmentPostings;
 use App\Models\EventExpense;
 use App\Models\FundCycle;
 use App\Models\FundCycleEvent;
@@ -62,6 +63,7 @@ test('admins see event expenses on the event details page', function () {
         'description' => 'Initial stock purchase',
         'created_by_user_id' => $admin->id,
     ]);
+    app(InvestmentPostings::class)->eventExpense($expense->fresh());
 
     actingAs($admin)
         ->get(route('admin.events.show', $event))

@@ -3,8 +3,21 @@ import { Head } from '@inertiajs/vue3';
 import { Ban } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 import ChargeCancelDialog from '@/components/admin/ChargeCancelDialog.vue';
-import { Badge } from '@/components/ui/badge';
+import PageHeader from '@/components/shared/PageHeader.vue';
+import StatusBadge from '@/components/shared/StatusBadge.vue';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableEmpty,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { formatMoney } from '@/lib/format';
 
 type ChargeStatus = 'pending' | 'posted' | 'waived' | 'cancelled';
 
@@ -34,39 +47,50 @@ defineOptions({
     layout: {
         breadcrumbs: [
             {
-                title: 'Charge List',
+                title: 'Charges',
                 href: '/admin/charges',
             },
         ],
     },
 });
 
-defineProps<Props>();
+const props = defineProps<Props>();
 
 const selectedCharge = ref<AdminCharge | null>(null);
 const isCancelDialogOpen = ref(false);
 
 const cancelableCharge = computed(() => selectedCharge.value);
 
-const money = (amount: number): string => `${amount.toLocaleString()} BDT`;
-
-const statusVariant = (
-    status: ChargeStatus,
-): 'default' | 'secondary' | 'destructive' | 'outline' => {
-    if (status === 'posted') {
-        return 'default';
-    }
-
-    if (status === 'cancelled') {
-        return 'destructive';
-    }
-
-    if (status === 'waived') {
-        return 'outline';
-    }
-
-    return 'secondary';
+const chargeStatusLabels: Record<ChargeStatus, string> = {
+    pending: 'Unpaid',
+    posted: 'Paid',
+    waived: 'Waived',
+    cancelled: 'Cancelled',
 };
+
+const statusFilter = ref<'all' | ChargeStatus>('all');
+
+const filters = computed(() =>
+    (['all', 'pending', 'posted', 'waived', 'cancelled'] as const).map(
+        (status) => ({
+            value: status,
+            label: status === 'all' ? 'All' : chargeStatusLabels[status],
+            count:
+                status === 'all'
+                    ? props.charges.length
+                    : props.charges.filter((charge) => charge.status === status)
+                          .length,
+        }),
+    ),
+);
+
+const visibleCharges = computed(() =>
+    statusFilter.value === 'all'
+        ? props.charges
+        : props.charges.filter(
+              (charge) => charge.status === statusFilter.value,
+          ),
+);
 
 const openCancelDialog = (charge: AdminCharge) => {
     selectedCharge.value = charge;
@@ -76,114 +100,96 @@ const openCancelDialog = (charge: AdminCharge) => {
 </script>
 
 <template>
-    <Head title="Charge List" />
+    <Head title="Charges" />
 
-    <div class="flex h-full flex-1 flex-col gap-4 rounded-xl p-4">
-        <section
-            class="rounded-xl border border-sidebar-border/70 bg-background p-6 shadow-sm dark:border-sidebar-border"
-        >
-            <div class="max-w-2xl">
-                <h1 class="text-2xl font-semibold tracking-tight">
-                    Charge List
-                </h1>
-                <p class="mt-2 text-sm text-muted-foreground">
-                    View member charges and cancel them when a fee needs to be
-                    reversed back into the pooled deposit balance.
-                </p>
-            </div>
-        </section>
+    <div class="flex flex-1 flex-col gap-6 p-4 md:p-6">
+        <PageHeader
+            title="Charges"
+            description="Member charges. Cancelling a paid charge returns the amount to the member’s balance."
+        />
 
-        <section
-            class="overflow-hidden rounded-xl border border-sidebar-border/70 bg-background shadow-sm dark:border-sidebar-border"
-        >
-            <div class="overflow-x-auto">
-                <table
-                    class="min-w-full divide-y divide-sidebar-border/70 text-sm"
+        <Tabs v-model="statusFilter">
+            <TabsList class="h-auto flex-wrap">
+                <TabsTrigger
+                    v-for="filter in filters"
+                    :key="filter.value"
+                    :value="filter.value"
                 >
-                    <thead class="bg-muted/40 text-left">
-                        <tr>
-                            <th class="px-4 py-3 font-medium">Member</th>
-                            <th class="px-4 py-3 font-medium">Charge</th>
-                            <th class="px-4 py-3 font-medium">Status</th>
-                            <th class="px-4 py-3 font-medium">Effective At</th>
-                            <th class="px-4 py-3 font-medium">Allocated</th>
-                            <th class="px-4 py-3 font-medium">Action</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-sidebar-border/70">
-                        <tr v-for="charge in charges" :key="charge.id">
-                            <td class="px-4 py-3">
-                                <div class="font-medium">
-                                    {{
-                                        charge.member.full_name ||
-                                        'Unknown member'
-                                    }}
-                                </div>
-                                <div class="text-xs text-muted-foreground">
-                                    {{ charge.member.manager_name || '-' }}
-                                </div>
-                                <div class="text-xs text-muted-foreground">
-                                    {{ charge.member.manager_email || '-' }}
-                                </div>
-                            </td>
-                            <td class="px-4 py-3 text-muted-foreground">
-                                <div class="font-medium text-foreground">
-                                    {{ charge.category.title || '-' }}
-                                </div>
-                                <div class="text-xs">
-                                    {{ charge.category.code || '-' }}
-                                </div>
-                                <div class="text-xs">
-                                    {{ money(charge.amount) }}
-                                </div>
-                            </td>
-                            <td class="px-4 py-3">
-                                <Badge :variant="statusVariant(charge.status)">
-                                    {{
-                                        charge.status.charAt(0).toUpperCase() +
-                                        charge.status.slice(1)
-                                    }}
-                                </Badge>
-                            </td>
-                            <td class="px-4 py-3 text-muted-foreground">
-                                {{ charge.effective_at || '-' }}
-                            </td>
-                            <td class="px-4 py-3 text-muted-foreground">
-                                {{ money(charge.allocated_amount) }}
-                            </td>
-                            <td class="px-4 py-3">
-                                <div
-                                    v-if="charge.status !== 'cancelled'"
-                                    class="flex flex-wrap gap-2"
-                                >
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        @click="openCancelDialog(charge)"
-                                    >
-                                        <Ban class="size-4" />
-                                        Cancel
-                                    </Button>
-                                </div>
-                                <span
-                                    v-else
-                                    class="text-xs text-muted-foreground"
-                                    >Reviewed</span
-                                >
-                            </td>
-                        </tr>
-                        <tr v-if="charges.length === 0">
-                            <td
-                                colspan="6"
-                                class="px-4 py-8 text-center text-muted-foreground"
+                    {{ filter.label }}
+                    <span class="text-xs text-muted-foreground">
+                        {{ filter.count }}
+                    </span>
+                </TabsTrigger>
+            </TabsList>
+        </Tabs>
+
+        <Card class="py-0">
+            <Table>
+                <TableHeader>
+                    <TableRow>
+                        <TableHead class="pl-4">Member</TableHead>
+                        <TableHead>Charge</TableHead>
+                        <TableHead class="text-right">Amount</TableHead>
+                        <TableHead class="text-right">Paid</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Effective</TableHead>
+                        <TableHead class="pr-4 text-right" />
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    <TableRow v-for="charge in visibleCharges" :key="charge.id">
+                        <TableCell class="pl-4">
+                            <p class="font-medium">
+                                {{
+                                    charge.member.full_name || 'Unknown member'
+                                }}
+                            </p>
+                            <p class="text-xs text-muted-foreground">
+                                {{ charge.member.manager_name || '—' }}
+                                <template v-if="charge.member.manager_email">
+                                    · {{ charge.member.manager_email }}
+                                </template>
+                            </p>
+                        </TableCell>
+                        <TableCell>
+                            <p>{{ charge.category.title || '—' }}</p>
+                            <code class="text-xs text-muted-foreground">
+                                {{ charge.category.code }}
+                            </code>
+                        </TableCell>
+                        <TableCell class="text-right tabular-nums">
+                            {{ formatMoney(charge.amount) }}
+                        </TableCell>
+                        <TableCell class="text-right tabular-nums">
+                            {{ formatMoney(charge.allocated_amount) }}
+                        </TableCell>
+                        <TableCell>
+                            <StatusBadge
+                                :status="charge.status"
+                                :label="chargeStatusLabels[charge.status]"
+                            />
+                        </TableCell>
+                        <TableCell class="text-muted-foreground">
+                            {{ charge.effective_at || '—' }}
+                        </TableCell>
+                        <TableCell class="pr-4 text-right">
+                            <Button
+                                v-if="charge.status !== 'cancelled'"
+                                variant="outline"
+                                size="sm"
+                                @click="openCancelDialog(charge)"
                             >
-                                No charges found.
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </section>
+                                <Ban class="size-4" />
+                                Cancel
+                            </Button>
+                        </TableCell>
+                    </TableRow>
+                    <TableEmpty v-if="visibleCharges.length === 0" :colspan="7">
+                        No charges here.
+                    </TableEmpty>
+                </TableBody>
+            </Table>
+        </Card>
 
         <ChargeCancelDialog
             v-model:isOpen="isCancelDialogOpen"

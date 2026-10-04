@@ -1,9 +1,20 @@
 <script setup lang="ts">
-import { Head, useForm } from '@inertiajs/vue3';
+import { Head, Link, useForm } from '@inertiajs/vue3';
+import { Landmark, Layers3, UsersRound, Wallet } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 import InputError from '@/components/InputError.vue';
-import { Badge } from '@/components/ui/badge';
+import EmptyState from '@/components/shared/EmptyState.vue';
+import PageHeader from '@/components/shared/PageHeader.vue';
+import StatCard from '@/components/shared/StatCard.vue';
+import StatusBadge from '@/components/shared/StatusBadge.vue';
 import { Button } from '@/components/ui/button';
+import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle,
+} from '@/components/ui/card';
 import {
     Dialog,
     DialogContent,
@@ -13,6 +24,15 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
+import { amountToneClass, formatMoney, formatSignedMoney } from '@/lib/format';
+import { cn } from '@/lib/utils';
 
 type AllocationRow = {
     row_key: string;
@@ -28,20 +48,34 @@ type AllocationRow = {
     can_allocate: boolean;
 };
 
+type TabMember = {
+    id: number;
+    full_name: string;
+    status: string;
+    units: number;
+    activated_at: string | null;
+    can_allocate: boolean;
+};
+
 type MemberTab = {
-    member: {
-        id: number;
-        full_name: string;
-        status: string;
-        units: number;
-        activated_at: string | null;
-        can_allocate: boolean;
-    };
+    member: TabMember;
     filters: {
         cycles: string[];
         slots: string[];
     };
     rows: AllocationRow[];
+};
+
+type CycleResult = {
+    member_id: number;
+    cycle_id: number;
+    cycle_name: string;
+    cycle_status: string;
+    is_settled: boolean;
+    settled_at: string | null;
+    capital: number;
+    share: number;
+    returned: number | null;
 };
 
 type Props = {
@@ -53,35 +87,23 @@ type Props = {
         available_to_allocate: number;
     };
     memberTabs: MemberTab[];
+    cycleResults: CycleResult[];
+    selectedMemberId: number | null;
 };
 
 defineOptions({
     layout: {
-        breadcrumbs: [
-            {
-                title: 'My Allocations',
-                href: '/my-allocations',
-            },
-        ],
+        breadcrumbs: [{ title: 'Investments', href: '/my-allocations' }],
     },
 });
 
 const props = defineProps<Props>();
 
-const cycleFilter = ref('');
+const members = computed(() => props.memberTabs.map((tab) => tab.member));
+
+const ALL_CYCLES = 'all';
+const cycleFilter = ref(ALL_CYCLES);
 const slotFilter = ref('');
-
-const isAllocateDialogOpen = ref(false);
-const selectedAllocation = ref<AllocationRow | null>(null);
-const selectedMember = ref<MemberTab['member'] | null>(null);
-
-const form = useForm<{
-    slot_key: string;
-}>({
-    slot_key: '',
-});
-
-const money = (amount: number): string => `${amount.toLocaleString()} BDT`;
 
 const MONTH_NAMES = [
     'january',
@@ -99,11 +121,7 @@ const MONTH_NAMES = [
 ];
 
 const slotSortValue = (slot: string | null): number => {
-    if (!slot) {
-        return -Infinity;
-    }
-
-    const match = slot.trim().match(/^([A-Za-z]+)\s+(\d{4})$/);
+    const match = slot?.trim().match(/^([A-Za-z]+)\s+(\d{4})$/);
 
     if (!match) {
         return -Infinity;
@@ -119,7 +137,7 @@ const slotSortValue = (slot: string | null): number => {
 };
 
 type PivotCell = {
-    member: MemberTab['member'];
+    member: TabMember;
     row: AllocationRow | null;
 };
 
@@ -133,68 +151,48 @@ type PivotRow = {
 };
 
 const memberRowMaps = computed(() =>
-    props.memberTabs.map((tab) => {
-        const map = new Map<string, AllocationRow>();
-
-        tab.rows.forEach((row) => {
-            map.set(`${row.cycle_id}::${row.slot_key}`, row);
-        });
-
-        return { member: tab.member, map };
-    }),
+    props.memberTabs.map((tab) => ({
+        member: tab.member,
+        map: new Map(
+            tab.rows.map((row) => [`${row.cycle_id}::${row.slot_key}`, row]),
+        ),
+    })),
 );
 
-const filterOptions = computed(() => props.memberTabs[0]?.filters ?? null);
+const cycleOptions = computed(() => props.memberTabs[0]?.filters.cycles ?? []);
 
 const pivotRows = computed<PivotRow[]>(() => {
     const baseRows = props.memberTabs[0]?.rows ?? [];
+    const slotSearch = slotFilter.value.trim().toLowerCase();
 
     return baseRows
+        .filter(
+            (row) =>
+                (cycleFilter.value === ALL_CYCLES ||
+                    row.cycle_name === cycleFilter.value) &&
+                (slotSearch === '' ||
+                    (row.slot_key ?? '').toLowerCase().includes(slotSearch)),
+        )
         .map((row) => {
-            const rowKey = `${row.cycle_id}::${row.slot_key}`;
+            const key = `${row.cycle_id}::${row.slot_key}`;
 
             return {
-                key: rowKey,
+                key,
                 cycle_id: row.cycle_id,
                 cycle_name: row.cycle_name,
                 cycle_status: row.cycle_status,
                 slot_key: row.slot_key,
                 cells: memberRowMaps.value.map(({ member, map }) => ({
                     member,
-                    row: map.get(rowKey) ?? null,
+                    row: map.get(key) ?? null,
                 })),
             };
         })
-        .filter((row) => {
-            if (
-                cycleFilter.value !== '' &&
-                row.cycle_name !== cycleFilter.value
-            ) {
-                return false;
-            }
-
-            if (slotFilter.value.trim() !== '') {
-                const slotText = (row.slot_key ?? '').toLowerCase();
-
-                if (
-                    !slotText.includes(slotFilter.value.trim().toLowerCase())
-                ) {
-                    return false;
-                }
-            }
-
-            return true;
-        })
-        .sort((a, b) => {
-            const slotCompare =
-                slotSortValue(b.slot_key) - slotSortValue(a.slot_key);
-
-            if (slotCompare !== 0) {
-                return slotCompare;
-            }
-
-            return (a.cycle_name ?? '').localeCompare(b.cycle_name ?? '');
-        });
+        .sort(
+            (a, b) =>
+                slotSortValue(b.slot_key) - slotSortValue(a.slot_key) ||
+                (a.cycle_name ?? '').localeCompare(b.cycle_name ?? ''),
+        );
 });
 
 type MonthGroup = {
@@ -206,324 +204,313 @@ const monthGroups = computed<MonthGroup[]>(() => {
     const groups: MonthGroup[] = [];
 
     pivotRows.value.forEach((row) => {
-        const currentGroup = groups[groups.length - 1];
+        const current = groups[groups.length - 1];
 
-        if (!currentGroup || currentGroup.slot_key !== row.slot_key) {
+        if (current && current.slot_key === row.slot_key) {
+            current.rows.push(row);
+        } else {
             groups.push({ slot_key: row.slot_key, rows: [row] });
-
-            return;
         }
-
-        currentGroup.rows.push(row);
     });
 
     return groups;
 });
 
-const selectedAllocationAmount = computed(
-    () => selectedAllocation.value?.amount ?? 0,
-);
-
-const remainingAfterAllocation = computed(() =>
-    Math.max(
-        0,
-        props.summary.available_to_allocate - selectedAllocationAmount.value,
-    ),
-);
-
-const cycleStatusVariant = (
-    status: string | null,
-): 'default' | 'secondary' | 'outline' => {
-    if (status === 'open') {
-        return 'default';
-    }
-
-    if (status === 'locked' || status === 'matured') {
-        return 'secondary';
-    }
-
-    return 'outline';
+type ResultRow = {
+    cycle_id: number;
+    cycle_name: string;
+    cycle_status: string;
+    is_settled: boolean;
+    byMember: Map<number, CycleResult>;
 };
 
-const cycleStatusLabel = (status: string | null): string => {
-    if (!status) {
-        return 'Unknown';
-    }
+const resultRows = computed<ResultRow[]>(() => {
+    const rows = new Map<number, ResultRow>();
 
-    return status
-        .replace('_', ' ')
-        .replace(/\b\w/g, (char) => char.toUpperCase());
-};
+    props.cycleResults.forEach((result) => {
+        if (!rows.has(result.cycle_id)) {
+            rows.set(result.cycle_id, {
+                cycle_id: result.cycle_id,
+                cycle_name: result.cycle_name,
+                cycle_status: result.cycle_status,
+                is_settled: result.is_settled,
+                byMember: new Map(),
+            });
+        }
 
-const rowStatusVariant = (
-    status: AllocationRow['status'],
-): 'default' | 'secondary' =>
-    status === 'allocated' ? 'default' : 'secondary';
-
-const rowStatusLabel = (status: AllocationRow['status']): string =>
-    status === 'allocated' ? 'Allocated' : 'Unallocated';
-
-const openAllocateDialog = (
-    member: MemberTab['member'],
-    row: AllocationRow | null,
-) => {
-    if (!row || !row.can_allocate || row.status !== 'unallocated') {
-        return;
-    }
-
-    selectedAllocation.value = row;
-    selectedMember.value = member;
-    form.defaults({
-        slot_key: row.slot_key ?? '',
+        rows.get(result.cycle_id)!.byMember.set(result.member_id, result);
     });
-    form.reset();
-    form.clearErrors();
-    isAllocateDialogOpen.value = true;
-};
 
-const closeAllocateDialog = () => {
-    isAllocateDialogOpen.value = false;
-    selectedAllocation.value = null;
-    selectedMember.value = null;
-    form.reset();
-    form.clearErrors();
-};
+    return [...rows.values()];
+});
 
-const submitAllocation = () => {
-    if (!selectedMember.value || !selectedAllocation.value) {
+const highlightClass = (memberId: number): string =>
+    memberId === props.selectedMemberId ? 'bg-primary/5' : '';
+
+const selectedRow = ref<AllocationRow | null>(null);
+const selectedMember = ref<TabMember | null>(null);
+const isDialogOpen = ref(false);
+
+const form = useForm<{ slot_key: string; return_to: string }>({
+    slot_key: '',
+    return_to: 'allocations',
+});
+
+const balanceAfter = computed(
+    () =>
+        props.summary.available_to_allocate - (selectedRow.value?.amount ?? 0),
+);
+
+const openDialog = (member: TabMember, row: AllocationRow) => {
+    if (!row.can_allocate || row.status !== 'unallocated') {
         return;
     }
 
-    form.transform((data) => ({
-        slot_key: data.slot_key,
-        return_to: 'allocations',
-    })).post(
-        `/my-membership/${selectedMember.value.id}/fund-cycles/${selectedAllocation.value.cycle_id}/allocations`,
+    selectedMember.value = member;
+    selectedRow.value = row;
+    form.slot_key = row.slot_key ?? '';
+    form.clearErrors();
+    isDialogOpen.value = true;
+};
+
+const submit = () => {
+    if (!selectedMember.value || !selectedRow.value) {
+        return;
+    }
+
+    form.post(
+        `/my-membership/${selectedMember.value.id}/fund-cycles/${selectedRow.value.cycle_id}/allocations`,
         {
             preserveScroll: true,
-            onSuccess: () => closeAllocateDialog(),
+            onSuccess: () => {
+                isDialogOpen.value = false;
+            },
         },
     );
 };
 </script>
 
 <template>
-    <Head title="My Allocations" />
+    <Head title="Investments" />
 
-    <div class="flex h-full flex-1 flex-col gap-6 rounded-xl p-4">
-        <section
-            class="rounded-[28px] border border-sidebar-border/70 bg-background shadow-sm"
+    <div class="flex flex-1 flex-col gap-6 p-4 md:p-6">
+        <PageHeader
+            title="Investments"
+            description="Every month of every cycle for all your members side by side. Allocate an open month straight from the table."
+        />
+
+        <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <StatCard
+                label="Available to invest"
+                :value="formatMoney(props.summary.available_to_allocate)"
+                :icon="Wallet"
+            />
+            <StatCard
+                label="Total invested"
+                :value="formatMoney(props.summary.total_allocated_amount)"
+                :hint="`${props.summary.total_allocations} allocations`"
+                :icon="Layers3"
+            />
+            <StatCard
+                label="Cycles joined"
+                :value="props.summary.cycle_count"
+                :icon="Landmark"
+            />
+            <StatCard
+                label="Members"
+                :value="props.summary.member_count"
+                :icon="UsersRound"
+            />
+        </div>
+
+        <EmptyState
+            v-if="props.memberTabs.length === 0"
+            :icon="UsersRound"
+            title="No members yet"
+            description="Investments are made per member. Add a member first."
         >
-            <div class="border-b border-sidebar-border/70 px-6 py-5">
-                <p
-                    class="text-xs font-medium tracking-[0.2em] text-muted-foreground uppercase"
+            <Button as-child>
+                <Link href="/my-membership/create">Add member</Link>
+            </Button>
+        </EmptyState>
+
+        <template v-else>
+            <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <div
+                    v-for="member in members"
+                    :key="member.id"
+                    :class="
+                        cn(
+                            'flex items-center justify-between gap-3 rounded-xl border px-3 py-2',
+                            highlightClass(member.id),
+                        )
+                    "
                 >
-                    My Allocations
-                </p>
-                <h1
-                    class="mt-2 text-2xl font-semibold tracking-tight text-foreground"
-                >
-                    Allocation List by Member
-                </h1>
-                <p class="mt-2 text-sm leading-6 text-muted-foreground">
-                    Review allocated and unallocated cycle slots for each member
-                    in one place.
-                </p>
+                    <div class="min-w-0">
+                        <p class="truncate font-medium">
+                            {{ member.full_name }}
+                        </p>
+                        <p class="text-xs text-muted-foreground">
+                            {{ member.units }} unit{{
+                                member.units > 1 ? 's' : ''
+                            }}
+                        </p>
+                    </div>
+                    <StatusBadge v-if="member.can_allocate" status="active" />
+                    <Link
+                        v-else
+                        href="/my-membership"
+                        class="text-xs text-amber-700 underline underline-offset-4 dark:text-amber-300"
+                    >
+                        Not active yet
+                    </Link>
+                </div>
             </div>
 
-            <div v-if="memberTabs.length > 0" class="space-y-4 p-4">
-                <div class="space-y-4">
-                    <div
-                        class="grid gap-3 border-b border-sidebar-border/70 pb-3 text-sm sm:grid-cols-2 lg:grid-cols-3"
-                    >
-                        <div
-                            v-for="tab in memberTabs"
-                            :key="tab.member.id"
-                            class="rounded-xl border border-sidebar-border/70 px-3 py-2"
-                        >
-                            <p class="font-medium text-foreground">
-                                {{ tab.member.full_name }}
-                            </p>
-                            <p class="mt-1 text-xs text-muted-foreground">
-                                Units: {{ tab.member.units }} · Activation:
-                                {{
-                                    tab.member.activated_at ||
-                                    'Not active yet'
-                                }}
-                            </p>
-                        </div>
-                    </div>
-
-                    <p class="text-sm text-muted-foreground">
-                        Available Balance:
-                        <span class="font-medium text-foreground">
-                            {{ money(summary.available_to_allocate) }}
-                        </span>
-                    </p>
-
-                    <div v-if="filterOptions" class="mt-4 grid gap-3 md:grid-cols-2">
-                        <div>
-                            <label
-                                class="mb-1 block text-xs text-muted-foreground"
-                                >Cycle</label
-                            >
-                            <select
-                                v-model="cycleFilter"
-                                class="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
-                            >
-                                <option value="">All cycles</option>
-                                <option
-                                    v-for="cycleName in filterOptions.cycles"
+            <Card class="gap-4">
+                <CardHeader>
+                    <CardTitle>Allocations</CardTitle>
+                    <CardDescription>
+                        Each month costs the member’s units × the cycle’s unit
+                        amount.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent class="grid gap-4">
+                    <div class="grid gap-3 md:grid-cols-2">
+                        <Select v-model="cycleFilter">
+                            <SelectTrigger class="w-full">
+                                <SelectValue placeholder="All cycles" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem :value="ALL_CYCLES">
+                                    All cycles
+                                </SelectItem>
+                                <SelectItem
+                                    v-for="cycleName in cycleOptions"
                                     :key="cycleName"
                                     :value="cycleName"
                                 >
                                     {{ cycleName }}
-                                </option>
-                            </select>
-                        </div>
-
-                        <div>
-                            <label
-                                class="mb-1 block text-xs text-muted-foreground"
-                                >Slot contains</label
-                            >
-                            <Input
-                                v-model="slotFilter"
-                                placeholder="Search by slot"
-                            />
-                        </div>
+                                </SelectItem>
+                            </SelectContent>
+                        </Select>
+                        <Input
+                            v-model="slotFilter"
+                            placeholder="Search month, e.g. May 2026"
+                        />
                     </div>
 
-                    <div class="mt-4 space-y-5 md:hidden">
+                    <div class="grid gap-5 md:hidden">
                         <section
                             v-for="group in monthGroups"
                             :key="`m-${group.slot_key}`"
-                            class="space-y-3"
+                            class="grid gap-3"
                         >
                             <h3
                                 class="text-xs font-semibold tracking-widest text-muted-foreground uppercase"
                             >
-                                {{ group.slot_key || 'No slot' }}
+                                {{ group.slot_key || 'No month' }}
                             </h3>
-
-                            <article
+                            <div
                                 v-for="row in group.rows"
                                 :key="`card-${row.key}`"
-                                class="rounded-2xl border border-sidebar-border/70 bg-background p-4"
+                                class="rounded-xl border p-4"
                             >
-                                <div>
-                                    <p class="font-medium text-foreground">
-                                        {{ row.cycle_name || 'Unknown cycle' }}
+                                <div
+                                    class="flex items-center justify-between gap-2"
+                                >
+                                    <p class="font-medium">
+                                        {{ row.cycle_name }}
                                     </p>
-                                    <Badge
-                                        class="mt-2"
-                                        :variant="
-                                            cycleStatusVariant(row.cycle_status)
-                                        "
-                                    >
-                                        {{ cycleStatusLabel(row.cycle_status) }}
-                                    </Badge>
+                                    <StatusBadge :status="row.cycle_status" />
                                 </div>
-
                                 <div
                                     v-for="cell in row.cells"
                                     :key="cell.member.id"
-                                    class="mt-3 flex items-start justify-between gap-3 border-t border-sidebar-border/70 pt-3"
+                                    class="mt-3 flex items-center justify-between gap-3 border-t pt-3 text-sm"
                                 >
-                                    <div class="text-sm">
-                                        <p class="font-medium text-foreground">
+                                    <div>
+                                        <p class="font-medium">
                                             {{ cell.member.full_name }}
                                         </p>
                                         <p
                                             v-if="cell.row"
-                                            class="text-muted-foreground"
+                                            class="text-muted-foreground tabular-nums"
                                         >
-                                            {{ money(cell.row.amount) }}
+                                            {{ formatMoney(cell.row.amount) }}
                                         </p>
                                     </div>
-                                    <div class="text-right">
-                                        <template v-if="cell.row">
-                                            <Badge
-                                                :variant="
-                                                    rowStatusVariant(
-                                                        cell.row.status,
-                                                    )
-                                                "
-                                            >
-                                                {{
-                                                    rowStatusLabel(
-                                                        cell.row.status,
-                                                    )
-                                                }}
-                                            </Badge>
-                                            <p
-                                                v-if="
-                                                    cell.row.status ===
-                                                    'allocated'
-                                                "
-                                                class="mt-1 text-xs text-muted-foreground"
-                                            >
-                                                {{
-                                                    cell.row.allocated_at ||
-                                                    'Not recorded'
-                                                }}
-                                            </p>
-                                            <Button
-                                                v-else
-                                                size="sm"
-                                                class="mt-2"
-                                                :disabled="!cell.row.can_allocate"
-                                                @click="
-                                                    openAllocateDialog(
-                                                        cell.member,
-                                                        cell.row,
-                                                    )
-                                                "
-                                            >
-                                                Allocate
-                                            </Button>
-                                        </template>
-                                        <span
-                                            v-else
-                                            class="text-xs text-muted-foreground"
+                                    <span
+                                        v-if="!cell.row"
+                                        class="text-xs text-muted-foreground"
+                                    >
+                                        —
+                                    </span>
+                                    <div
+                                        v-else-if="
+                                            cell.row.status === 'allocated'
+                                        "
+                                        class="text-right"
+                                    >
+                                        <StatusBadge status="allocated" />
+                                        <p
+                                            class="mt-1 text-xs text-muted-foreground"
                                         >
-                                            N/A
-                                        </span>
+                                            {{ cell.row.allocated_at }}
+                                        </p>
                                     </div>
+                                    <Button
+                                        v-else
+                                        size="sm"
+                                        :disabled="!cell.row.can_allocate"
+                                        @click="
+                                            openDialog(cell.member, cell.row)
+                                        "
+                                    >
+                                        Allocate
+                                    </Button>
                                 </div>
-                            </article>
+                            </div>
                         </section>
-
-                        <div
+                        <p
                             v-if="pivotRows.length === 0"
-                            class="rounded-2xl border border-dashed border-sidebar-border/70 px-4 py-8 text-center text-sm text-muted-foreground"
+                            class="rounded-xl border border-dashed px-4 py-8 text-center text-sm text-muted-foreground"
                         >
-                            No rows found for the selected filters.
-                        </div>
+                            No rows match the filters.
+                        </p>
                     </div>
 
-                    <div class="mt-4 hidden overflow-x-auto md:block">
-                        <table
-                            class="min-w-full divide-y divide-sidebar-border/70 text-sm border border-sidebar-border/70 rounded-2xl"
-                        >
-                            <thead class="bg-muted/40 text-left">
-                                <tr>
-                                    <th class="px-4 py-3 font-medium text-center">
+                    <div
+                        class="hidden overflow-x-auto rounded-xl border md:block"
+                    >
+                        <table class="w-full text-sm">
+                            <thead class="bg-muted/50">
+                                <tr class="border-b">
+                                    <th
+                                        class="px-4 py-3 text-left font-medium text-muted-foreground"
+                                    >
                                         Month
                                     </th>
-                                    <th class="px-4 py-3 font-medium text-center">
-                                        Fund Cycle
+                                    <th
+                                        class="border-l px-4 py-3 text-left font-medium text-muted-foreground"
+                                    >
+                                        Fund cycle
                                     </th>
                                     <th
-                                        v-for="tab in memberTabs"
-                                        :key="tab.member.id"
-                                        class="px-4 py-3 font-medium text-center"
+                                        v-for="member in members"
+                                        :key="member.id"
+                                        :class="
+                                            cn(
+                                                'border-l px-4 py-3 text-center font-medium',
+                                                highlightClass(member.id),
+                                            )
+                                        "
                                     >
-                                        {{ tab.member.full_name }}
+                                        {{ member.full_name }}
                                     </th>
                                 </tr>
                             </thead>
-                            <tbody class="divide-y divide-sidebar-border/70">
+                            <tbody>
                                 <template
                                     v-for="group in monthGroups"
                                     :key="`group-${group.slot_key}`"
@@ -531,156 +518,329 @@ const submitAllocation = () => {
                                     <tr
                                         v-for="(row, rowIndex) in group.rows"
                                         :key="row.key"
-                                        class="align-top"
+                                        class="border-b last:border-0"
                                     >
                                         <td
                                             v-if="rowIndex === 0"
                                             :rowspan="group.rows.length"
-                                            class="px-4 py-4 font-medium text-foreground text-center align-middle"
+                                            class="px-4 py-3 align-middle font-medium whitespace-nowrap"
                                         >
-                                            <div class="flex justify-center items-center">
-                                                {{ group.slot_key || 'No slot' }}
-                                            </div>
+                                            {{ group.slot_key || 'No month' }}
                                         </td>
-                                        <td class="px-4 py-4 border-l border-sidebar-border/70 align-middle">
-                                            <div class="flex gap-x-4 justify-center items-center font-medium text-foreground">
-                                                {{
-                                                    row.cycle_name ||
-                                                    'Unknown cycle'
-                                                }}
+                                        <td
+                                            class="border-l px-4 py-3 align-middle"
+                                        >
+                                            <div
+                                                class="flex items-center gap-2"
+                                            >
+                                                <span class="font-medium">
+                                                    {{ row.cycle_name }}
+                                                </span>
+                                                <StatusBadge
+                                                    :status="row.cycle_status"
+                                                />
                                             </div>
                                         </td>
                                         <td
                                             v-for="cell in row.cells"
                                             :key="cell.member.id"
-                                            class="px-4 py-4 border-l border-sidebar-border/70"
+                                            :class="
+                                                cn(
+                                                    'border-l px-4 py-3 text-center align-middle',
+                                                    highlightClass(
+                                                        cell.member.id,
+                                                    ),
+                                                )
+                                            "
                                         >
-                                            <div v-if="cell.row" class="flex flex-wrap justify-center items-center gap-x-4">
-                                                <p class="font-medium text-foreground">
-                                                    {{ money(cell.row.amount) }}
-                                                </p>
-                                                <Badge
-                                                    class="mt-1"
-                                                    :variant="
-                                                        rowStatusVariant(
-                                                            cell.row.status,
-                                                        )
-                                                    "
-                                                >
-                                                    {{
-                                                        rowStatusLabel(
-                                                            cell.row.status,
-                                                        )
-                                                    }}
-                                                </Badge>
-                                                <p
-                                                    v-if="
-                                                        cell.row.status ===
-                                                        'allocated'
-                                                    "
-                                                    class="mt-1 text-xs text-muted-foreground"
-                                                >
-                                                    {{
-                                                        cell.row.allocated_at ||
-                                                        'Not recorded'
-                                                    }}
-                                                </p>
-                                                <Button
-                                                    v-else
-                                                    size="sm"
-                                                    class="mt-2"
-                                                    :disabled="!cell.row.can_allocate"
-                                                    @click="
-                                                        openAllocateDialog(
-                                                            cell.member,
-                                                            cell.row,
-                                                        )
-                                                    "
-                                                >
-                                                    Allocate
-                                                </Button>
-                                            </div>
                                             <span
-                                                v-else
+                                                v-if="!cell.row"
                                                 class="text-xs text-muted-foreground"
                                             >
-                                                N/A
+                                                —
                                             </span>
+                                            <div
+                                                v-else-if="
+                                                    cell.row.status ===
+                                                    'allocated'
+                                                "
+                                                class="grid justify-items-center gap-1"
+                                            >
+                                                <span
+                                                    class="flex items-center gap-2"
+                                                >
+                                                    <span
+                                                        class="font-medium tabular-nums"
+                                                    >
+                                                        {{
+                                                            formatMoney(
+                                                                cell.row.amount,
+                                                            )
+                                                        }}
+                                                    </span>
+                                                    <StatusBadge
+                                                        status="allocated"
+                                                    />
+                                                </span>
+                                                <span
+                                                    class="text-xs text-muted-foreground"
+                                                >
+                                                    {{ cell.row.allocated_at }}
+                                                </span>
+                                            </div>
+                                            <Button
+                                                v-else
+                                                size="sm"
+                                                :disabled="
+                                                    !cell.row.can_allocate
+                                                "
+                                                @click="
+                                                    openDialog(
+                                                        cell.member,
+                                                        cell.row,
+                                                    )
+                                                "
+                                            >
+                                                Allocate
+                                                <span
+                                                    class="text-primary-foreground/70 tabular-nums"
+                                                >
+                                                    {{
+                                                        formatMoney(
+                                                            cell.row.amount,
+                                                        )
+                                                    }}
+                                                </span>
+                                            </Button>
                                         </td>
                                     </tr>
                                 </template>
                                 <tr v-if="pivotRows.length === 0">
                                     <td
-                                        :colspan="2 + memberTabs.length"
+                                        :colspan="2 + members.length"
                                         class="px-4 py-8 text-center text-muted-foreground"
                                     >
-                                        No rows found for the selected filters.
+                                        No rows match the filters.
                                     </td>
                                 </tr>
                             </tbody>
                         </table>
                     </div>
-                </div>
-            </div>
+                </CardContent>
+            </Card>
 
-            <div v-else class="px-6 py-10 text-sm text-muted-foreground">
-                No members found under your account yet.
-            </div>
-        </section>
+            <Card v-if="resultRows.length > 0" class="gap-4">
+                <CardHeader>
+                    <CardTitle>Cycle results</CardTitle>
+                    <CardDescription>
+                        What each member invested in each cycle and what came
+                        back. Running cycles show the profit or loss so far.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <div class="overflow-x-auto rounded-xl border">
+                        <table class="w-full text-sm">
+                            <thead class="bg-muted/50">
+                                <tr class="border-b">
+                                    <th
+                                        class="px-4 py-3 text-left font-medium text-muted-foreground"
+                                    >
+                                        Fund cycle
+                                    </th>
+                                    <th
+                                        v-for="member in members"
+                                        :key="member.id"
+                                        :class="
+                                            cn(
+                                                'border-l px-4 py-3 text-center font-medium',
+                                                highlightClass(member.id),
+                                            )
+                                        "
+                                    >
+                                        {{ member.full_name }}
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr
+                                    v-for="row in resultRows"
+                                    :key="row.cycle_id"
+                                    class="border-b last:border-0"
+                                >
+                                    <td class="px-4 py-3 align-middle">
+                                        <Link
+                                            :href="`/fund-cycles/${row.cycle_id}`"
+                                            class="font-medium hover:underline"
+                                        >
+                                            {{ row.cycle_name }}
+                                        </Link>
+                                        <div class="mt-1">
+                                            <StatusBadge
+                                                :status="row.cycle_status"
+                                            />
+                                        </div>
+                                    </td>
+                                    <td
+                                        v-for="member in members"
+                                        :key="member.id"
+                                        :class="
+                                            cn(
+                                                'border-l px-4 py-3 align-middle',
+                                                highlightClass(member.id),
+                                            )
+                                        "
+                                    >
+                                        <dl
+                                            v-if="row.byMember.get(member.id)"
+                                            class="mx-auto grid max-w-56 gap-1 text-xs"
+                                        >
+                                            <div
+                                                class="flex justify-between gap-3"
+                                            >
+                                                <dt
+                                                    class="text-muted-foreground"
+                                                >
+                                                    Invested
+                                                </dt>
+                                                <dd class="tabular-nums">
+                                                    {{
+                                                        formatMoney(
+                                                            row.byMember.get(
+                                                                member.id,
+                                                            )!.capital,
+                                                        )
+                                                    }}
+                                                </dd>
+                                            </div>
+                                            <div
+                                                class="flex justify-between gap-3"
+                                            >
+                                                <dt
+                                                    class="text-muted-foreground"
+                                                >
+                                                    {{
+                                                        row.is_settled
+                                                            ? 'Profit / loss'
+                                                            : 'So far'
+                                                    }}
+                                                </dt>
+                                                <dd
+                                                    :class="
+                                                        cn(
+                                                            'tabular-nums',
+                                                            amountToneClass(
+                                                                row.byMember.get(
+                                                                    member.id,
+                                                                )!.share,
+                                                            ),
+                                                        )
+                                                    "
+                                                >
+                                                    {{
+                                                        formatSignedMoney(
+                                                            row.byMember.get(
+                                                                member.id,
+                                                            )!.share,
+                                                        )
+                                                    }}
+                                                </dd>
+                                            </div>
+                                            <div
+                                                v-if="row.is_settled"
+                                                class="flex justify-between gap-3 border-t pt-1 font-medium"
+                                            >
+                                                <dt>Returned</dt>
+                                                <dd class="tabular-nums">
+                                                    {{
+                                                        formatMoney(
+                                                            row.byMember.get(
+                                                                member.id,
+                                                            )!.returned,
+                                                        )
+                                                    }}
+                                                </dd>
+                                            </div>
+                                        </dl>
+                                        <p
+                                            v-else
+                                            class="text-center text-xs text-muted-foreground"
+                                        >
+                                            —
+                                        </p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </CardContent>
+            </Card>
+        </template>
 
-        <Dialog
-            :open="isAllocateDialogOpen"
-            @update:open="isAllocateDialogOpen = $event"
-        >
-            <DialogContent class="sm:max-w-lg">
+        <Dialog v-model:open="isDialogOpen">
+            <DialogContent class="sm:max-w-md">
                 <DialogHeader>
-                    <DialogTitle>Allocate Slot</DialogTitle>
+                    <DialogTitle
+                        >Allocate to {{ selectedRow?.cycle_name }}</DialogTitle
+                    >
                     <DialogDescription>
-                        Review allocation summary and confirm.
+                        {{ selectedMember?.full_name }} ·
+                        {{ selectedRow?.slot_key }}
                     </DialogDescription>
                 </DialogHeader>
 
-                <form class="space-y-4" @submit.prevent="submitAllocation">
-                    <div class="rounded-2xl bg-muted/30 px-4 py-4 text-sm">
-                        <div class="font-medium text-foreground">
-                            {{ selectedMember?.full_name || '-' }}
-                        </div>
-                        <div class="mt-2 text-muted-foreground">
-                            Fund cycle:
-                            {{ selectedAllocation?.cycle_name || '-' }}
-                        </div>
-                        <div class="mt-1 text-muted-foreground">
-                            Slot: {{ selectedAllocation?.slot_key || '-' }}
-                        </div>
-                        <div class="mt-1 text-muted-foreground">
-                            Allocation amount:
-                            {{ money(selectedAllocationAmount) }}
-                        </div>
-                        <div class="mt-1 text-muted-foreground">
-                            Available to allocate:
-                            {{ money(summary.available_to_allocate) }}
-                        </div>
-                        <div class="mt-1 text-muted-foreground">
-                            Remaining after confirm:
-                            {{ money(remainingAfterAllocation) }}
-                        </div>
+                <dl class="grid gap-2 text-sm">
+                    <div class="flex justify-between">
+                        <dt class="text-muted-foreground">Available balance</dt>
+                        <dd class="tabular-nums">
+                            {{
+                                formatMoney(props.summary.available_to_allocate)
+                            }}
+                        </dd>
                     </div>
-
-                    <InputError :message="form.errors.slot_key" />
-
-                    <DialogFooter class="gap-2">
-                        <Button
-                            type="button"
-                            variant="secondary"
-                            @click="closeAllocateDialog"
+                    <div class="flex justify-between">
+                        <dt class="text-muted-foreground">Allocation</dt>
+                        <dd class="tabular-nums">
+                            − {{ formatMoney(selectedRow?.amount) }}
+                        </dd>
+                    </div>
+                    <div class="flex justify-between border-t pt-2 font-medium">
+                        <dt>Balance after</dt>
+                        <dd
+                            class="tabular-nums"
+                            :class="
+                                balanceAfter < 0
+                                    ? 'text-rose-600 dark:text-rose-400'
+                                    : ''
+                            "
                         >
-                            Cancel
-                        </Button>
-                        <Button type="submit" :disabled="form.processing">
-                            Confirm Allocation
-                        </Button>
-                    </DialogFooter>
-                </form>
+                            {{ formatMoney(balanceAfter) }}
+                        </dd>
+                    </div>
+                </dl>
+
+                <p
+                    v-if="balanceAfter < 0"
+                    class="text-sm text-rose-600 dark:text-rose-400"
+                >
+                    Not enough balance.
+                    <Link href="/my-deposits/create" class="underline">
+                        Submit a deposit
+                    </Link>
+                    first.
+                </p>
+                <InputError :message="form.errors.slot_key" />
+
+                <DialogFooter>
+                    <Button variant="outline" @click="isDialogOpen = false">
+                        Cancel
+                    </Button>
+                    <Button
+                        :disabled="form.processing || balanceAfter < 0"
+                        @click="submit"
+                    >
+                        Confirm allocation
+                    </Button>
+                </DialogFooter>
             </DialogContent>
         </Dialog>
     </div>

@@ -4,6 +4,8 @@ import { ArrowLeft, Eye } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 import EventOrderRecordPaymentDialog from '@/components/admin/EventOrderRecordPaymentDialog.vue';
 import EventOrderStatusUpdateDialog from '@/components/admin/EventOrderStatusUpdateDialog.vue';
+import PageHeader from '@/components/shared/PageHeader.vue';
+import StatusBadge from '@/components/shared/StatusBadge.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 
@@ -269,69 +271,54 @@ const paginationLabel = (label: string): string =>
 <template>
     <Head :title="`${props.event.title} - Order List`" />
 
-    <div class="flex h-full flex-1 flex-col gap-4 rounded-xl p-4">
-        <section
-            class="rounded-xl border border-sidebar-border/70 bg-background p-6 shadow-sm dark:border-sidebar-border"
+    <div class="flex flex-1 flex-col gap-6 p-4 md:p-6">
+        <PageHeader
+            :title="`${props.event.title} · Orders`"
+            description="Focus on confirmed sales and verified payments. Pending and other counts are shown for reference."
         >
-            <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
-                <div>
-                    <h1 class="text-2xl font-semibold tracking-tight">
-                        {{ props.event.title }} - Orders
-                    </h1>
-                    <p class="mt-2 text-sm text-muted-foreground">
-                        Focus on confirmed sales and verified payments. Pending
-                        and other counts are shown for reference.
-                    </p>
-                    <dl
-                        class="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground"
-                    >
-                        <div v-if="props.event.order_open_at">
-                            <dt class="inline font-medium text-foreground">
-                                Orders open:
-                            </dt>
-                            <dd class="inline">
-                                {{ props.event.order_open_at }}
-                            </dd>
-                        </div>
-                        <div v-if="props.event.order_close_at">
-                            <dt class="inline font-medium text-foreground">
-                                Orders close:
-                            </dt>
-                            <dd class="inline">
-                                {{ props.event.order_close_at }}
-                            </dd>
-                        </div>
-                        <div v-if="props.event.expected_delivery_date">
-                            <dt class="inline font-medium text-foreground">
-                                Expected delivery:
-                            </dt>
-                            <dd class="inline">
-                                {{ props.event.expected_delivery_date }}
-                            </dd>
-                        </div>
-                    </dl>
-                </div>
-                <div class="flex flex-wrap gap-2">
-                    <Button variant="outline" size="sm" as-child>
-                        <Link :href="`/admin/events/${props.event.id}`">
-                            Event Details
-                        </Link>
-                    </Button>
-                    <Button variant="outline" size="sm" as-child>
-                        <Link href="/admin/events">
-                            <ArrowLeft class="size-4" />
-                            Back to Events
-                        </Link>
-                    </Button>
-                </div>
+            <template #actions>
+                <Button variant="outline" as-child>
+                    <Link href="/admin/events">
+                        <ArrowLeft class="size-4" />
+                        Events
+                    </Link>
+                </Button>
+                <Button as-child>
+                    <Link :href="`/admin/events/${props.event.id}`">
+                        Event details
+                    </Link>
+                </Button>
+            </template>
+        </PageHeader>
+
+        <dl
+            class="-mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground"
+        >
+            <div v-if="props.event.order_open_at">
+                <dt class="inline">Orders open</dt>
+                <dd class="inline text-foreground">
+                    {{ props.event.order_open_at }}
+                </dd>
             </div>
-        </section>
+            <div v-if="props.event.order_close_at">
+                <dt class="inline">Orders close</dt>
+                <dd class="inline text-foreground">
+                    {{ props.event.order_close_at }}
+                </dd>
+            </div>
+            <div v-if="props.event.expected_delivery_date">
+                <dt class="inline">Expected delivery</dt>
+                <dd class="inline text-foreground">
+                    {{ props.event.expected_delivery_date }}
+                </dd>
+            </div>
+        </dl>
 
         <section
             class="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5"
         >
             <div
-                class="rounded-xl border-2 border-primary/30 bg-primary/5 p-6 shadow-sm"
+                class="rounded-xl border border-primary/30 bg-primary/5 p-4 shadow-xs"
             >
                 <p
                     class="text-xs font-medium tracking-wide text-primary uppercase"
@@ -339,38 +326,38 @@ const paginationLabel = (label: string): string =>
                     Verified collected
                 </p>
                 <p
-                    class="mt-3 text-3xl font-bold tracking-tight text-foreground"
+                    class="mt-2 text-2xl font-semibold tracking-tight tabular-nums"
                 >
                     {{ money(props.summary.focus.verified_amount) }}
                 </p>
-                <p class="mt-3 text-sm text-muted-foreground">
+                <p class="mt-1 text-xs text-muted-foreground">
                     Verified payment records for this event
                 </p>
             </div>
-            <div
-                class="rounded-xl border border-sidebar-border/70 bg-background p-6 shadow-sm dark:border-sidebar-border"
-            >
+            <div class="rounded-xl border bg-card p-4 shadow-xs">
                 <p class="text-xs text-muted-foreground">
                     Confirmed sales total
                 </p>
-                <p class="mt-3 text-3xl font-semibold text-foreground">
+                <p
+                    class="mt-2 text-2xl font-semibold tracking-tight tabular-nums"
+                >
                     {{ money(props.summary.focus.confirmed_order_amount) }}
                 </p>
-                <p class="mt-3 text-sm text-muted-foreground">
+                <p class="mt-1 text-xs text-muted-foreground">
                     {{
                         props.summary.focus.confirmed_order_count.toLocaleString()
                     }}
                     confirmed sales (includes delivered)
                 </p>
             </div>
-            <div
-                class="rounded-xl border border-sidebar-border/70 bg-background p-6 shadow-sm dark:border-sidebar-border"
-            >
+            <div class="rounded-xl border bg-card p-4 shadow-xs">
                 <p class="text-xs text-muted-foreground">Confirmed sales due</p>
-                <p class="mt-3 text-3xl font-semibold text-amber-600">
+                <p
+                    class="mt-2 text-2xl font-semibold tracking-tight text-amber-600 tabular-nums dark:text-amber-400"
+                >
                     {{ money(props.summary.focus.confirmed_due_amount) }}
                 </p>
-                <p class="mt-3 text-sm text-muted-foreground">
+                <p class="mt-1 text-xs text-muted-foreground">
                     {{
                         props.summary.focus.confirmed_orders_with_due_count.toLocaleString()
                     }}
@@ -379,15 +366,17 @@ const paginationLabel = (label: string): string =>
             </div>
             <Link
                 :href="filterUrl({ status: 'confirmed' })"
-                class="rounded-xl border border-sidebar-border/70 bg-background p-6 shadow-sm transition-colors hover:bg-muted/30 dark:border-sidebar-border"
+                class="rounded-xl border bg-card p-4 shadow-xs transition-colors hover:bg-muted/30"
             >
                 <p class="text-xs text-muted-foreground">Awaiting delivery</p>
-                <p class="mt-3 text-3xl font-semibold text-foreground">
+                <p
+                    class="mt-2 text-2xl font-semibold tracking-tight tabular-nums"
+                >
                     {{
                         props.summary.focus.awaiting_delivery_count.toLocaleString()
                     }}
                 </p>
-                <p class="mt-3 text-sm text-muted-foreground">
+                <p class="mt-1 text-xs text-muted-foreground">
                     {{
                         props.summary.focus.confirmed_verified_payment_count.toLocaleString()
                     }}
@@ -396,22 +385,24 @@ const paginationLabel = (label: string): string =>
             </Link>
             <Link
                 :href="filterUrl({ payment_status: 'verified' })"
-                class="rounded-xl border border-sidebar-border/70 bg-background p-6 shadow-sm transition-colors hover:bg-muted/30 dark:border-sidebar-border"
+                class="rounded-xl border bg-card p-4 shadow-xs transition-colors hover:bg-muted/30"
             >
                 <p class="text-xs text-muted-foreground">Verified payments</p>
-                <p class="mt-3 text-3xl font-semibold text-foreground">
+                <p
+                    class="mt-2 text-2xl font-semibold tracking-tight tabular-nums"
+                >
                     {{
                         props.summary.focus.verified_payment_count.toLocaleString()
                     }}
                 </p>
-                <p class="mt-3 text-sm text-muted-foreground">
+                <p class="mt-1 text-xs text-muted-foreground">
                     Latest payment status is verified
                 </p>
             </Link>
         </section>
 
         <section
-            class="rounded-xl border border-sidebar-border/70 bg-muted/20 px-4 py-3 text-sm text-muted-foreground dark:border-sidebar-border"
+            class="rounded-xl border bg-muted/20 px-4 py-3 text-sm text-muted-foreground"
         >
             <span class="font-medium text-foreground">Also:</span>
             <Link
@@ -454,9 +445,7 @@ const paginationLabel = (label: string): string =>
             </Link>
         </section>
 
-        <section
-            class="rounded-xl border border-sidebar-border/70 bg-background shadow-sm dark:border-sidebar-border"
-        >
+        <section class="rounded-xl border bg-card shadow-xs">
             <div class="space-y-4 p-4">
                 <form
                     method="get"
@@ -468,12 +457,12 @@ const paginationLabel = (label: string): string =>
                         type="text"
                         :value="props.filters.search"
                         placeholder="Search order, name, phone"
-                        class="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
+                        class="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs dark:bg-input/30"
                     />
                     <select
                         name="status"
                         :value="props.filters.status"
-                        class="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
+                        class="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs dark:bg-input/30"
                     >
                         <option value="">All status</option>
                         <option
@@ -487,7 +476,7 @@ const paginationLabel = (label: string): string =>
                     <select
                         name="payment_status"
                         :value="props.filters.payment_status"
-                        class="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
+                        class="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs dark:bg-input/30"
                     >
                         <option value="">All payment</option>
                         <option
@@ -502,7 +491,7 @@ const paginationLabel = (label: string): string =>
                     <select
                         name="pickup_point_id"
                         :value="props.filters.pickup_point_id"
-                        class="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
+                        class="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs dark:bg-input/30"
                     >
                         <option value="">All pickup points</option>
                         <option
@@ -517,13 +506,13 @@ const paginationLabel = (label: string): string =>
                         name="from_date"
                         type="date"
                         :value="props.filters.from_date"
-                        class="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
+                        class="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs dark:bg-input/30"
                     />
                     <input
                         name="to_date"
                         type="date"
                         :value="props.filters.to_date"
-                        class="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
+                        class="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs dark:bg-input/30"
                     />
                     <label
                         class="flex h-9 items-center gap-2 rounded-md border border-input px-3 text-sm"
@@ -540,7 +529,7 @@ const paginationLabel = (label: string): string =>
                     <select
                         name="per_page"
                         :value="props.filters.per_page"
-                        class="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
+                        class="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs dark:bg-input/30"
                     >
                         <option :value="15">15 per page</option>
                         <option :value="25">25 per page</option>
@@ -563,13 +552,9 @@ const paginationLabel = (label: string): string =>
                     </div>
                 </form>
 
-                <div
-                    class="overflow-x-auto rounded-lg border border-sidebar-border/70"
-                >
-                    <table
-                        class="min-w-full divide-y divide-sidebar-border/70 text-sm"
-                    >
-                        <thead class="bg-muted/40 text-left">
+                <div class="overflow-x-auto rounded-lg border">
+                    <table class="min-w-full divide-y divide-border text-sm">
+                        <thead class="bg-muted/50 text-left">
                             <tr>
                                 <th class="px-4 py-3 font-medium">Order ID</th>
                                 <th class="px-4 py-3 font-medium">Customer</th>
@@ -589,7 +574,7 @@ const paginationLabel = (label: string): string =>
                                 <th class="px-4 py-3 font-medium">Action</th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-sidebar-border/70">
+                        <tbody class="divide-y divide-border">
                             <tr
                                 v-for="order in props.orders.data"
                                 :key="order.id"
@@ -667,8 +652,10 @@ const paginationLabel = (label: string): string =>
                                         {{ order.due_amount }}
                                     </span>
                                 </td>
-                                <td class="px-4 py-3 text-muted-foreground">
-                                    {{ order.payment_status }}
+                                <td class="px-4 py-3">
+                                    <StatusBadge
+                                        :status="order.payment_status"
+                                    />
                                 </td>
                                 <td class="px-4 py-3">
                                     <button
@@ -678,16 +665,17 @@ const paginationLabel = (label: string): string =>
                                         :title="`Update status for ${order.order_number}`"
                                         @click="openStatusDialog(order)"
                                     >
-                                        <Badge
-                                            variant="outline"
-                                            class="cursor-pointer transition-colors hover:bg-muted"
-                                        >
-                                            {{ order.status_label }}
-                                        </Badge>
+                                        <StatusBadge
+                                            class="cursor-pointer hover:opacity-80"
+                                            :status="order.status"
+                                            :label="order.status_label"
+                                        />
                                     </button>
-                                    <Badge v-else variant="outline">
-                                        {{ order.status_label }}
-                                    </Badge>
+                                    <StatusBadge
+                                        v-else
+                                        :status="order.status"
+                                        :label="order.status_label"
+                                    />
                                 </td>
                                 <td class="px-4 py-3 text-muted-foreground">
                                     {{ order.created_at || '-' }}
@@ -719,7 +707,7 @@ const paginationLabel = (label: string): string =>
                     </table>
 
                     <div
-                        class="flex flex-col gap-3 border-t border-sidebar-border/70 px-4 py-3 text-sm md:flex-row md:items-center md:justify-between"
+                        class="flex flex-col gap-3 border-t px-4 py-3 text-sm md:flex-row md:items-center md:justify-between"
                     >
                         <p class="text-muted-foreground">
                             Showing {{ props.orders.from || 0 }} to
@@ -735,7 +723,7 @@ const paginationLabel = (label: string): string =>
                                     'rounded-md border px-3 py-1.5 text-xs',
                                     link.active
                                         ? 'border-foreground bg-foreground text-background'
-                                        : 'border-sidebar-border/70 text-muted-foreground',
+                                        : 'text-muted-foreground',
                                     !link.url
                                         ? 'pointer-events-none opacity-50'
                                         : '',

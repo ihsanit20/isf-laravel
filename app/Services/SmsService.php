@@ -175,7 +175,7 @@ class SmsService
         }
 
         if (str_starts_with($digits, '01') && strlen($digits) === 11) {
-            return '88' . $digits;
+            return '88'.$digits;
         }
 
         return null;

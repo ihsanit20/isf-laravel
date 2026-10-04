@@ -1,17 +1,26 @@
 <script setup lang="ts">
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import {
-    CalendarDays,
-    Clock3,
+    ArrowRight,
+    CircleAlert,
     Phone,
     Plus,
-    UserRound,
-    WalletCards,
+    UsersRound,
 } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 import InputError from '@/components/InputError.vue';
-import { Badge } from '@/components/ui/badge';
+import EmptyState from '@/components/shared/EmptyState.vue';
+import PageHeader from '@/components/shared/PageHeader.vue';
+import StatusBadge from '@/components/shared/StatusBadge.vue';
 import { Button } from '@/components/ui/button';
+import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardFooter,
+    CardHeader,
+    CardTitle,
+} from '@/components/ui/card';
 import {
     Dialog,
     DialogContent,
@@ -20,16 +29,35 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableEmpty,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
+import { formatMoney, titleCase } from '@/lib/format';
 
 type MemberStatus = 'pending' | 'approved' | 'rejected' | 'exited';
-type RelationshipOption = 'self' | 'spouse' | 'child' | 'parent' | 'other';
 type ChargeStatus = 'pending' | 'posted' | 'waived' | 'cancelled';
+
+type ChargeItem = {
+    id: number;
+    title: string | null;
+    code: string | null;
+    amount: number;
+    status: ChargeStatus;
+    effective_at: string | null;
+    paid_at: string | null;
+};
 
 type MemberItem = {
     id: number;
     full_name: string;
     phone: string | null;
-    relationship_to_user: RelationshipOption;
+    relationship_to_user: string;
     units: number;
     status: MemberStatus;
     rejection_note: string | null;
@@ -42,6 +70,8 @@ type MemberItem = {
         status: ChargeStatus;
         paid_at: string | null;
     } | null;
+    capital_in_cycles: number;
+    charges: ChargeItem[];
 };
 
 type Props = {
@@ -53,463 +83,364 @@ type Props = {
 
 defineOptions({
     layout: {
-        breadcrumbs: [
-            {
-                title: 'My Membership',
-                href: '/my-membership',
-            },
-        ],
+        breadcrumbs: [{ title: 'Members', href: '/my-membership' }],
     },
 });
 
 const props = defineProps<Props>();
 
-const isRegistrationFeeDialogOpen = ref(false);
-const selectedMember = ref<MemberItem | null>(null);
+const chargeStatusLabels: Record<ChargeStatus, string> = {
+    pending: 'Unpaid',
+    posted: 'Paid',
+    waived: 'Waived',
+    cancelled: 'Cancelled',
+};
 
-const form = useForm<{ charge_ids: number[] }>({
+const isUnpaid = (charge: ChargeItem): boolean =>
+    charge.status === 'pending' || charge.status === 'cancelled';
+
+const isActive = (member: MemberItem): boolean =>
+    member.status === 'approved' && member.activated_at !== null;
+
+const unpaidTotal = (member: MemberItem): number =>
+    member.charges
+        .filter(isUnpaid)
+        .reduce((sum, charge) => sum + charge.amount, 0);
+
+const memberNote = (member: MemberItem): string | null => {
+    if (member.status === 'pending') {
+        return 'Waiting for admin approval.';
+    }
+
+    if (member.status === 'rejected') {
+        return member.rejection_note
+            ? `Rejected: ${member.rejection_note}`
+            : 'This application was rejected.';
+    }
+
+    if (member.status === 'exited') {
+        return 'This member has exited.';
+    }
+
+    if (isActive(member)) {
+        return null;
+    }
+
+    if (!member.registration_charge) {
+        return 'Approved. The registration fee will be added by an admin.';
+    }
+
+    return 'Approved. Pay the registration fee from your balance to activate this member and start investing.';
+};
+
+const payingMember = ref<MemberItem | null>(null);
+const payingCharge = ref<ChargeItem | null>(null);
+const isPayDialogOpen = ref(false);
+
+const form = useForm<{ charge_ids: number[]; return_to: string }>({
     charge_ids: [],
+    return_to: 'members',
 });
 
-const relationshipLabel = (value: RelationshipOption): string =>
-    value.replace('_', ' ').replace(/\b\w/g, (char) => char.toUpperCase());
-
-const statusLabel = (value: MemberStatus): string =>
-    value.replace('_', ' ').replace(/\b\w/g, (char) => char.toUpperCase());
-
-const statusVariant = (
-    status: MemberStatus,
-): 'default' | 'secondary' | 'destructive' | 'outline' => {
-    if (status === 'approved') {
-        return 'default';
-    }
-
-    if (status === 'rejected') {
-        return 'destructive';
-    }
-
-    if (status === 'exited') {
-        return 'outline';
-    }
-
-    return 'secondary';
-};
-
-const statusSurfaceClass = (status: MemberStatus): string => {
-    if (status === 'approved') {
-        return 'border-emerald-200/80 bg-linear-to-br from-emerald-50 via-background to-background';
-    }
-
-    if (status === 'rejected') {
-        return 'border-rose-200/80 bg-linear-to-br from-rose-50 via-background to-background';
-    }
-
-    if (status === 'exited') {
-        return 'border-slate-200/80 bg-linear-to-br from-slate-100 via-background to-background';
-    }
-
-    return 'border-amber-200/80 bg-linear-to-br from-amber-50 via-background to-background';
-};
-
-const registrationFeeLabel = (member: MemberItem): 'Paid' | 'Unpaid' =>
-    member.registration_charge?.status === 'posted' ? 'Paid' : 'Unpaid';
-
-const registrationFeeVariant = (member: MemberItem): 'default' | 'secondary' =>
-    member.registration_charge?.status === 'posted' ? 'default' : 'secondary';
-
-const registrationFeeNote = (member: MemberItem): string => {
-    if (member.registration_charge?.status === 'posted') {
-        return 'Registration fee has been settled.';
-    }
-
-    if (!member.registration_charge) {
-        return 'Registration fee is not assigned yet.';
-    }
-
-    if (member.registration_charge.status === 'cancelled') {
-        return 'Registration fee allocation was cancelled.';
-    }
-
-    return 'Registration fee is still unpaid.';
-};
-
-const shouldShowRegistrationFeeButton = (member: MemberItem): boolean =>
-    !member.registration_charge ||
-    member.registration_charge.status === 'pending' ||
-    member.registration_charge.status === 'cancelled';
-
-const shouldShowCycleAllocationButton = (member: MemberItem): boolean =>
-    member.registration_charge?.status === 'posted';
-
-const money = (amount: number): string => `${amount.toLocaleString()} BDT`;
-
-const selectedChargeAmount = computed(
-    () => selectedMember.value?.registration_charge?.amount ?? 0,
-);
-
-const remainingAfterRegistrationFee = computed(() =>
-    Math.max(
-        0,
-        props.allocationSummary.available_to_allocate -
-            selectedChargeAmount.value,
-    ),
-);
-
-const canConfirmRegistrationFee = computed(
+const balanceAfterPayment = computed(
     () =>
-        !!selectedMember.value?.registration_charge?.id &&
-        props.allocationSummary.available_to_allocate >=
-            selectedChargeAmount.value,
+        props.allocationSummary.available_to_allocate -
+        (payingCharge.value?.amount ?? 0),
 );
 
-const openRegistrationFeeDialog = (member: MemberItem) => {
-    selectedMember.value = member;
-    form.defaults({
-        charge_ids: member.registration_charge?.id
-            ? [member.registration_charge.id]
-            : [],
-    });
-    form.reset();
+const openPayDialog = (member: MemberItem, charge: ChargeItem) => {
+    payingMember.value = member;
+    payingCharge.value = charge;
+    form.charge_ids = [charge.id];
     form.clearErrors();
-    isRegistrationFeeDialogOpen.value = true;
+    isPayDialogOpen.value = true;
 };
 
-const closeRegistrationFeeDialog = () => {
-    isRegistrationFeeDialogOpen.value = false;
-    selectedMember.value = null;
-    form.reset();
-    form.clearErrors();
-};
-
-const confirmRegistrationFee = () => {
+const payCharge = () => {
     form.post('/my-deposits/allocate', {
         preserveScroll: true,
-        onSuccess: () => closeRegistrationFeeDialog(),
+        onSuccess: () => {
+            isPayDialogOpen.value = false;
+        },
     });
-};
-
-const activationNote = (member: MemberItem): string => {
-    if (member.activated_at) {
-        return `Active since ${member.activated_at}.`;
-    }
-
-    if (!member.registration_charge) {
-        return 'Registration fee is not assigned yet. Allocate it from your verified deposit balance to continue activation.';
-    }
-
-    if (member.registration_charge?.status === 'pending') {
-        return 'Membership will activate after you allocate the registration fee from your verified deposit balance.';
-    }
-
-    if (member.registration_charge.status === 'cancelled') {
-        return 'Registration fee allocation was cancelled. Allocate it again from your verified deposit balance.';
-    }
-
-    if (member.status === 'approved') {
-        return 'Approved and waiting for activation.';
-    }
-
-    return 'Membership is not active yet.';
 };
 </script>
 
 <template>
-    <Head title="My Membership" />
+    <Head title="Members" />
 
-    <div class="flex h-full flex-1 flex-col gap-4 rounded-xl p-4">
-        <section
-            class="rounded-3xl border border-sidebar-border/70 bg-background p-6 shadow-sm"
+    <div class="flex flex-1 flex-col gap-6 p-4 md:p-6">
+        <PageHeader
+            title="Members"
+            description="Each member invests in fund cycles separately. A member can invest once approved and the registration fee is paid."
         >
-            <div
-                class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between"
-            >
-                <div class="max-w-2xl">
-                    <h1 class="mt-3 text-3xl font-semibold tracking-tight">
-                        My Membership
-                    </h1>
-                    <p
-                        class="mt-2 max-w-xl text-sm leading-6 text-muted-foreground"
-                    >
-                        Review all membership applications and their current
-                        status in one place.
-                    </p>
-                </div>
-
-                <Button as-child class="shrink-0">
+            <template #actions>
+                <Button as-child>
                     <Link href="/my-membership/create">
                         <Plus class="size-4" />
-                        Apply for Membership
+                        Add member
                     </Link>
                 </Button>
-            </div>
-        </section>
+            </template>
+        </PageHeader>
 
-        <section
-            v-if="members.length > 0"
-            class="grid gap-4 xl:grid-cols-2 2xl:grid-cols-3"
+        <p class="text-sm text-muted-foreground">
+            Available balance for charges and investments:
+            <span class="font-medium text-foreground tabular-nums">
+                {{ formatMoney(props.allocationSummary.available_to_allocate) }}
+            </span>
+        </p>
+
+        <EmptyState
+            v-if="props.members.length === 0"
+            :icon="UsersRound"
+            title="No members yet"
+            description="Apply for a membership for yourself or a family member. After admin approval you can pay the registration fee and start investing."
         >
-            <article
-                v-for="member in members"
+            <Button as-child>
+                <Link href="/my-membership/create">Add member</Link>
+            </Button>
+        </EmptyState>
+
+        <div v-else class="grid gap-4 xl:grid-cols-2">
+            <Card
+                v-for="member in props.members"
                 :key="member.id"
-                class="rounded-[26px] border p-5 shadow-sm transition-transform duration-200 hover:-translate-y-0.5"
-                :class="statusSurfaceClass(member.status)"
+                class="gap-4"
             >
-                <div class="flex items-start justify-between gap-3">
+                <CardHeader>
+                    <div class="flex items-start justify-between gap-3">
+                        <div class="min-w-0">
+                            <CardTitle class="truncate text-lg">
+                                {{ member.full_name }}
+                            </CardTitle>
+                            <CardDescription
+                                class="mt-1 flex flex-wrap gap-x-3"
+                            >
+                                <span>
+                                    {{ titleCase(member.relationship_to_user) }}
+                                </span>
+                                <span
+                                    v-if="member.phone"
+                                    class="flex items-center gap-1"
+                                >
+                                    <Phone class="size-3" />
+                                    {{ member.phone }}
+                                </span>
+                            </CardDescription>
+                        </div>
+                        <StatusBadge v-if="isActive(member)" status="active" />
+                        <StatusBadge v-else :status="member.status" />
+                    </div>
+                </CardHeader>
+
+                <CardContent class="grid gap-4">
+                    <dl class="grid grid-cols-3 gap-3 text-sm">
+                        <div class="rounded-lg bg-muted/50 px-3 py-2">
+                            <dt class="text-xs text-muted-foreground">Units</dt>
+                            <dd class="font-medium tabular-nums">
+                                {{ member.units }}
+                            </dd>
+                        </div>
+                        <div class="rounded-lg bg-muted/50 px-3 py-2">
+                            <dt class="text-xs text-muted-foreground">
+                                In cycles
+                            </dt>
+                            <dd class="font-medium tabular-nums">
+                                {{ formatMoney(member.capital_in_cycles) }}
+                            </dd>
+                        </div>
+                        <div class="rounded-lg bg-muted/50 px-3 py-2">
+                            <dt class="text-xs text-muted-foreground">
+                                Unpaid charges
+                            </dt>
+                            <dd class="font-medium tabular-nums">
+                                {{ formatMoney(unpaidTotal(member)) }}
+                            </dd>
+                        </div>
+                    </dl>
+
+                    <div
+                        v-if="memberNote(member)"
+                        class="flex gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200"
+                    >
+                        <CircleAlert class="mt-0.5 size-4 shrink-0" />
+                        <p>{{ memberNote(member) }}</p>
+                    </div>
+
                     <div>
-                        <p
-                            class="text-xs font-medium tracking-[0.2em] text-muted-foreground uppercase"
-                        >
-                            Application #{{ member.id }}
-                        </p>
-                        <h2
-                            class="mt-2 text-xl font-semibold tracking-tight text-foreground"
-                        >
-                            {{ member.full_name }}
-                        </h2>
-                    </div>
-
-                    <Badge :variant="statusVariant(member.status)">
-                        {{ statusLabel(member.status) }}
-                    </Badge>
-                </div>
-
-                <div class="mt-5 grid gap-3 text-sm">
-                    <div class="grid gap-3 md:grid-cols-2">
-                        <div
-                            class="flex items-center gap-3 rounded-2xl bg-background/75 px-3 py-3"
-                        >
-                            <UserRound class="size-4 text-muted-foreground" />
-                            <div>
-                                <p class="text-xs text-muted-foreground">
-                                    Relationship
-                                </p>
-                                <p class="font-medium text-foreground">
-                                    {{
-                                        relationshipLabel(
-                                            member.relationship_to_user,
-                                        )
-                                    }}
-                                </p>
-                            </div>
-                        </div>
-                        <div
-                            class="flex items-center gap-3 rounded-2xl bg-background/75 px-3 py-3"
-                        >
-                            <WalletCards class="size-4 text-muted-foreground" />
-                            <div>
-                                <p class="text-xs text-muted-foreground">
-                                    Units
-                                </p>
-                                <p class="font-medium text-foreground">
-                                    {{ member.units }} unit{{
-                                        member.units > 1 ? 's' : ''
-                                    }}
-                                </p>
-                            </div>
-                        </div>
-                        <div
-                            class="flex items-center gap-3 rounded-2xl bg-background/75 px-3 py-3"
-                        >
-                            <Phone class="size-4 text-muted-foreground" />
-                            <div>
-                                <p class="text-xs text-muted-foreground">
-                                    Phone
-                                </p>
-                                <p class="font-medium text-foreground">
-                                    {{ member.phone || 'Not set' }}
-                                </p>
-                            </div>
-                        </div>
-                        <div class="rounded-2xl bg-background/75 px-3 py-3">
-                            <div
-                                class="flex items-center gap-2 text-xs text-muted-foreground"
-                            >
-                                <CalendarDays class="size-4" />
-                                Applied At
-                            </div>
-                            <p class="mt-2 font-medium text-foreground">
-                                {{ member.applied_at || 'Not available' }}
-                            </p>
-                        </div>
-
-                        <div class="rounded-2xl bg-background/75 px-3 py-3">
-                            <div
-                                class="flex items-center gap-2 text-xs text-muted-foreground"
-                            >
-                                <Clock3 class="size-4" />
-                                Approval
-                            </div>
-                            <p class="mt-2 font-medium text-foreground">
-                                {{ member.approved_at || 'Pending review' }}
-                            </p>
-                        </div>
-
-                        <div class="rounded-2xl bg-background/75 px-3 py-3">
-                            <div
-                                class="flex items-center justify-between gap-2"
-                            >
-                                <div
-                                    class="flex items-center gap-2 text-xs text-muted-foreground"
-                                >
-                                    <WalletCards class="size-4" />
-                                    Registration Fee
-                                </div>
-
-                                <Badge
-                                    :variant="registrationFeeVariant(member)"
-                                >
-                                    {{ registrationFeeLabel(member) }}
-                                </Badge>
-                            </div>
-                            <p class="mt-2 font-medium text-foreground">
-                                {{
-                                    member.registration_charge?.paid_at
-                                        ? `Paid at ${member.registration_charge.paid_at}`
-                                        : registrationFeeNote(member)
-                                }}
-                            </p>
+                        <p class="mb-2 text-sm font-medium">Charges</p>
+                        <div class="rounded-lg border">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead class="pl-3"
+                                            >Charge</TableHead
+                                        >
+                                        <TableHead class="text-right">
+                                            Amount
+                                        </TableHead>
+                                        <TableHead>Status</TableHead>
+                                        <TableHead class="pr-3 text-right" />
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    <TableRow
+                                        v-for="charge in member.charges"
+                                        :key="charge.id"
+                                    >
+                                        <TableCell
+                                            class="pl-3 whitespace-normal"
+                                        >
+                                            <p class="font-medium">
+                                                {{ charge.title }}
+                                            </p>
+                                            <p
+                                                class="text-xs text-muted-foreground"
+                                            >
+                                                {{
+                                                    charge.paid_at
+                                                        ? `Paid ${charge.paid_at}`
+                                                        : charge.effective_at
+                                                }}
+                                            </p>
+                                        </TableCell>
+                                        <TableCell
+                                            class="text-right tabular-nums"
+                                        >
+                                            {{ formatMoney(charge.amount) }}
+                                        </TableCell>
+                                        <TableCell>
+                                            <StatusBadge
+                                                :status="charge.status"
+                                                :label="
+                                                    chargeStatusLabels[
+                                                        charge.status
+                                                    ]
+                                                "
+                                            />
+                                        </TableCell>
+                                        <TableCell class="pr-3 text-right">
+                                            <Button
+                                                v-if="
+                                                    isUnpaid(charge) &&
+                                                    member.status === 'approved'
+                                                "
+                                                size="sm"
+                                                variant="outline"
+                                                @click="
+                                                    openPayDialog(
+                                                        member,
+                                                        charge,
+                                                    )
+                                                "
+                                            >
+                                                Pay
+                                            </Button>
+                                        </TableCell>
+                                    </TableRow>
+                                    <TableEmpty
+                                        v-if="member.charges.length === 0"
+                                        :colspan="4"
+                                    >
+                                        No charges.
+                                    </TableEmpty>
+                                </TableBody>
+                            </Table>
                         </div>
                     </div>
+                </CardContent>
 
-                    <div class="rounded-2xl bg-background/75 px-3 py-3">
-                        <p class="text-sm leading-6 text-muted-foreground">
-                            {{ activationNote(member) }}
-                        </p>
-                        <Button
-                            v-if="shouldShowRegistrationFeeButton(member)"
-                            variant="outline"
-                            class="mt-3"
-                            @click="openRegistrationFeeDialog(member)"
-                        >
-                            Pay Registration Fee
-                        </Button>
-
-                        <Button
-                            v-if="shouldShowCycleAllocationButton(member)"
-                            as-child
-                            class="mt-3"
-                        >
-                            <Link
-                                :href="`/my-membership/${member.id}/fund-cycles`"
-                                >Allocate to Cycle</Link
-                            >
-                        </Button>
-                    </div>
-                </div>
-            </article>
-        </section>
-
-        <section
-            v-else
-            class="rounded-[28px] border border-dashed border-sidebar-border/80 bg-background p-10 text-center shadow-sm"
-        >
-            <div class="mx-auto max-w-md">
-                <p
-                    class="text-sm font-medium tracking-[0.2em] text-muted-foreground uppercase"
+                <CardFooter
+                    class="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground"
                 >
-                    No Membership Yet
-                </p>
-                <h2 class="mt-3 text-2xl font-semibold tracking-tight">
-                    No membership applications found
-                </h2>
-                <p class="mt-3 text-sm leading-6 text-muted-foreground">
-                    Submit a new application to create a membership record for
-                    yourself or an eligible family member.
-                </p>
-                <Button as-child class="mt-6">
-                    <Link href="/my-membership/create">
-                        <Plus class="size-4" />
-                        Open Membership Form
-                    </Link>
-                </Button>
-            </div>
-        </section>
+                    <span>
+                        Applied {{ member.applied_at ?? '—' }}
+                        <template v-if="member.activated_at">
+                            · Active since {{ member.activated_at }}
+                        </template>
+                    </span>
+                    <Button
+                        v-if="isActive(member)"
+                        as-child
+                        size="sm"
+                        variant="ghost"
+                    >
+                        <Link :href="`/my-allocations?member=${member.id}`">
+                            Investments
+                            <ArrowRight class="size-4" />
+                        </Link>
+                    </Button>
+                </CardFooter>
+            </Card>
+        </div>
 
-        <Dialog
-            :open="isRegistrationFeeDialogOpen"
-            @update:open="isRegistrationFeeDialogOpen = $event"
-        >
-            <DialogContent class="sm:max-w-lg">
+        <Dialog v-model:open="isPayDialogOpen">
+            <DialogContent class="sm:max-w-md">
                 <DialogHeader>
-                    <DialogTitle>Pay Registration Fee</DialogTitle>
+                    <DialogTitle>Pay {{ payingCharge?.title }}</DialogTitle>
                     <DialogDescription>
-                        Confirm registration fee allocation from your verified
-                        deposit balance.
+                        For {{ payingMember?.full_name }}. The amount is taken
+                        from your available balance.
                     </DialogDescription>
                 </DialogHeader>
 
-                <form
-                    class="space-y-4"
-                    @submit.prevent="confirmRegistrationFee"
-                >
-                    <div class="rounded-2xl bg-muted/30 px-4 py-4 text-sm">
-                        <div class="font-medium text-foreground">
-                            {{ selectedMember?.full_name || 'Member' }}
-                        </div>
-                        <div class="mt-2 text-muted-foreground">
-                            Available to allocate:
-                            <span class="font-medium text-foreground">
-                                {{
-                                    money(
-                                        props.allocationSummary
-                                            .available_to_allocate,
-                                    )
-                                }}
-                            </span>
-                        </div>
-                        <div class="mt-1 text-muted-foreground">
-                            Registration fee:
-                            <span class="font-medium text-foreground">
-                                {{ money(selectedChargeAmount) }}
-                            </span>
-                        </div>
-                        <div class="mt-1 text-muted-foreground">
-                            Remaining after confirm:
-                            <span class="font-medium text-foreground">
-                                {{ money(remainingAfterRegistrationFee) }}
-                            </span>
-                        </div>
+                <dl class="grid gap-2 text-sm">
+                    <div class="flex justify-between">
+                        <dt class="text-muted-foreground">Available balance</dt>
+                        <dd class="tabular-nums">
+                            {{
+                                formatMoney(
+                                    props.allocationSummary
+                                        .available_to_allocate,
+                                )
+                            }}
+                        </dd>
                     </div>
-
-                    <div
-                        v-if="!selectedMember?.registration_charge"
-                        class="rounded-2xl border border-dashed border-border/80 bg-background/70 px-4 py-4 text-sm text-muted-foreground"
-                    >
-                        Registration fee is not assigned yet for this member.
+                    <div class="flex justify-between">
+                        <dt class="text-muted-foreground">Charge</dt>
+                        <dd class="tabular-nums">
+                            − {{ formatMoney(payingCharge?.amount) }}
+                        </dd>
                     </div>
-
-                    <div
-                        v-else-if="
-                            props.allocationSummary.available_to_allocate <
-                            selectedChargeAmount
-                        "
-                        class="rounded-2xl border border-dashed border-border/80 bg-background/70 px-4 py-4 text-sm text-muted-foreground"
-                    >
-                        Verified deposit balance is not enough to settle this
-                        registration fee.
-                    </div>
-
-                    <InputError :message="form.errors.charge_ids" />
-                    <InputError :message="form.errors['charge_ids.0']" />
-
-                    <DialogFooter class="gap-2">
-                        <Button
-                            type="button"
-                            variant="secondary"
-                            @click="closeRegistrationFeeDialog"
-                        >
-                            Cancel
-                        </Button>
-                        <Button
-                            type="submit"
-                            :disabled="
-                                form.processing || !canConfirmRegistrationFee
+                    <div class="flex justify-between border-t pt-2 font-medium">
+                        <dt>Balance after</dt>
+                        <dd
+                            class="tabular-nums"
+                            :class="
+                                balanceAfterPayment < 0
+                                    ? 'text-rose-600 dark:text-rose-400'
+                                    : ''
                             "
                         >
-                            Confirm
-                        </Button>
-                    </DialogFooter>
-                </form>
+                            {{ formatMoney(balanceAfterPayment) }}
+                        </dd>
+                    </div>
+                </dl>
+
+                <p
+                    v-if="balanceAfterPayment < 0"
+                    class="text-sm text-rose-600 dark:text-rose-400"
+                >
+                    Not enough balance.
+                    <Link href="/my-deposits/create" class="underline">
+                        Submit a deposit
+                    </Link>
+                    first.
+                </p>
+                <InputError :message="form.errors.charge_ids" />
+
+                <DialogFooter>
+                    <Button variant="outline" @click="isPayDialogOpen = false">
+                        Cancel
+                    </Button>
+                    <Button
+                        :disabled="form.processing || balanceAfterPayment < 0"
+                        @click="payCharge"
+                    >
+                        Pay {{ formatMoney(payingCharge?.amount) }}
+                    </Button>
+                </DialogFooter>
             </DialogContent>
         </Dialog>
     </div>

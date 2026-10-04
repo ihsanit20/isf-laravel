@@ -18,6 +18,7 @@ use App\Models\EventRefund;
 use App\Models\FundCycleEvent;
 use App\Models\JournalEntry;
 use App\Models\JournalLine;
+use App\Models\LedgerAccount;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
@@ -59,7 +60,14 @@ class InvestmentPostings
     public function result(CycleInvestment $investment): int
     {
         if ($investment->isClosed()) {
-            return $this->ledger->creditBalance(Account::CycleResult, $investment->dimensions());
+            // Read the closing entry, not the 2030 balance: settling the
+            // cycle moves 2030 to members and would zero it out.
+            return (int) JournalLine::query()
+                ->where('ledger_account_id', LedgerAccount::idFor(Account::CycleResult))
+                ->where('cycle_investment_id', $investment->id)
+                ->whereHas('entry', fn ($entry) => $entry->where('kind', 'investment_closed'))
+                ->selectRaw('COALESCE(SUM(credit), 0) - COALESCE(SUM(debit), 0) as balance')
+                ->value('balance');
         }
 
         return $this->ledger->creditBalance(Account::fundProfitAndLoss(), $investment->dimensions());
@@ -80,6 +88,37 @@ class InvestmentPostings
             ->filter(fn (int $balance, string $code): bool => Account::from($code)->scope() === 'fund')
             ->map(fn (int $balance): int => -$balance)
             ->all();
+    }
+
+    /**
+     * Where an event's money came from and went, in paisa, read from the
+     * journal. Cash parts add up: withdrawn + cash_received − cash_spent −
+     * cash_refunded − cash_deposited + cash_other = cash.
+     *
+     * @return array<string, int>
+     */
+    public function eventMoneyFlow(CycleInvestment $investment): array
+    {
+        $dims = $investment->dimensions();
+        $cash = $this->ledger->movementsByKind(Account::EventCash, $dims);
+        $bkash = $this->ledger->movementsByKind(Account::Bkash, $dims);
+        $sales = $this->ledger->movementsByKind(Account::EventSales, $dims);
+        $expenses = $this->ledger->movementsByKind([Account::SubBusinessExpense, Account::GatewayFee], $dims);
+
+        $cashKinds = ['event_withdrawal', 'event_sale', 'event_other_income', 'event_expense', 'event_refund', 'event_bank_deposit'];
+
+        return [
+            'withdrawn' => $cash->get('event_withdrawal', 0),
+            'cash_received' => $cash->get('event_sale', 0) + $cash->get('event_other_income', 0),
+            'cash_spent' => -$cash->get('event_expense', 0),
+            'cash_refunded' => -$cash->get('event_refund', 0),
+            'cash_deposited' => -$cash->get('event_bank_deposit', 0),
+            'cash_other' => (int) $cash->except($cashKinds)->sum(),
+            'cash' => (int) $cash->sum(),
+            'bank_deposited' => -($cash->get('event_bank_deposit', 0) + $bkash->get('event_bank_deposit', 0)),
+            'sales' => -$sales->get('event_sale', 0),
+            'expenses' => $expenses->get('event_expense', 0),
+        ];
     }
 
     // ---------------------------------------------------------------- events

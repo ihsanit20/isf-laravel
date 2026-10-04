@@ -3,8 +3,22 @@ import { Head, Link } from '@inertiajs/vue3';
 import { Check, FileBadge2, X } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 import DepositReviewDialog from '@/components/admin/DepositReviewDialog.vue';
-import { Badge } from '@/components/ui/badge';
+import PageHeader from '@/components/shared/PageHeader.vue';
+import StatCard from '@/components/shared/StatCard.vue';
+import StatusBadge from '@/components/shared/StatusBadge.vue';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableEmpty,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
+import { formatMoney, titleCase } from '@/lib/format';
 
 type DepositStatus = 'pending' | 'verified' | 'rejected';
 
@@ -90,7 +104,7 @@ defineOptions({
     layout: {
         breadcrumbs: [
             {
-                title: 'Deposit Reviews',
+                title: 'Deposits',
                 href: '/admin/deposits',
             },
         ],
@@ -115,25 +129,6 @@ const reviewableDeposit = computed(() => {
     };
 });
 
-const money = (amount: number): string => `${amount.toLocaleString()} BDT`;
-
-const statusLabel = (status: DepositStatus): string =>
-    status.replace('_', ' ').replace(/\b\w/g, (char) => char.toUpperCase());
-
-const statusVariant = (
-    status: DepositStatus,
-): 'default' | 'secondary' | 'destructive' | 'outline' => {
-    if (status === 'verified') {
-        return 'default';
-    }
-
-    if (status === 'rejected') {
-        return 'destructive';
-    }
-
-    return 'secondary';
-};
-
 const openVerifyDialog = (deposit: AdminDeposit) => {
     selectedDeposit.value = deposit;
     isVerifyDialogOpen.value = true;
@@ -153,338 +148,253 @@ const decodePaginationLabel = (label: string): string => {
 </script>
 
 <template>
-    <Head title="Deposit Reviews" />
+    <Head title="Deposits" />
 
-    <div class="flex h-full flex-1 flex-col gap-4 rounded-xl p-4">
-        <section
-            class="rounded-xl border border-sidebar-border/70 bg-background p-6 shadow-sm dark:border-sidebar-border"
-        >
-            <div class="max-w-2xl">
-                <h1 class="text-2xl font-semibold tracking-tight">
-                    Deposit Reviews
-                </h1>
-                <p class="mt-2 text-sm text-muted-foreground">
-                    Verify or reject uploaded deposit proof. Member allocation
-                    stays entirely in the user's control after verification.
-                </p>
-            </div>
-        </section>
+    <div class="flex flex-1 flex-col gap-6 p-4 md:p-6">
+        <PageHeader
+            title="Deposits"
+            description="Check each proof against the bank and verify it. A verified deposit becomes the user’s available balance."
+        />
 
-        <section class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <div
-                class="rounded-xl border border-sidebar-border/70 bg-background p-4 shadow-sm dark:border-sidebar-border"
+        <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <StatCard
+                label="Waiting for review"
+                :value="formatMoney(props.summary.pending_amount)"
+                :hint="`${props.summary.pending_count} pending · rejected ${formatMoney(props.summary.rejected_amount)}`"
+                :value-class="
+                    props.summary.pending_count > 0
+                        ? 'text-amber-600 dark:text-amber-400'
+                        : ''
+                "
+            />
+            <StatCard
+                label="Verified deposits"
+                :value="formatMoney(props.summary.verified_amount)"
+            />
+            <StatCard
+                label="Joint bank (journal)"
+                :value="formatMoney(props.summary.bank_balance)"
+                :hint="`+ bKash ${formatMoney(props.summary.bkash_balance)} · event cash ${formatMoney(props.summary.event_cash)} · in businesses ${formatMoney(props.summary.business_investment)}`"
+            />
+            <Link
+                href="/admin/accounts"
+                class="rounded-xl transition-colors focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
             >
-                <p class="text-xs text-muted-foreground">Verified deposits</p>
-                <p class="mt-2 text-2xl font-semibold text-foreground">
-                    {{ money(props.summary.verified_amount) }}
-                </p>
-                <p class="mt-3 text-sm text-muted-foreground">
-                    {{ props.summary.pending_count.toLocaleString() }} pending ·
-                    {{ money(props.summary.pending_amount) }}
-                </p>
-                <p class="text-sm text-muted-foreground">
-                    Rejected: {{ money(props.summary.rejected_amount) }}
-                </p>
-            </div>
+                <StatCard
+                    class="h-full hover:border-foreground/20"
+                    label="Platform fund"
+                    :value="formatMoney(props.summary.platform_fund)"
+                    :hint="`+ fees ${formatMoney(props.summary.fee_income)} · + charges & rent ${formatMoney(props.summary.charge_income)} · − expense ${formatMoney(props.summary.platform_expense)}`"
+                />
+            </Link>
+        </div>
 
-            <div
-                class="rounded-xl border border-sidebar-border/70 bg-background p-4 shadow-sm dark:border-sidebar-border"
-            >
-                <p class="text-xs text-muted-foreground">
-                    Joint bank (journal)
-                </p>
-                <p class="mt-2 text-2xl font-semibold text-foreground">
-                    {{ money(props.summary.bank_balance) }}
-                </p>
-                <p class="mt-3 text-sm text-muted-foreground">
-                    + bKash {{ money(props.summary.bkash_balance) }} · event
-                    cash
-                    {{ money(props.summary.event_cash) }}
-                </p>
-                <p class="text-sm text-muted-foreground">
-                    + in businesses
-                    {{ money(props.summary.business_investment) }}
-                </p>
-            </div>
-
-            <div
-                class="rounded-xl border border-sidebar-border/70 bg-background p-4 shadow-sm dark:border-sidebar-border"
-            >
-                <p class="text-xs text-muted-foreground">Members' money</p>
-                <dl class="mt-3 space-y-2 text-sm">
+        <Card class="gap-0 py-4">
+            <CardContent class="px-4">
+                <dl class="grid gap-x-8 gap-y-2 text-sm sm:grid-cols-3">
                     <div class="flex justify-between gap-2">
                         <dt class="text-muted-foreground">
-                            Available balances
+                            Members’ available balances
                         </dt>
-                        <dd class="font-semibold tabular-nums">
-                            {{ money(props.summary.members_available) }}
+                        <dd class="font-medium tabular-nums">
+                            {{ formatMoney(props.summary.members_available) }}
                         </dd>
                     </div>
                     <div class="flex justify-between gap-2">
                         <dt class="text-muted-foreground">Capital in cycles</dt>
-                        <dd class="font-semibold tabular-nums">
-                            {{ money(props.summary.cycle_capital) }}
+                        <dd class="font-medium tabular-nums">
+                            {{ formatMoney(props.summary.cycle_capital) }}
                         </dd>
                     </div>
                     <div class="flex justify-between gap-2">
                         <dt class="text-muted-foreground">
                             Closed project results
                         </dt>
-                        <dd class="font-semibold tabular-nums">
-                            {{ money(props.summary.cycle_results) }}
+                        <dd class="font-medium tabular-nums">
+                            {{ formatMoney(props.summary.cycle_results) }}
                         </dd>
                     </div>
                 </dl>
-            </div>
+            </CardContent>
+        </Card>
 
-            <div
-                class="rounded-xl border border-sidebar-border/70 bg-background p-4 shadow-sm dark:border-sidebar-border"
-            >
-                <p class="text-xs text-muted-foreground">
-                    <Link
-                        href="/admin/accounts"
-                        class="text-primary underline underline-offset-4"
-                    >
-                        Platform fund
-                    </Link>
-                </p>
-                <p class="mt-2 text-2xl font-semibold text-foreground">
-                    {{ money(props.summary.platform_fund) }}
-                </p>
-                <dl class="mt-3 space-y-1 text-sm">
-                    <div class="flex justify-between gap-2">
-                        <dt class="text-muted-foreground">Fees</dt>
-                        <dd class="tabular-nums">
-                            + {{ money(props.summary.fee_income) }}
-                        </dd>
-                    </div>
-                    <div class="flex justify-between gap-2">
-                        <dt class="text-muted-foreground">
-                            Charges &amp; rent
-                        </dt>
-                        <dd class="tabular-nums">
-                            + {{ money(props.summary.charge_income) }}
-                        </dd>
-                    </div>
-                    <div class="flex justify-between gap-2">
-                        <dt class="text-muted-foreground">Platform expense</dt>
-                        <dd class="tabular-nums">
-                            − {{ money(props.summary.platform_expense) }}
-                        </dd>
-                    </div>
-                </dl>
-            </div>
-        </section>
-
-        <section
-            class="rounded-xl border border-sidebar-border/70 bg-background p-4 shadow-sm dark:border-sidebar-border"
+        <form
+            method="get"
+            action="/admin/deposits"
+            class="grid gap-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7"
         >
-            <form
-                method="get"
-                action="/admin/deposits"
-                class="grid gap-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7"
+            <Input
+                name="search"
+                :default-value="props.filters.search"
+                placeholder="Search user, email, reference"
+            />
+            <select
+                name="status"
+                :value="props.filters.status"
+                class="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs dark:bg-input/30"
             >
-                <input
-                    name="search"
-                    type="text"
-                    :value="props.filters.search"
-                    placeholder="Search user, email, reference"
-                    class="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
-                />
-                <select
-                    name="status"
-                    :value="props.filters.status"
-                    class="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
+                <option value="">All statuses</option>
+                <option
+                    v-for="status in props.filterOptions.statuses"
+                    :key="status"
+                    :value="status"
                 >
-                    <option value="">All status</option>
-                    <option
-                        v-for="status in props.filterOptions.statuses"
-                        :key="status"
-                        :value="status"
-                    >
-                        {{ statusLabel(status as DepositStatus) }}
-                    </option>
-                </select>
-                <select
-                    name="payment_method"
-                    :value="props.filters.payment_method"
-                    class="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
+                    {{ titleCase(status) }}
+                </option>
+            </select>
+            <select
+                name="payment_method"
+                :value="props.filters.payment_method"
+                class="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs dark:bg-input/30"
+            >
+                <option value="">All payment methods</option>
+                <option
+                    v-for="method in props.filterOptions.payment_methods"
+                    :key="method.value"
+                    :value="method.value"
                 >
-                    <option value="">All payment methods</option>
-                    <option
-                        v-for="method in props.filterOptions.payment_methods"
-                        :key="method.value"
-                        :value="method.value"
-                    >
-                        {{ method.label }}
-                    </option>
-                </select>
-                <input
-                    name="from_date"
-                    type="date"
-                    :value="props.filters.from_date"
-                    class="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
-                />
-                <input
-                    name="to_date"
-                    type="date"
-                    :value="props.filters.to_date"
-                    class="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
-                />
-                <select
-                    name="per_page"
-                    :value="props.filters.per_page"
-                    class="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
+                    {{ method.label }}
+                </option>
+            </select>
+            <Input
+                name="from_date"
+                type="date"
+                :default-value="props.filters.from_date"
+            />
+            <Input
+                name="to_date"
+                type="date"
+                :default-value="props.filters.to_date"
+            />
+            <select
+                name="per_page"
+                :value="props.filters.per_page"
+                class="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs dark:bg-input/30"
+            >
+                <option
+                    v-for="size in [15, 25, 50, 100, 200, 500]"
+                    :key="size"
+                    :value="size"
                 >
-                    <option :value="15">15 per page</option>
-                    <option :value="25">25 per page</option>
-                    <option :value="50">50 per page</option>
-                    <option :value="100">100 per page</option>
-                    <option :value="200">200 per page</option>
-                    <option :value="500">500 per page</option>
-                </select>
-                <div class="flex gap-2">
-                    <Button type="submit" size="sm" class="h-9">Filter</Button>
-                    <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        class="h-9"
-                        as-child
-                    >
-                        <Link href="/admin/deposits">Reset</Link>
-                    </Button>
-                </div>
-            </form>
-        </section>
+                    {{ size }} per page
+                </option>
+            </select>
+            <div class="flex gap-2">
+                <Button type="submit">Filter</Button>
+                <Button type="button" variant="outline" as-child>
+                    <Link href="/admin/deposits">Reset</Link>
+                </Button>
+            </div>
+        </form>
 
-        <section
-            class="overflow-hidden rounded-xl border border-sidebar-border/70 bg-background shadow-sm dark:border-sidebar-border"
-        >
-            <div class="overflow-x-auto">
-                <table
-                    class="min-w-full divide-y divide-sidebar-border/70 text-sm"
-                >
-                    <thead class="bg-muted/40 text-left">
-                        <tr>
-                            <th class="px-4 py-3 font-medium">User</th>
-                            <th class="px-4 py-3 font-medium">Deposit</th>
-                            <th class="px-4 py-3 font-medium">Reference</th>
-                            <th class="px-4 py-3 font-medium">Status</th>
-                            <th class="px-4 py-3 font-medium">Reviewed By</th>
-                            <th class="px-4 py-3 font-medium">Proof</th>
-                            <th class="px-4 py-3 font-medium">Action</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-sidebar-border/70">
-                        <tr
-                            v-for="deposit in props.deposits.data"
-                            :key="deposit.id"
-                        >
-                            <td class="px-4 py-3">
-                                <div class="font-medium">
-                                    {{ deposit.user.name || 'Unknown account' }}
-                                </div>
-                                <div class="text-xs text-muted-foreground">
-                                    {{ deposit.user.email || '-' }}
-                                </div>
-                            </td>
-                            <td class="px-4 py-3 text-muted-foreground">
-                                <div>{{ money(deposit.amount) }}</div>
-                                <div class="text-xs">
-                                    {{ deposit.payment_method_label }}
-                                    <span v-if="deposit.deposit_date">
-                                        • {{ deposit.deposit_date }}
-                                    </span>
-                                </div>
-                            </td>
-                            <td class="px-4 py-3 text-muted-foreground">
-                                <div>{{ deposit.reference_no || '-' }}</div>
-                                <div v-if="deposit.notes" class="text-xs">
-                                    {{ deposit.notes }}
-                                </div>
-                            </td>
-                            <td class="px-4 py-3">
-                                <Badge :variant="statusVariant(deposit.status)">
-                                    {{ statusLabel(deposit.status) }}
-                                </Badge>
-                                <p
-                                    v-if="deposit.rejection_reason"
-                                    class="mt-1 text-xs text-muted-foreground"
-                                >
-                                    {{ deposit.rejection_reason }}
-                                </p>
-                            </td>
-                            <td class="px-4 py-3 text-muted-foreground">
-                                <div>{{ deposit.verifier || '-' }}</div>
-                                <div class="text-xs">
-                                    {{ deposit.verified_at || '-' }}
-                                </div>
-                            </td>
-                            <td class="px-4 py-3 text-muted-foreground">
-                                <a
-                                    v-if="deposit.proof_url"
-                                    :href="deposit.proof_url"
-                                    class="inline-flex items-center gap-2 font-medium text-foreground underline underline-offset-4"
-                                    target="_blank"
-                                    rel="noreferrer"
-                                >
-                                    <FileBadge2 class="size-4" />
-                                    View proof
-                                </a>
-                                <span v-else>-</span>
-                            </td>
-                            <td class="px-4 py-3">
-                                <div
-                                    v-if="deposit.status === 'pending'"
-                                    class="flex flex-wrap gap-2"
-                                >
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        @click="openVerifyDialog(deposit)"
-                                    >
-                                        <Check class="size-4" />
-                                        Verify
-                                    </Button>
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        @click="openRejectDialog(deposit)"
-                                    >
-                                        <X class="size-4" />
-                                        Reject
-                                    </Button>
-                                </div>
-                                <span
-                                    v-else
-                                    class="text-xs text-muted-foreground"
-                                >
-                                    Reviewed
-                                </span>
-                            </td>
-                        </tr>
-                        <tr v-if="props.deposits.data.length === 0">
-                            <td
-                                colspan="7"
-                                class="px-4 py-8 text-center text-muted-foreground"
+        <Card class="gap-0 py-0">
+            <Table>
+                <TableHeader>
+                    <TableRow>
+                        <TableHead class="pl-4">User</TableHead>
+                        <TableHead class="text-right">Amount</TableHead>
+                        <TableHead>Method</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Reviewed</TableHead>
+                        <TableHead class="pr-4 text-right" />
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    <TableRow
+                        v-for="deposit in props.deposits.data"
+                        :key="deposit.id"
+                    >
+                        <TableCell class="pl-4">
+                            <p class="font-medium">
+                                {{ deposit.user.name || 'Unknown account' }}
+                            </p>
+                            <p class="text-xs text-muted-foreground">
+                                {{ deposit.user.email || '—' }}
+                            </p>
+                        </TableCell>
+                        <TableCell class="text-right">
+                            <p class="font-medium tabular-nums">
+                                {{ formatMoney(deposit.amount) }}
+                            </p>
+                            <p class="text-xs text-muted-foreground">
+                                {{ deposit.deposit_date }}
+                            </p>
+                        </TableCell>
+                        <TableCell class="max-w-xs whitespace-normal">
+                            <p>{{ deposit.payment_method_label }}</p>
+                            <p class="text-xs text-muted-foreground">
+                                <template v-if="deposit.reference_no">
+                                    Ref {{ deposit.reference_no }}
+                                </template>
+                                <template v-if="deposit.notes">
+                                    · {{ deposit.notes }}
+                                </template>
+                            </p>
+                            <a
+                                v-if="deposit.proof_url"
+                                :href="deposit.proof_url"
+                                class="inline-flex items-center gap-1 text-xs font-medium underline underline-offset-4"
+                                target="_blank"
+                                rel="noreferrer"
                             >
-                                No deposits found.
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
+                                <FileBadge2 class="size-3" />
+                                View proof
+                            </a>
+                        </TableCell>
+                        <TableCell class="max-w-xs whitespace-normal">
+                            <StatusBadge :status="deposit.status" />
+                            <p
+                                v-if="deposit.rejection_reason"
+                                class="mt-1 text-xs text-muted-foreground"
+                            >
+                                {{ deposit.rejection_reason }}
+                            </p>
+                        </TableCell>
+                        <TableCell class="text-muted-foreground">
+                            <p>{{ deposit.verifier || '—' }}</p>
+                            <p class="text-xs">{{ deposit.verified_at }}</p>
+                        </TableCell>
+                        <TableCell class="pr-4">
+                            <div
+                                v-if="deposit.status === 'pending'"
+                                class="flex justify-end gap-2"
+                            >
+                                <Button
+                                    size="sm"
+                                    @click="openVerifyDialog(deposit)"
+                                >
+                                    <Check class="size-4" />
+                                    Verify
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    @click="openRejectDialog(deposit)"
+                                >
+                                    <X class="size-4" />
+                                    Reject
+                                </Button>
+                            </div>
+                        </TableCell>
+                    </TableRow>
+                    <TableEmpty
+                        v-if="props.deposits.data.length === 0"
+                        :colspan="6"
+                    >
+                        No deposits found.
+                    </TableEmpty>
+                </TableBody>
+            </Table>
 
             <div
-                class="flex flex-col gap-3 border-t border-sidebar-border/70 px-4 py-3 text-sm md:flex-row md:items-center md:justify-between"
+                class="flex flex-col gap-3 border-t px-4 py-3 text-sm md:flex-row md:items-center md:justify-between"
             >
                 <p class="text-muted-foreground">
                     Showing {{ props.deposits.from || 0 }} to
                     {{ props.deposits.to || 0 }} of
                     {{ props.deposits.total.toLocaleString() }} deposits
                 </p>
-                <div class="flex flex-wrap items-center gap-2">
+                <div class="flex flex-wrap items-center gap-1">
                     <Link
                         v-for="link in props.deposits.links"
                         :key="link.label"
@@ -492,8 +402,8 @@ const decodePaginationLabel = (label: string): string => {
                         :class="[
                             'rounded-md border px-3 py-1.5 text-xs',
                             link.active
-                                ? 'border-foreground bg-foreground text-background'
-                                : 'border-sidebar-border/70 text-muted-foreground',
+                                ? 'border-primary bg-primary text-primary-foreground'
+                                : 'text-muted-foreground hover:bg-muted',
                             !link.url ? 'pointer-events-none opacity-50' : '',
                         ]"
                     >
@@ -501,7 +411,7 @@ const decodePaginationLabel = (label: string): string => {
                     </Link>
                 </div>
             </div>
-        </section>
+        </Card>
 
         <DepositReviewDialog
             v-model:isOpen="isVerifyDialogOpen"

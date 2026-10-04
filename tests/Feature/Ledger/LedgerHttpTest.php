@@ -198,11 +198,14 @@ test('users request payouts within their balance and admins pay them', function 
         ->and(app(MemberPostings::class)->availableBalance($user->id))->toBe(200000);
 
     actingAs($user)
-        ->get(route('statement.index'))
+        ->get(route('wallet.index'))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->component('Statement')
+            ->component('Wallet')
             ->where('availableBalance', 2000)
+            ->where('payoutSummary.pending_amount', 0)
+            ->where('payoutSummary.requestable_amount', 2000)
+            ->has('payouts', 1)
             ->has('lines', 2));
 });
 
