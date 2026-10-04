@@ -92,6 +92,7 @@ Route::middleware(['auth', 'verified', 'admin'])->group(function () {
     Route::get('admin/events', [FundCycleEventController::class, 'all'])->name('admin.events.index');
     Route::get('admin/events/{fundCycleEvent}', [FundCycleEventController::class, 'show'])->name('admin.events.show');
     Route::patch('admin/events/{fundCycleEvent}/finalize', [FundCycleEventController::class, 'finalize'])->name('admin.events.finalize');
+    Route::patch('admin/events/{fundCycleEvent}/cancel', [FundCycleEventController::class, 'cancel'])->name('admin.events.cancel');
     Route::get('admin/events/{fundCycleEvent}/orders', [EventOrderController::class, 'index'])->name('admin.events.orders.index');
     Route::get('admin/events/{fundCycleEvent}/orders/{eventOrder}', [EventOrderController::class, 'show'])->name('admin.events.orders.show');
     Route::post('admin/events/{fundCycleEvent}/orders/{eventOrder}/payments', [EventOrderController::class, 'storePayment'])->name('admin.events.orders.payments.store');
@@ -147,6 +148,7 @@ Route::middleware(['auth', 'verified', 'admin'])->group(function () {
     Route::post('admin/businesses/{cycleInvestment}/transactions', [BusinessInvestmentController::class, 'storeTransaction'])->name('admin.businesses.transactions.store');
     Route::delete('admin/businesses/{cycleInvestment}/transactions/{transaction}', [BusinessInvestmentController::class, 'destroyTransaction'])->name('admin.businesses.transactions.destroy');
     Route::patch('admin/businesses/{cycleInvestment}/close', [BusinessInvestmentController::class, 'close'])->name('admin.businesses.close');
+    Route::patch('admin/businesses/{cycleInvestment}/cancel', [BusinessInvestmentController::class, 'cancel'])->name('admin.businesses.cancel');
     Route::post('admin/fund-cycles/{fundCycle}/transactions', [FundCycleLedgerController::class, 'storeTransaction'])->name('admin.fund-cycles.transactions.store');
     Route::delete('admin/fund-cycles/{fundCycle}/transactions/{transaction}', [FundCycleLedgerController::class, 'destroyTransaction'])->name('admin.fund-cycles.transactions.destroy');
     Route::post('admin/fund-cycles/{fundCycle}/settle', [FundCycleLedgerController::class, 'settle'])->name('admin.fund-cycles.settle');

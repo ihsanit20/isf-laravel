@@ -2,6 +2,7 @@
 import { router } from '@inertiajs/vue3';
 import { Landmark, Pencil, Plus, Trash2 } from 'lucide-vue-next';
 import { ref } from 'vue';
+import { isEventLocked } from '@/components/admin/event-details/types';
 import type {
     EventBankDeposit,
     EventDetails,
@@ -58,7 +59,7 @@ const deleteDeposit = (deposit: EventBankDeposit) => {
                 bKash fee as an event cost paid from bKash.
             </p>
             <Button
-                v-if="!props.event.is_finalized"
+                v-if="!isEventLocked(props.event)"
                 size="sm"
                 @click="openDialog()"
             >
@@ -157,7 +158,7 @@ const deleteDeposit = (deposit: EventBankDeposit) => {
                         </TableCell>
                         <TableCell class="pr-4">
                             <div
-                                v-if="!props.event.is_finalized"
+                                v-if="!isEventLocked(props.event)"
                                 class="flex justify-end gap-1"
                             >
                                 <Button

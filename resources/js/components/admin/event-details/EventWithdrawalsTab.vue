@@ -2,6 +2,7 @@
 import { router } from '@inertiajs/vue3';
 import { Banknote, CircleAlert, Pencil, Plus, Trash2 } from 'lucide-vue-next';
 import { ref } from 'vue';
+import { isEventLocked } from '@/components/admin/event-details/types';
 import type {
     EventBankWithdrawal,
     EventDetails,
@@ -57,7 +58,7 @@ const deleteWithdrawal = (withdrawal: EventBankWithdrawal) => {
                 by the fund cycle’s money still in the bank.
             </p>
             <Button
-                v-if="!props.event.is_finalized"
+                v-if="!isEventLocked(props.event)"
                 size="sm"
                 :disabled="
                     props.event.cycle_withdrawal_budget.remaining_amount <= 0
@@ -159,7 +160,7 @@ const deleteWithdrawal = (withdrawal: EventBankWithdrawal) => {
                         </TableCell>
                         <TableCell class="pr-4">
                             <div
-                                v-if="!props.event.is_finalized"
+                                v-if="!isEventLocked(props.event)"
                                 class="flex justify-end gap-1"
                             >
                                 <Button

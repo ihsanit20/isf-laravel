@@ -1,6 +1,14 @@
 <script setup lang="ts">
 import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
-import { ImageUp, ListOrdered, Lock, Pencil, Tag } from 'lucide-vue-next';
+import {
+    Ban,
+    CircleAlert,
+    ImageUp,
+    ListOrdered,
+    Lock,
+    Pencil,
+    Tag,
+} from 'lucide-vue-next';
 import { computed, ref, watch } from 'vue';
 import EventAccountsTab from '@/components/admin/event-details/EventAccountsTab.vue';
 import EventBankDepositsTab from '@/components/admin/event-details/EventBankDepositsTab.vue';
@@ -10,6 +18,7 @@ import EventPackagesTab from '@/components/admin/event-details/EventPackagesTab.
 import EventPaymentsTab from '@/components/admin/event-details/EventPaymentsTab.vue';
 import EventPickupTab from '@/components/admin/event-details/EventPickupTab.vue';
 import EventWithdrawalsTab from '@/components/admin/event-details/EventWithdrawalsTab.vue';
+import { isEventLocked } from '@/components/admin/event-details/types';
 import type {
     EventDetails,
     Option,
@@ -133,6 +142,16 @@ watch(
 
 const isEditDialogOpen = ref(false);
 
+const isLocked = computed(() => isEventLocked(props.event));
+
+const actionErrors = computed(() => {
+    const errors = page.props.errors as Record<string, string> | undefined;
+
+    return ['close', 'cancel']
+        .map((key) => errors?.[key])
+        .filter((message): message is string => !!message);
+});
+
 const editableEvent = computed(() => ({
     id: props.event.id,
     title: props.event.title,
@@ -188,6 +207,26 @@ const finalizeEvent = () => {
         preserveScroll: true,
     });
 };
+
+const cancelEvent = () => {
+    if (props.ledger.cancel_blockers.length > 0) {
+        setActiveTab('accounts');
+
+        return;
+    }
+
+    if (
+        !confirm(
+            'এই ইভেন্টটি বাতিল করবেন? এর কোনো হিসাব কোথাও যাবে না এবং এটি আর কখনো চালু করা যাবে না।',
+        )
+    ) {
+        return;
+    }
+
+    router.patch(`/admin/events/${props.event.id}/cancel`, undefined, {
+        preserveScroll: true,
+    });
+};
 </script>
 
 <template>
@@ -203,7 +242,7 @@ const finalizeEvent = () => {
                     </Link>
                 </Button>
                 <Button
-                    v-if="!props.event.is_finalized"
+                    v-if="!isLocked"
                     variant="outline"
                     @click="isEditDialogOpen = true"
                 >
@@ -211,10 +250,17 @@ const finalizeEvent = () => {
                     Edit
                 </Button>
                 <Button
-                    v-if="!props.event.is_finalized"
-                    variant="destructive"
-                    @click="finalizeEvent"
+                    v-if="
+                        !isLocked && props.ledger.cancel_blockers.length === 0
+                    "
+                    variant="outline"
+                    class="text-destructive hover:text-destructive"
+                    @click="cancelEvent"
                 >
+                    <Ban class="size-4" />
+                    Cancel event
+                </Button>
+                <Button v-if="!isLocked" @click="finalizeEvent">
                     <Lock class="size-4" />
                     Finalize
                 </Button>
@@ -249,6 +295,18 @@ const finalizeEvent = () => {
             </template>
         </div>
 
+        <div
+            v-if="actionErrors.length > 0"
+            class="flex gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-300"
+        >
+            <CircleAlert class="mt-0.5 size-4 shrink-0" />
+            <div>
+                <p v-for="message in actionErrors" :key="message">
+                    {{ message }}
+                </p>
+            </div>
+        </div>
+
         <div class="relative overflow-hidden rounded-xl border bg-muted/50">
             <div class="aspect-21/6">
                 <img
@@ -264,10 +322,7 @@ const finalizeEvent = () => {
                     No cover image yet
                 </div>
             </div>
-            <div
-                v-if="!props.event.is_finalized"
-                class="absolute top-3 right-3"
-            >
+            <div v-if="!isLocked" class="absolute top-3 right-3">
                 <Button
                     size="sm"
                     variant="secondary"
@@ -353,6 +408,7 @@ const finalizeEvent = () => {
                             :ledger="props.ledger"
                             :income-categories="props.incomeCategories"
                             @finalize="finalizeEvent"
+                            @cancel="cancelEvent"
                         />
                     </TabsContent>
                 </CardContent>

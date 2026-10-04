@@ -3,6 +3,7 @@
 namespace App\Ledger\Postings;
 
 use App\Enums\EventExpenseCategory;
+use App\Enums\EventOrderStatus;
 use App\Ledger\Account;
 use App\Ledger\Ledger;
 use App\Ledger\Money;
@@ -333,6 +334,10 @@ class InvestmentPostings
             return ['Already closed.'];
         }
 
+        if ($investment->isCancelled()) {
+            return ['This investment was cancelled.'];
+        }
+
         if ($investment->isEvent()) {
             $event = $investment->event;
 
@@ -391,6 +396,53 @@ class InvestmentPostings
 
             $investment->update([
                 'status' => CycleInvestment::STATUS_CLOSED,
+                'closed_at' => now(),
+                'closed_by_user_id' => $by?->id,
+            ]);
+        });
+    }
+
+    /**
+     * Why this investment cannot be cancelled. Cancelling leaves no trace in
+     * the accounts, so it is allowed only before any money moved: no journal
+     * line at all (a reversed entry still counts) and no live order.
+     *
+     * @return list<string>
+     */
+    public function cancelBlockers(CycleInvestment $investment): array
+    {
+        if (! $investment->isActive()) {
+            return ['Only an open investment can be cancelled.'];
+        }
+
+        $blockers = [];
+
+        if ($investment->isEvent()
+            && $investment->event?->orders()->where('status', '!=', EventOrderStatus::Cancelled)->exists()) {
+            $blockers[] = 'This event has orders. Cancel every order first.';
+        }
+
+        if (JournalLine::query()->where('cycle_investment_id', $investment->id)->exists()) {
+            $blockers[] = 'Money has already moved for this investment. Finalize it instead.';
+        }
+
+        return $blockers;
+    }
+
+    public function cancel(CycleInvestment $investment, ?User $by = null): void
+    {
+        DB::transaction(function () use ($investment, $by): void {
+            $this->ledger->lock('investment:'.$investment->id);
+            $investment->refresh();
+
+            $blockers = $this->cancelBlockers($investment);
+
+            if ($blockers !== []) {
+                throw ValidationException::withMessages(['cancel' => $blockers]);
+            }
+
+            $investment->update([
+                'status' => CycleInvestment::STATUS_CANCELLED,
                 'closed_at' => now(),
                 'closed_by_user_id' => $by?->id,
             ]);

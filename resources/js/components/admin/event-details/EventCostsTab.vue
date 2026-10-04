@@ -9,6 +9,7 @@ import {
     Wallet,
 } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
+import { isEventLocked } from '@/components/admin/event-details/types';
 import type {
     EventDetails,
     EventExpense,
@@ -95,7 +96,7 @@ const deleteExpense = (expense: EventExpense) => {
                 against the event result, not the bank balance directly.
             </p>
             <Button
-                v-if="!props.event.is_finalized"
+                v-if="!isEventLocked(props.event)"
                 size="sm"
                 @click="openDialog()"
             >
@@ -226,7 +227,7 @@ const deleteExpense = (expense: EventExpense) => {
                                 </TableCell>
                                 <TableCell class="pr-4">
                                     <div
-                                        v-if="!props.event.is_finalized"
+                                        v-if="!isEventLocked(props.event)"
                                         class="flex justify-end gap-1"
                                     >
                                         <Button

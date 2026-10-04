@@ -223,3 +223,6 @@ export type EventDetails = {
 
 export const statusCount = (counts: StatusCounts, status: string): number =>
     counts[status] ?? 0;
+
+export const isEventLocked = (event: EventDetails): boolean =>
+    event.is_finalized || event.status === 'cancelled';

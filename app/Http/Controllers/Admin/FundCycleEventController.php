@@ -360,6 +360,18 @@ class FundCycleEventController extends Controller
         return to_route('admin.events.show', $fundCycleEvent);
     }
 
+    public function cancel(Request $request, FundCycleEvent $fundCycleEvent): RedirectResponse
+    {
+        $fundCycleEvent->ensureNotFinalized();
+
+        DB::transaction(function () use ($request, $fundCycleEvent): void {
+            $this->investmentPostings->cancel($fundCycleEvent->ensureInvestment(), $request->user());
+            $fundCycleEvent->update(['status' => FundCycleEventStatus::Cancelled]);
+        });
+
+        return to_route('admin.events.show', $fundCycleEvent);
+    }
+
     public function updateFromDetails(
         UpdateFundCycleEventRequest $request,
         FundCycleEvent $fundCycleEvent,

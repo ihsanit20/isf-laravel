@@ -183,7 +183,10 @@ const formatDateTime = (value: string): string => {
                         <TableCell class="pr-4">
                             <div class="flex justify-end gap-2">
                                 <Button
-                                    v-if="!event.is_finalized"
+                                    v-if="
+                                        !event.is_finalized &&
+                                        event.status !== 'cancelled'
+                                    "
                                     variant="outline"
                                     size="sm"
                                     @click="openEditDialog(event)"

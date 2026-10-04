@@ -115,7 +115,7 @@ class MyFundCycleController extends Controller
                 'cycle_expense' => Money::toTaka($cycleSummary['cycle_expense']),
                 'result' => Money::toTaka($cycleSummary['result']),
                 'is_settled' => $cycleSummary['is_settled'],
-                'open_investments' => collect($cycleSummary['investments'])->where('status', '!=', CycleInvestment::STATUS_CLOSED)->count(),
+                'open_investments' => collect($cycleSummary['investments'])->where('status', CycleInvestment::STATUS_ACTIVE)->count(),
                 'my_capital' => Money::toTaka((int) $myRows->sum('capital')),
                 'my_share' => Money::toTaka((int) $myRows->sum('share')),
                 'my_payout' => Money::toTaka((int) $myRows->sum('payout')),

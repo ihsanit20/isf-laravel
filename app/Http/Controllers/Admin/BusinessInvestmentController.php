@@ -187,4 +187,13 @@ class BusinessInvestmentController extends Controller
 
         return back();
     }
+
+    public function cancel(Request $request, CycleInvestment $cycleInvestment): RedirectResponse
+    {
+        abort_unless($cycleInvestment->type === CycleInvestment::TYPE_BUSINESS, 404);
+
+        $this->postings->cancel($cycleInvestment, $request->user());
+
+        return back();
+    }
 }

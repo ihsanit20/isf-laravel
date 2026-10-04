@@ -14,6 +14,7 @@ export type InvestmentLedger = {
     title: string;
     status: string;
     is_closed: boolean;
+    is_cancelled: boolean;
     closed_at: string | null;
     lines: {
         code: string;
@@ -29,6 +30,7 @@ export type InvestmentLedger = {
     invested_capital: number;
     cycle_cash: number;
     close_blockers: string[];
+    cancel_blockers: string[];
     charges: {
         id: number;
         type: string;
@@ -46,7 +48,11 @@ const props = defineProps<{
     closeLabel: string;
 }>();
 
-const emit = defineEmits<{ close: [] }>();
+const emit = defineEmits<{ close: []; cancel: [] }>();
+
+const isOpen = computed(
+    () => !props.ledger.is_closed && !props.ledger.is_cancelled,
+);
 
 const isChargeDialogOpen = ref(false);
 
@@ -82,7 +88,7 @@ const removeCharge = (chargeId: number) => {
                 :value="formatMoney(ledger.total_expense)"
             />
             <StatCard
-                :label="ledger.is_closed ? 'Final result' : 'Running result'"
+                :label="isOpen ? 'Running result' : 'Final result'"
                 :value="formatSignedMoney(ledger.result)"
                 :value-class="amountToneClass(ledger.result)"
             />
@@ -177,7 +183,7 @@ const removeCharge = (chargeId: number) => {
                     </p>
                 </div>
                 <Button
-                    v-if="!ledger.is_closed"
+                    v-if="isOpen"
                     size="sm"
                     variant="outline"
                     @click="isChargeDialogOpen = true"
@@ -199,7 +205,7 @@ const removeCharge = (chargeId: number) => {
                         </td>
                         <td class="w-10 px-2 py-2">
                             <Button
-                                v-if="!ledger.is_closed"
+                                v-if="isOpen"
                                 size="icon"
                                 variant="ghost"
                                 @click="removeCharge(charge.id)"
@@ -218,7 +224,7 @@ const removeCharge = (chargeId: number) => {
         </div>
 
         <div
-            v-if="!ledger.is_closed"
+            v-if="isOpen"
             class="rounded-xl border p-4"
             :class="
                 ledger.close_blockers.length
@@ -255,9 +261,34 @@ const removeCharge = (chargeId: number) => {
                     {{ closeLabel }}
                 </Button>
             </div>
+
+            <div
+                class="mt-4 flex flex-col gap-3 border-t pt-4 text-sm md:flex-row md:items-center md:justify-between"
+            >
+                <div>
+                    <p class="font-medium">Or cancel</p>
+                    <p class="text-muted-foreground">
+                        {{
+                            ledger.cancel_blockers.length === 0
+                                ? 'Nothing has happened yet. Cancelling leaves no trace in the accounts and locks it for good.'
+                                : ledger.cancel_blockers.join(' ')
+                        }}
+                    </p>
+                </div>
+                <Button
+                    variant="outline"
+                    class="text-destructive hover:text-destructive"
+                    :disabled="ledger.cancel_blockers.length > 0"
+                    @click="emit('cancel')"
+                >
+                    Cancel
+                </Button>
+            </div>
         </div>
         <p v-else class="text-sm text-muted-foreground">
-            <StatusBadge status="closed" />
+            <StatusBadge
+                :status="ledger.is_cancelled ? 'cancelled' : 'closed'"
+            />
             <span class="ml-2">{{ ledger.closed_at }}</span>
         </p>
 

@@ -30,6 +30,8 @@ class CycleInvestment extends Model
 
     public const STATUS_CLOSED = 'closed';
 
+    public const STATUS_CANCELLED = 'cancelled';
+
     protected function casts(): array
     {
         return [
@@ -73,6 +75,16 @@ class CycleInvestment extends Model
         return $this->status === self::STATUS_CLOSED;
     }
 
+    public function isActive(): bool
+    {
+        return $this->status === self::STATUS_ACTIVE;
+    }
+
+    public function isCancelled(): bool
+    {
+        return $this->status === self::STATUS_CANCELLED;
+    }
+
     public function isEvent(): bool
     {
         return $this->type === self::TYPE_EVENT;
@@ -80,7 +92,7 @@ class CycleInvestment extends Model
 
     public function ensureActive(): void
     {
-        abort_if($this->isClosed(), 403, 'This investment has been closed and is locked for changes.');
+        abort_unless($this->isActive(), 403, 'This investment has been closed or cancelled and is locked for changes.');
     }
 
     /**

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Head, Link, router } from '@inertiajs/vue3';
 import { Plus, SquarePen, Trash2 } from 'lucide-vue-next';
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import InvestmentLedgerPanel from '@/components/admin/InvestmentLedgerPanel.vue';
 import type { InvestmentLedger } from '@/components/admin/InvestmentLedgerPanel.vue';
 import LedgerEntryDialog from '@/components/admin/LedgerEntryDialog.vue';
@@ -80,6 +80,24 @@ const removeTransaction = (transaction: BusinessTransactionItem) => {
     );
 };
 
+const isOpen = computed(
+    () => !props.ledger.is_closed && !props.ledger.is_cancelled,
+);
+
+const cancelInvestment = () => {
+    if (
+        !confirm(
+            'Cancel this business investment? Nothing is posted and it is locked for good.',
+        )
+    ) {
+        return;
+    }
+
+    router.patch(`/admin/businesses/${props.investment.id}/cancel`, undefined, {
+        preserveScroll: true,
+    });
+};
+
 const closeInvestment = () => {
     if (
         !confirm(
@@ -102,7 +120,7 @@ const closeInvestment = () => {
         <PageHeader :title="props.investment.title">
             <template #actions>
                 <Button
-                    v-if="!props.ledger.is_closed"
+                    v-if="isOpen"
                     variant="outline"
                     @click="isEditDialogOpen = true"
                 >
@@ -147,7 +165,7 @@ const closeInvestment = () => {
                         </CardDescription>
                     </div>
                     <Button
-                        v-if="!props.ledger.is_closed"
+                        v-if="isOpen"
                         size="sm"
                         @click="isTransactionDialogOpen = true"
                     >
@@ -191,7 +209,7 @@ const closeInvestment = () => {
                             </TableCell>
                             <TableCell class="pr-6">
                                 <Button
-                                    v-if="!props.ledger.is_closed"
+                                    v-if="isOpen"
                                     size="icon"
                                     variant="ghost"
                                     @click="removeTransaction(transaction)"
@@ -217,6 +235,7 @@ const closeInvestment = () => {
                     :ledger="props.ledger"
                     close-label="Close investment"
                     @close="closeInvestment"
+                    @cancel="cancelInvestment"
                 />
             </CardContent>
         </Card>

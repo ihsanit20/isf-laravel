@@ -99,6 +99,7 @@ class CyclePostings
 
         $investments = CycleInvestment::query()
             ->where('fund_cycle_id', $cycle->id)
+            ->where('status', '!=', CycleInvestment::STATUS_CANCELLED)
             ->orderBy('id')
             ->get()
             ->map(fn (CycleInvestment $investment): array => [
@@ -130,7 +131,7 @@ class CyclePostings
 
         foreach ($investments as $investment) {
             if ($investment['status'] !== CycleInvestment::STATUS_CLOSED) {
-                $blockers[] = "\"{$investment['title']}\" is not closed yet.";
+                $blockers[] = "\"{$investment['title']}\" is not finalized or cancelled yet.";
             }
         }
 

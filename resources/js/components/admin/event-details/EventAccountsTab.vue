@@ -2,6 +2,7 @@
 import { router } from '@inertiajs/vue3';
 import { Pencil, Plus, Trash2 } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
+import { isEventLocked } from '@/components/admin/event-details/types';
 import type {
     EventDetails,
     EventIncome,
@@ -28,7 +29,7 @@ const props = defineProps<{
     incomeCategories: Option[];
 }>();
 
-const emit = defineEmits<{ finalize: [] }>();
+const emit = defineEmits<{ finalize: []; cancel: [] }>();
 
 const isDialogOpen = ref(false);
 const editingIncome = ref<EventIncome | null>(null);
@@ -83,7 +84,7 @@ const deleteIncome = (income: EventIncome) => {
                     </p>
                 </div>
                 <Button
-                    v-if="!props.event.is_finalized"
+                    v-if="!isEventLocked(props.event)"
                     size="sm"
                     variant="outline"
                     @click="openDialog()"
@@ -127,7 +128,7 @@ const deleteIncome = (income: EventIncome) => {
                             </TableCell>
                             <TableCell class="pr-4">
                                 <div
-                                    v-if="!props.event.is_finalized"
+                                    v-if="!isEventLocked(props.event)"
                                     class="flex justify-end gap-1"
                                 >
                                     <Button
@@ -164,6 +165,7 @@ const deleteIncome = (income: EventIncome) => {
             :ledger="props.ledger"
             close-label="Finalize event"
             @close="emit('finalize')"
+            @cancel="emit('cancel')"
         />
 
         <LedgerEntryDialog

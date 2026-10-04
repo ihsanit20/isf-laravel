@@ -134,5 +134,6 @@ class FundCycleEvent extends Model
     public function ensureNotFinalized(): void
     {
         abort_if($this->is_finalized, 403, 'This event has been finalized and is locked for changes.');
+        abort_if($this->status === FundCycleEventStatus::Cancelled, 403, 'This event has been cancelled and is locked for changes.');
     }
 }

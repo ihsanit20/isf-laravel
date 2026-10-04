@@ -2,7 +2,10 @@
 import { Link, router } from '@inertiajs/vue3';
 import { MapPin, Pencil, Plus, Printer, Trash2 } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
-import { statusCount } from '@/components/admin/event-details/types';
+import {
+    isEventLocked,
+    statusCount,
+} from '@/components/admin/event-details/types';
 import type {
     EventDetails,
     EventPickupPoint,
@@ -68,7 +71,7 @@ const deletePoint = (point: EventPickupPoint) => {
             <div class="flex items-center justify-between gap-2">
                 <h3 class="font-semibold">Pickup points</h3>
                 <Button
-                    v-if="!props.event.is_finalized"
+                    v-if="!isEventLocked(props.event)"
                     size="sm"
                     @click="openDialog()"
                 >
@@ -122,7 +125,7 @@ const deletePoint = (point: EventPickupPoint) => {
                             </TableCell>
                             <TableCell class="pr-4">
                                 <div
-                                    v-if="!props.event.is_finalized"
+                                    v-if="!isEventLocked(props.event)"
                                     class="flex justify-end gap-1"
                                 >
                                     <Button

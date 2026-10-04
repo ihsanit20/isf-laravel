@@ -31,7 +31,26 @@ enum FundCycleEventStatus: string
                 'value' => $status->value,
                 'label' => $status->label(),
             ],
-            self::cases(),
+            self::editable(),
         );
+    }
+
+    /**
+     * Statuses an admin can pick in the event form. Cancelling is its own
+     * action because it needs checks and locks the event.
+     *
+     * @return list<self>
+     */
+    public static function editable(): array
+    {
+        return [self::Draft, self::Published];
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function editableValues(): array
+    {
+        return array_column(self::editable(), 'value');
     }
 }

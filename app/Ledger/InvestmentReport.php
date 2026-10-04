@@ -45,6 +45,7 @@ class InvestmentReport
             'title' => $investment->title,
             'status' => $investment->status,
             'is_closed' => $investment->isClosed(),
+            'is_cancelled' => $investment->isCancelled(),
             'closed_at' => $investment->closed_at?->format('d M Y, h:i A'),
             'lines' => $lines->all(),
             'total_income' => $totalIncome,
@@ -54,7 +55,8 @@ class InvestmentReport
             'bkash' => Money::toTaka($this->postings->bkash($investment)),
             'invested_capital' => Money::toTaka($this->postings->outstandingCapital($investment)),
             'cycle_cash' => Money::toTaka($this->postings->cycleCash((int) $investment->fund_cycle_id)),
-            'close_blockers' => $investment->isClosed() ? [] : $this->postings->closeBlockers($investment),
+            'close_blockers' => $investment->isActive() ? $this->postings->closeBlockers($investment) : [],
+            'cancel_blockers' => $investment->isActive() ? $this->postings->cancelBlockers($investment) : [],
             'charges' => $investment->charges()
                 ->with('createdBy:id,name')
                 ->orderByDesc('charged_at')
