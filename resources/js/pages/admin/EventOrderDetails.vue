@@ -5,7 +5,9 @@ import { ref } from 'vue';
 import EventOrderRecordPaymentDialog from '@/components/admin/EventOrderRecordPaymentDialog.vue';
 import EventOrderStatusUpdateDialog from '@/components/admin/EventOrderStatusUpdateDialog.vue';
 import LedgerEntryDialog from '@/components/admin/LedgerEntryDialog.vue';
-import { Badge } from '@/components/ui/badge';
+import PageHeader from '@/components/shared/PageHeader.vue';
+import StatCard from '@/components/shared/StatCard.vue';
+import StatusBadge from '@/components/shared/StatusBadge.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
@@ -159,128 +161,90 @@ const submitReject = (paymentId: number) => {
 <template>
     <Head :title="`${props.order.order_number} - Order Details`" />
 
-    <div class="flex h-full flex-1 flex-col gap-4 rounded-xl p-4">
-        <section
-            class="rounded-xl border border-sidebar-border/70 bg-background p-6 shadow-sm dark:border-sidebar-border"
+    <div class="flex flex-1 flex-col gap-6 p-4 md:p-6">
+        <PageHeader
+            :title="props.order.order_number"
+            :description="`Event: ${props.event.title}`"
         >
-            <div class="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                    <h1 class="text-2xl font-semibold tracking-tight">
-                        {{ props.order.order_number }}
-                    </h1>
-                    <p class="mt-2 text-sm text-muted-foreground">
-                        Event: {{ props.event.title }}
-                    </p>
-                </div>
-                <div class="flex flex-wrap items-center gap-2">
-                    <Button
-                        v-if="props.order.can_update_status"
-                        variant="outline"
-                        size="sm"
-                        @click="isStatusDialogOpen = true"
+            <template #actions>
+                <Button
+                    v-if="props.order.can_update_status"
+                    variant="outline"
+                    @click="isStatusDialogOpen = true"
+                >
+                    <RefreshCw class="size-4" />
+                    Update status
+                </Button>
+                <Button
+                    v-if="props.order.can_record_payment"
+                    variant="outline"
+                    @click="isPaymentDialogOpen = true"
+                >
+                    <Banknote class="size-4" />
+                    Record payment
+                </Button>
+                <Button
+                    v-if="
+                        props.order.can_refund &&
+                        props.order.refundable_amount > 0
+                    "
+                    variant="outline"
+                    @click="isRefundDialogOpen = true"
+                >
+                    <Banknote class="size-4" />
+                    Refund
+                </Button>
+                <Button variant="outline" as-child>
+                    <a
+                        :href="customerReceiptPrintUrl"
+                        target="_blank"
+                        rel="noopener noreferrer"
                     >
-                        <RefreshCw class="size-4" />
-                        Update status
-                    </Button>
-                    <Button
-                        v-if="props.order.can_record_payment"
-                        variant="outline"
-                        size="sm"
-                        @click="isPaymentDialogOpen = true"
-                    >
-                        <Banknote class="size-4" />
-                        Record payment
-                    </Button>
-                    <Button
-                        v-if="
-                            props.order.can_refund &&
-                            props.order.refundable_amount > 0
-                        "
-                        variant="outline"
-                        size="sm"
-                        @click="isRefundDialogOpen = true"
-                    >
-                        <Banknote class="size-4" />
-                        Refund
-                    </Button>
-                    <Button variant="outline" size="sm" as-child>
-                        <a
-                            :href="customerReceiptPrintUrl"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                        >
-                            <Printer class="size-4" />
-                            কাস্টমার কপি
-                        </a>
-                    </Button>
-                    <Button variant="outline" size="sm" as-child>
-                        <Link :href="`/admin/events/${props.event.id}/orders`">
-                            <ArrowLeft class="size-4" />
-                            Back to Order List
-                        </Link>
-                    </Button>
-                </div>
-            </div>
-        </section>
+                        <Printer class="size-4" />
+                        কাস্টমার কপি
+                    </a>
+                </Button>
+                <Button variant="outline" as-child>
+                    <Link :href="`/admin/events/${props.event.id}/orders`">
+                        <ArrowLeft class="size-4" />
+                        Orders
+                    </Link>
+                </Button>
+            </template>
+        </PageHeader>
 
-        <section class="grid gap-4 md:grid-cols-4">
-            <div
-                class="rounded-xl border border-emerald-300/60 bg-emerald-50 p-5 dark:bg-emerald-950/20"
-            >
-                <p class="text-xs font-semibold text-emerald-700 uppercase">
-                    Total
-                </p>
-                <p class="mt-2 text-2xl font-bold text-emerald-800">
-                    {{ props.order.total_amount }}
-                </p>
-            </div>
-            <div
-                class="rounded-xl border border-blue-300/60 bg-blue-50 p-5 dark:bg-blue-950/20"
-            >
-                <p class="text-xs font-semibold text-blue-700 uppercase">
-                    {{
-                        props.order.is_full_payment
-                            ? 'Full payment'
-                            : 'Advance required'
-                    }}
-                </p>
-                <p class="mt-2 text-2xl font-bold text-blue-800">
-                    {{ props.order.advance_amount }}
-                </p>
-            </div>
-            <div
-                class="rounded-xl border border-indigo-300/60 bg-indigo-50 p-5 dark:bg-indigo-950/20"
-            >
-                <p class="text-xs font-semibold text-indigo-700 uppercase">
-                    Verified paid
-                </p>
-                <p class="mt-2 text-2xl font-bold text-indigo-800">
-                    {{ props.order.verified_paid_amount }}
-                </p>
-            </div>
-            <div
-                class="rounded-xl border border-amber-300/60 bg-amber-50 p-5 dark:bg-amber-950/20"
-            >
-                <p class="text-xs font-semibold text-amber-700 uppercase">
-                    Due
-                </p>
-                <p class="mt-2 text-2xl font-bold text-amber-800">
-                    {{ props.order.due_amount }}
-                </p>
-            </div>
+        <section class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <StatCard label="Total" :value="props.order.total_amount" />
+            <StatCard
+                :label="
+                    props.order.is_full_payment
+                        ? 'Full payment'
+                        : 'Advance required'
+                "
+                :value="props.order.advance_amount"
+            />
+            <StatCard
+                label="Verified paid"
+                :value="props.order.verified_paid_amount"
+                value-class="text-emerald-600 dark:text-emerald-400"
+            />
+            <StatCard
+                label="Due"
+                :value="props.order.due_amount"
+                value-class="text-amber-600 dark:text-amber-400"
+            />
         </section>
 
         <section class="grid gap-4 md:grid-cols-2">
-            <div
-                class="rounded-xl border border-sidebar-border/70 bg-background p-5"
-            >
+            <div class="rounded-xl border bg-card p-5 shadow-xs">
                 <h2 class="text-base font-semibold">Order Info</h2>
                 <div class="mt-3 space-y-2 text-sm">
                     <div class="flex justify-between gap-3">
                         <span class="text-muted-foreground">Status</span>
-                        <Badge variant="outline">{{
-                            props.order.status_label
-                        }}</Badge>
+                        <StatusBadge
+                            :status="props.order.status"
+                            :label="props.order.status_label"
+                        />
                     </div>
                     <div class="flex justify-between gap-3">
                         <span class="text-muted-foreground">Customer</span>
@@ -301,9 +265,7 @@ const submitReject = (paymentId: number) => {
                 </div>
             </div>
 
-            <div
-                class="rounded-xl border border-sidebar-border/70 bg-background p-5"
-            >
+            <div class="rounded-xl border bg-card p-5 shadow-xs">
                 <h2 class="text-base font-semibold">Pickup Point</h2>
                 <div class="mt-3 space-y-2 text-sm">
                     <template v-if="props.order.pickup_point">
@@ -331,17 +293,13 @@ const submitReject = (paymentId: number) => {
             </div>
         </section>
 
-        <section
-            class="overflow-hidden rounded-xl border border-sidebar-border/70 bg-background shadow-sm"
-        >
-            <div class="border-b border-sidebar-border/70 px-4 py-3">
+        <section class="overflow-hidden rounded-xl border bg-card shadow-xs">
+            <div class="border-b px-4 py-3">
                 <h2 class="text-base font-semibold">Order Items</h2>
             </div>
             <div class="overflow-x-auto">
-                <table
-                    class="min-w-full divide-y divide-sidebar-border/70 text-sm"
-                >
-                    <thead class="bg-muted/40 text-left">
+                <table class="min-w-full divide-y divide-border text-sm">
+                    <thead class="bg-muted/50 text-left">
                         <tr>
                             <th class="px-4 py-3 font-medium">Package</th>
                             <th class="px-4 py-3 font-medium">Quantity</th>
@@ -349,7 +307,7 @@ const submitReject = (paymentId: number) => {
                             <th class="px-4 py-3 font-medium">Line Total</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-sidebar-border/70">
+                    <tbody class="divide-y divide-border">
                         <tr v-for="item in props.order.items" :key="item.id">
                             <td class="px-4 py-3">{{ item.package_name }}</td>
                             <td class="px-4 py-3">{{ item.quantity_label }}</td>
@@ -362,27 +320,25 @@ const submitReject = (paymentId: number) => {
         </section>
 
         <section class="grid gap-4 md:grid-cols-2">
-            <div
-                class="rounded-xl border border-sidebar-border/70 bg-background"
-            >
-                <div class="border-b border-sidebar-border/70 px-4 py-3">
+            <div class="rounded-xl border bg-card shadow-xs">
+                <div class="border-b px-4 py-3">
                     <h2 class="text-base font-semibold">Payments</h2>
                 </div>
                 <div class="space-y-3 p-4">
                     <div
                         v-for="payment in props.order.payments"
                         :key="payment.id"
-                        class="rounded-md border border-sidebar-border/70 p-3 text-sm"
+                        class="rounded-md border p-3 text-sm"
                     >
                         <div class="flex justify-between gap-3 font-medium">
-                            <span>{{ payment.payment_type_label }}</span>
+                            <span class="flex items-center gap-2">
+                                {{ payment.payment_type_label }}
+                                <StatusBadge :status="payment.payment_status" />
+                            </span>
                             <span>{{ payment.amount }}</span>
                         </div>
                         <div class="mt-2 space-y-1 text-muted-foreground">
-                            <div>
-                                {{ payment.payment_method || '-' }} ·
-                                {{ payment.payment_status }}
-                            </div>
+                            <div>{{ payment.payment_method || '—' }}</div>
                             <div v-if="payment.transaction_reference">
                                 Ref: {{ payment.transaction_reference }}
                             </div>
@@ -437,17 +393,15 @@ const submitReject = (paymentId: number) => {
                 </div>
             </div>
 
-            <div
-                class="rounded-xl border border-sidebar-border/70 bg-background"
-            >
-                <div class="border-b border-sidebar-border/70 px-4 py-3">
+            <div class="rounded-xl border bg-card shadow-xs">
+                <div class="border-b px-4 py-3">
                     <h2 class="text-base font-semibold">Status History</h2>
                 </div>
                 <div class="space-y-3 p-4">
                     <div
                         v-for="history in props.order.status_histories"
                         :key="history.id"
-                        class="rounded-md border border-sidebar-border/70 p-3 text-sm"
+                        class="rounded-md border p-3 text-sm"
                     >
                         <div class="font-medium">{{ history.status }}</div>
                         <div class="mt-1 text-muted-foreground">
@@ -473,16 +427,16 @@ const submitReject = (paymentId: number) => {
         />
         <section
             v-if="props.order.refunds.length > 0"
-            class="rounded-xl border border-sidebar-border/70 bg-background"
+            class="rounded-xl border bg-card shadow-xs"
         >
-            <div class="border-b border-sidebar-border/70 px-4 py-3">
+            <div class="border-b px-4 py-3">
                 <h2 class="text-base font-semibold">Refunds</h2>
             </div>
             <div class="space-y-2 p-4 text-sm">
                 <div
                     v-for="refund in props.order.refunds"
                     :key="refund.id"
-                    class="flex flex-wrap justify-between gap-2 rounded-md border border-sidebar-border/70 p-3"
+                    class="flex flex-wrap justify-between gap-2 rounded-md border p-3"
                 >
                     <span>
                         {{ refund.refunded_at }} · {{ refund.method }}

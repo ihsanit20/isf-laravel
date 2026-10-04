@@ -2,7 +2,9 @@
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import { ArrowLeft } from 'lucide-vue-next';
 import InputError from '@/components/InputError.vue';
+import PageHeader from '@/components/shared/PageHeader.vue';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -23,11 +25,11 @@ defineOptions({
     layout: {
         breadcrumbs: [
             {
-                title: 'My Membership',
+                title: 'Members',
                 href: '/my-membership',
             },
             {
-                title: 'Membership Form',
+                title: 'Add Member',
                 href: '/my-membership/create',
             },
         ],
@@ -51,6 +53,24 @@ const form = useForm<{
 const relationshipLabel = (value: RelationshipOption): string =>
     value.replace('_', ' ').replace(/\b\w/g, (char) => char.toUpperCase());
 
+const steps = [
+    {
+        title: 'Admin reviews',
+        description:
+            'An admin approves the application and adds the registration fee.',
+    },
+    {
+        title: 'Pay the registration fee',
+        description:
+            'Pay it from your balance on the Members page. This activates the member.',
+    },
+    {
+        title: 'Invest',
+        description:
+            'An active member can invest in open fund cycles from the Investments page.',
+    },
+];
+
 const submit = () => {
     form.post('/my-membership', {
         preserveScroll: true,
@@ -60,153 +80,133 @@ const submit = () => {
 </script>
 
 <template>
-    <Head title="Membership Form" />
+    <Head title="Add Member" />
 
-    <div class="flex h-full flex-1 flex-col gap-4 rounded-xl p-4">
-        <section
-            class="rounded-[28px] border border-sidebar-border/70 bg-linear-to-br from-background via-background to-emerald-50 p-6 shadow-sm"
+    <div class="flex flex-1 flex-col gap-6 p-4 md:p-6">
+        <PageHeader
+            title="Add member"
+            description="Apply for a membership for yourself or a family member. Each member invests in fund cycles separately."
         >
-            <div
-                class="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between"
-            >
-                <div class="max-w-2xl">
-                    <h1 class="text-3xl font-semibold tracking-tight">
-                        Membership Form
-                    </h1>
-                    <p class="mt-3 text-sm leading-6 text-muted-foreground">
-                        Submit the required membership details for yourself or a
-                        family member. Registration fee settlement will be
-                        handled separately from the membership record.
-                    </p>
-                </div>
-
+            <template #actions>
                 <Button as-child variant="outline">
                     <Link href="/my-membership">
                         <ArrowLeft class="size-4" />
-                        Back to My Membership
+                        Members
                     </Link>
                 </Button>
-            </div>
-        </section>
+            </template>
+        </PageHeader>
 
-        <section
-            class="overflow-hidden rounded-[28px] border border-sidebar-border/70 bg-background shadow-sm"
-        >
-            <div class="grid gap-0 lg:grid-cols-[1.15fr_0.85fr]">
-                <form class="p-6 md:p-8" @submit.prevent="submit">
-                    <div class="grid gap-5">
-                        <div class="grid gap-2">
-                            <Label for="member-full-name">Full name</Label>
-                            <Input
-                                id="member-full-name"
-                                v-model="form.full_name"
-                                placeholder="Member full name"
-                            />
-                            <InputError :message="form.errors.full_name" />
-                        </div>
+        <div class="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
+            <Card>
+                <CardContent>
+                    <form @submit.prevent="submit">
+                        <div class="grid gap-5">
+                            <div class="grid gap-2">
+                                <Label for="member-full-name">Full name</Label>
+                                <Input
+                                    id="member-full-name"
+                                    v-model="form.full_name"
+                                    placeholder="Member full name"
+                                />
+                                <InputError :message="form.errors.full_name" />
+                            </div>
 
-                        <div class="grid gap-2">
-                            <Label for="member-phone">Phone</Label>
-                            <Input
-                                id="member-phone"
-                                v-model="form.phone"
-                                type="tel"
-                                placeholder="01XXXXXXXXX"
-                            />
-                            <InputError :message="form.errors.phone" />
-                        </div>
+                            <div class="grid gap-2">
+                                <Label for="member-phone">Phone</Label>
+                                <Input
+                                    id="member-phone"
+                                    v-model="form.phone"
+                                    type="tel"
+                                    placeholder="01XXXXXXXXX"
+                                />
+                                <InputError :message="form.errors.phone" />
+                            </div>
 
-                        <div class="grid gap-2">
-                            <Label for="member-relationship"
-                                >Relationship</Label
-                            >
-                            <Select v-model="form.relationship_to_user">
-                                <SelectTrigger
-                                    id="member-relationship"
-                                    class="w-full"
+                            <div class="grid gap-2">
+                                <Label for="member-relationship"
+                                    >Relationship</Label
                                 >
-                                    <SelectValue
-                                        placeholder="Select relationship"
-                                    />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem
-                                        v-for="relationship in props.relationshipOptions"
-                                        :key="relationship"
-                                        :value="relationship"
+                                <Select v-model="form.relationship_to_user">
+                                    <SelectTrigger
+                                        id="member-relationship"
+                                        class="w-full"
                                     >
-                                        {{ relationshipLabel(relationship) }}
-                                    </SelectItem>
-                                </SelectContent>
-                            </Select>
-                            <InputError
-                                :message="form.errors.relationship_to_user"
-                            />
-                        </div>
+                                        <SelectValue
+                                            placeholder="Select relationship"
+                                        />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem
+                                            v-for="relationship in props.relationshipOptions"
+                                            :key="relationship"
+                                            :value="relationship"
+                                        >
+                                            {{
+                                                relationshipLabel(relationship)
+                                            }}
+                                        </SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                <InputError
+                                    :message="form.errors.relationship_to_user"
+                                />
+                            </div>
 
-                        <div class="grid gap-2">
-                            <Label for="member-units">Monthly Units</Label>
-                            <Input
-                                id="member-units"
-                                v-model.number="form.units"
-                                type="number"
-                                min="1"
-                            />
-                            <p class="text-xs text-muted-foreground">
-                                Monthly savings are calculated as units × 1000
-                                BDT.
-                            </p>
-                            <InputError :message="form.errors.units" />
-                        </div>
+                            <div class="grid gap-2">
+                                <Label for="member-units">Monthly Units</Label>
+                                <Input
+                                    id="member-units"
+                                    v-model.number="form.units"
+                                    type="number"
+                                    min="1"
+                                />
+                                <p class="text-xs text-muted-foreground">
+                                    Monthly savings are calculated as units ×
+                                    1000 BDT.
+                                </p>
+                                <InputError :message="form.errors.units" />
+                            </div>
 
-                        <div class="pt-2">
-                            <Button type="submit" :disabled="form.processing">
-                                Submit Membership Application
-                            </Button>
+                            <div class="pt-2">
+                                <Button
+                                    type="submit"
+                                    :disabled="form.processing"
+                                >
+                                    Submit application
+                                </Button>
+                            </div>
                         </div>
-                    </div>
-                </form>
+                    </form>
+                </CardContent>
+            </Card>
 
-                <div
-                    class="border-t border-sidebar-border/70 bg-muted/30 p-6 md:p-8 lg:border-t-0 lg:border-l"
-                >
-                    <p
-                        class="text-xs font-medium tracking-[0.2em] text-muted-foreground uppercase"
-                    >
-                        Review Process
-                    </p>
-                    <div class="mt-5 space-y-4 text-sm">
-                        <div
-                            class="rounded-2xl bg-background px-4 py-4 shadow-sm"
+            <Card class="h-fit gap-4 bg-muted/30">
+                <CardHeader>
+                    <CardTitle class="text-base">What happens next</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <ol class="grid gap-4 text-sm">
+                        <li
+                            v-for="(step, index) in steps"
+                            :key="step.title"
+                            class="flex gap-3"
                         >
-                            <p class="font-medium">1. Submission</p>
-                            <p class="mt-1 leading-6 text-muted-foreground">
-                                Membership details are submitted first for
-                                review.
-                            </p>
-                        </div>
-                        <div
-                            class="rounded-2xl bg-background px-4 py-4 shadow-sm"
-                        >
-                            <p class="font-medium">2. Review</p>
-                            <p class="mt-1 leading-6 text-muted-foreground">
-                                An administrator reviews the member details and
-                                updates the membership status.
-                            </p>
-                        </div>
-                        <div
-                            class="rounded-2xl bg-background px-4 py-4 shadow-sm"
-                        >
-                            <p class="font-medium">3. Status Update</p>
-                            <p class="mt-1 leading-6 text-muted-foreground">
-                                Once approved, the member becomes active and the
-                                latest decision appears on the My Membership
-                                page.
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </section>
+                            <span
+                                class="flex size-6 shrink-0 items-center justify-center rounded-full border bg-background text-xs font-medium"
+                            >
+                                {{ index + 1 }}
+                            </span>
+                            <div>
+                                <p class="font-medium">{{ step.title }}</p>
+                                <p class="text-muted-foreground">
+                                    {{ step.description }}
+                                </p>
+                            </div>
+                        </li>
+                    </ol>
+                </CardContent>
+            </Card>
+        </div>
     </div>
 </template>

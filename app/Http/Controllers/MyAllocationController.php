@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Enums\MemberStatus;
 use App\Ledger\Money;
+use App\Ledger\Postings\CyclePostings;
 use App\Ledger\Postings\MemberPostings;
 use App\Models\FundCycle;
 use App\Models\FundCycleAllocation;
@@ -17,7 +18,7 @@ use Inertia\Response;
 
 class MyAllocationController extends Controller
 {
-    public function index(Request $request): Response
+    public function index(Request $request, CyclePostings $cyclePostings): Response
     {
         /** @var User $user */
         $user = $request->user();
@@ -80,7 +81,46 @@ class MyAllocationController extends Controller
                 'available_to_allocate' => $remainingPool,
             ],
             'memberTabs' => $memberTabs,
+            'cycleResults' => $this->cycleResults($user, $cyclePostings),
+            'selectedMemberId' => $request->integer('member') ?: null,
         ]);
+    }
+
+    /**
+     * Capital, profit/loss share and returned amount for every member of this
+     * user in every cycle they joined. Unsettled cycles show the share the
+     * current result would give.
+     */
+    private function cycleResults(User $user, CyclePostings $cyclePostings): array
+    {
+        $cycleIds = app(MemberPostings::class)
+            ->allocatedCapitalBy('fund_cycle_id', ['user_id' => $user->id])
+            ->keys();
+
+        return FundCycle::query()
+            ->whereIn('id', $cycleIds)
+            ->latest('start_date')
+            ->latest('id')
+            ->get()
+            ->flatMap(function (FundCycle $fundCycle) use ($user, $cyclePostings): Collection {
+                $summary = $cyclePostings->summary($fundCycle);
+
+                return collect($summary['members'])
+                    ->where('user_id', $user->id)
+                    ->map(fn (array $row): array => [
+                        'member_id' => $row['member_id'],
+                        'cycle_id' => $fundCycle->id,
+                        'cycle_name' => $fundCycle->name,
+                        'cycle_status' => $fundCycle->status,
+                        'is_settled' => $summary['is_settled'],
+                        'settled_at' => $fundCycle->settled_at?->format('d M Y'),
+                        'capital' => Money::toTaka($row['capital']),
+                        'share' => Money::toTaka($row['share']),
+                        'returned' => $summary['is_settled'] ? Money::toTaka($row['payout']) : null,
+                    ]);
+            })
+            ->values()
+            ->all();
     }
 
     private function transformMemberTab(Member $member, Collection $allocations, Collection $openFundCycles): array

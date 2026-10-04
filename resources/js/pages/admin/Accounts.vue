@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
-import { Badge } from '@/components/ui/badge';
+import PageHeader from '@/components/shared/PageHeader.vue';
+import StatCard from '@/components/shared/StatCard.vue';
+import StatusBadge from '@/components/shared/StatusBadge.vue';
 import { Button } from '@/components/ui/button';
+import { amountToneClass, formatMoney, formatSignedMoney } from '@/lib/format';
 
 type Props = {
     treasury: Record<string, number>;
@@ -40,9 +43,6 @@ defineOptions({
 
 const props = defineProps<Props>();
 
-const money = (amount: number): string =>
-    `${amount.toLocaleString(undefined, { maximumFractionDigits: 2 })} BDT`;
-
 const position = [
     { key: 'bank_balance', label: 'Joint bank (journal)' },
     { key: 'bkash_balance', label: 'bKash wallet' },
@@ -61,35 +61,25 @@ const owners = [
 <template>
     <Head title="Accounts" />
 
-    <div class="flex h-full flex-1 flex-col gap-4 rounded-xl p-4">
-        <section
-            class="rounded-xl border border-sidebar-border/70 bg-background p-6 shadow-sm dark:border-sidebar-border"
+    <div class="flex flex-1 flex-col gap-6 p-4 md:p-6">
+        <PageHeader
+            title="Accounts"
+            description="Every figure here is read from the double-entry journal. Member money and platform money are kept apart."
         >
-            <div
-                class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between"
-            >
-                <div class="max-w-2xl">
-                    <h1 class="text-2xl font-semibold tracking-tight">
-                        Accounts
-                    </h1>
-                    <p class="mt-2 text-sm text-muted-foreground">
-                        Every figure here is read from the double-entry journal.
-                        Member money and platform money are kept apart.
-                    </p>
-                </div>
+            <template #actions>
                 <Button variant="outline" as-child>
                     <Link href="/admin/accounts/journal">Open journal</Link>
                 </Button>
-            </div>
+            </template>
+        </PageHeader>
 
-            <div class="mt-6 grid gap-4 md:grid-cols-2">
-                <div class="rounded-xl border border-sidebar-border/70">
-                    <p
-                        class="border-b border-sidebar-border/70 px-4 py-2 text-sm font-medium"
-                    >
+        <section>
+            <div class="grid gap-4 md:grid-cols-2">
+                <div class="rounded-xl border bg-card shadow-xs">
+                    <p class="border-b px-4 py-3 text-sm font-medium">
                         Where the money is
                     </p>
-                    <dl class="divide-y divide-sidebar-border/70 text-sm">
+                    <dl class="divide-y divide-border text-sm">
                         <div
                             v-for="row in position"
                             :key="row.key"
@@ -99,18 +89,16 @@ const owners = [
                                 {{ row.label }}
                             </dt>
                             <dd class="tabular-nums">
-                                {{ money(props.treasury[row.key] ?? 0) }}
+                                {{ formatMoney(props.treasury[row.key] ?? 0) }}
                             </dd>
                         </div>
                     </dl>
                 </div>
-                <div class="rounded-xl border border-sidebar-border/70">
-                    <p
-                        class="border-b border-sidebar-border/70 px-4 py-2 text-sm font-medium"
-                    >
+                <div class="rounded-xl border bg-card shadow-xs">
+                    <p class="border-b px-4 py-3 text-sm font-medium">
                         Whose money it is
                     </p>
-                    <dl class="divide-y divide-sidebar-border/70 text-sm">
+                    <dl class="divide-y divide-border text-sm">
                         <div
                             v-for="row in owners"
                             :key="row.key"
@@ -123,11 +111,11 @@ const owners = [
                                 class="tabular-nums"
                                 :class="
                                     (props.treasury[row.key] ?? 0) < 0
-                                        ? 'text-destructive'
+                                        ? 'text-rose-600 dark:text-rose-400'
                                         : ''
                                 "
                             >
-                                {{ money(props.treasury[row.key] ?? 0) }}
+                                {{ formatMoney(props.treasury[row.key] ?? 0) }}
                             </dd>
                         </div>
                     </dl>
@@ -135,42 +123,32 @@ const owners = [
             </div>
         </section>
 
-        <section
-            class="rounded-xl border border-sidebar-border/70 bg-background p-6 shadow-sm dark:border-sidebar-border"
-        >
+        <section class="rounded-xl border bg-card p-6 shadow-xs">
             <h2 class="text-lg font-semibold">Platform income &amp; expense</h2>
             <p class="text-sm text-muted-foreground">
                 Fees, platform charges and rent in; bank, SMS and office costs
                 out. Not related to member balances.
             </p>
             <div class="mt-4 grid gap-4 md:grid-cols-3">
-                <div class="rounded-xl border border-sidebar-border/70 p-4">
-                    <p class="text-xs text-muted-foreground">Income</p>
-                    <p class="mt-1 text-xl font-semibold tabular-nums">
-                        {{ money(props.platform.income) }}
-                    </p>
-                </div>
-                <div class="rounded-xl border border-sidebar-border/70 p-4">
-                    <p class="text-xs text-muted-foreground">Expense</p>
-                    <p class="mt-1 text-xl font-semibold tabular-nums">
-                        {{ money(props.platform.expense) }}
-                    </p>
-                </div>
-                <div class="rounded-xl border border-sidebar-border/70 p-4">
-                    <p class="text-xs text-muted-foreground">Platform fund</p>
-                    <p
-                        class="mt-1 text-xl font-semibold tabular-nums"
-                        :class="
-                            props.platform.fund < 0 ? 'text-destructive' : ''
-                        "
-                    >
-                        {{ money(props.platform.fund) }}
-                    </p>
-                </div>
+                <StatCard
+                    label="Income"
+                    :value="formatMoney(props.platform.income)"
+                />
+                <StatCard
+                    label="Expense"
+                    :value="formatMoney(props.platform.expense)"
+                />
+                <StatCard
+                    label="Platform fund"
+                    :value="formatMoney(props.platform.fund)"
+                    :value-class="
+                        props.platform.fund < 0
+                            ? 'text-rose-600 dark:text-rose-400'
+                            : ''
+                    "
+                />
             </div>
-            <dl
-                class="mt-4 divide-y divide-sidebar-border/70 rounded-xl border border-sidebar-border/70 text-sm"
-            >
+            <dl class="mt-4 divide-y divide-border rounded-xl border text-sm">
                 <div
                     v-for="line in props.platform.lines"
                     :key="line.code"
@@ -178,11 +156,13 @@ const owners = [
                 >
                     <dt class="text-muted-foreground">
                         {{ line.code }} · {{ line.name }}
-                        <Badge variant="outline" class="ml-2">{{
-                            line.type
-                        }}</Badge>
+                        <span
+                            class="ml-2 rounded-md bg-muted px-1.5 py-0.5 text-xs"
+                        >
+                            {{ line.type }}
+                        </span>
                     </dt>
-                    <dd class="tabular-nums">{{ money(line.amount) }}</dd>
+                    <dd class="tabular-nums">{{ formatMoney(line.amount) }}</dd>
                 </div>
                 <p
                     v-if="props.platform.lines.length === 0"
@@ -193,16 +173,12 @@ const owners = [
             </dl>
         </section>
 
-        <section
-            class="overflow-x-auto rounded-xl border border-sidebar-border/70 bg-background shadow-sm dark:border-sidebar-border"
-        >
+        <section class="overflow-x-auto rounded-xl border bg-card shadow-xs">
             <div class="px-6 pt-6">
                 <h2 class="text-lg font-semibold">Fund cycles</h2>
             </div>
-            <table
-                class="mt-4 min-w-full divide-y divide-sidebar-border/70 text-sm"
-            >
-                <thead class="bg-muted/40 text-left">
+            <table class="mt-4 min-w-full divide-y divide-border text-sm">
+                <thead class="bg-muted/50 text-left">
                     <tr>
                         <th class="px-4 py-3 font-medium">Cycle</th>
                         <th class="px-4 py-3 text-right font-medium">
@@ -217,54 +193,51 @@ const owners = [
                         <th class="px-4 py-3 text-right font-medium">Result</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-sidebar-border/70">
+                <tbody class="divide-y divide-border">
                     <tr v-for="cycle in props.cycles" :key="cycle.id">
                         <td class="px-4 py-3">
                             <Link
                                 :href="`/admin/fund-cycles/${cycle.id}`"
-                                class="text-primary underline underline-offset-4"
+                                class="font-medium hover:underline"
                             >
                                 {{ cycle.name }}
                             </Link>
-                            <Badge variant="outline" class="ml-2">
-                                {{
+                            <StatusBadge
+                                class="ml-2"
+                                :status="
                                     cycle.is_settled ? 'settled' : cycle.status
-                                }}
-                            </Badge>
+                                "
+                            />
                         </td>
                         <td class="px-4 py-3 text-right tabular-nums">
-                            {{ money(cycle.capital) }}
+                            {{ formatMoney(cycle.capital) }}
                         </td>
                         <td class="px-4 py-3 text-right tabular-nums">
-                            {{ money(cycle.cash) }}
+                            {{ formatMoney(cycle.cash) }}
                         </td>
                         <td class="px-4 py-3 text-right tabular-nums">
-                            {{ money(cycle.deployed) }}
+                            {{ formatMoney(cycle.deployed) }}
                         </td>
                         <td
                             class="px-4 py-3 text-right tabular-nums"
-                            :class="cycle.result < 0 ? 'text-destructive' : ''"
+                            :class="amountToneClass(cycle.result)"
                         >
-                            {{ money(cycle.result) }}
+                            {{ formatSignedMoney(cycle.result) }}
                         </td>
                     </tr>
                 </tbody>
             </table>
         </section>
 
-        <section
-            class="overflow-x-auto rounded-xl border border-sidebar-border/70 bg-background shadow-sm dark:border-sidebar-border"
-        >
+        <section class="overflow-x-auto rounded-xl border bg-card shadow-xs">
             <div class="px-6 pt-6">
                 <h2 class="text-lg font-semibold">Trial balance</h2>
                 <p class="text-sm text-muted-foreground">
                     Total debit must always equal total credit.
                 </p>
             </div>
-            <table
-                class="mt-4 min-w-full divide-y divide-sidebar-border/70 text-sm"
-            >
-                <thead class="bg-muted/40 text-left">
+            <table class="mt-4 min-w-full divide-y divide-border text-sm">
+                <thead class="bg-muted/50 text-left">
                     <tr>
                         <th class="px-4 py-3 font-medium">Account</th>
                         <th class="px-4 py-3 font-medium">Type</th>
@@ -272,7 +245,7 @@ const owners = [
                         <th class="px-4 py-3 text-right font-medium">Credit</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-sidebar-border/70">
+                <tbody class="divide-y divide-border">
                     <tr v-for="row in props.trialBalance" :key="row.code">
                         <td class="px-4 py-2">
                             <Link
@@ -287,19 +260,19 @@ const owners = [
                             }}<span v-if="row.scope"> · {{ row.scope }}</span>
                         </td>
                         <td class="px-4 py-2 text-right tabular-nums">
-                            {{ row.debit ? money(row.debit) : '' }}
+                            {{ row.debit ? formatMoney(row.debit) : '' }}
                         </td>
                         <td class="px-4 py-2 text-right tabular-nums">
-                            {{ row.credit ? money(row.credit) : '' }}
+                            {{ row.credit ? formatMoney(row.credit) : '' }}
                         </td>
                     </tr>
-                    <tr class="font-semibold">
+                    <tr class="bg-muted/50 font-semibold">
                         <td colspan="2" class="px-4 py-2">Total</td>
                         <td class="px-4 py-2 text-right tabular-nums">
-                            {{ money(props.trialTotals.debit) }}
+                            {{ formatMoney(props.trialTotals.debit) }}
                         </td>
                         <td class="px-4 py-2 text-right tabular-nums">
-                            {{ money(props.trialTotals.credit) }}
+                            {{ formatMoney(props.trialTotals.credit) }}
                         </td>
                     </tr>
                 </tbody>

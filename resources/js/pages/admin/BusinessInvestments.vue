@@ -3,8 +3,20 @@ import { Head, Link } from '@inertiajs/vue3';
 import { Plus } from 'lucide-vue-next';
 import { ref } from 'vue';
 import LedgerEntryDialog from '@/components/admin/LedgerEntryDialog.vue';
-import { Badge } from '@/components/ui/badge';
+import PageHeader from '@/components/shared/PageHeader.vue';
+import StatusBadge from '@/components/shared/StatusBadge.vue';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableEmpty,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
+import { amountToneClass, formatMoney, formatSignedMoney } from '@/lib/format';
 
 type BusinessInvestmentItem = {
     id: number;
@@ -32,113 +44,78 @@ defineOptions({
 
 const props = defineProps<Props>();
 const isCreateDialogOpen = ref(false);
-
-const money = (amount: number): string =>
-    `${amount.toLocaleString(undefined, { maximumFractionDigits: 2 })} BDT`;
 </script>
 
 <template>
     <Head title="Business Investments" />
 
-    <div class="flex h-full flex-1 flex-col gap-4 rounded-xl p-4">
-        <section
-            class="rounded-xl border border-sidebar-border/70 bg-background p-6 shadow-sm dark:border-sidebar-border"
+    <div class="flex flex-1 flex-col gap-6 p-4 md:p-6">
+        <PageHeader
+            title="Business investments"
+            description="Fund cycle capital placed with an outside business. Each one has its own income and expenses and closes into the cycle result."
         >
-            <div
-                class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between"
-            >
-                <div class="max-w-2xl">
-                    <h1 class="text-2xl font-semibold tracking-tight">
-                        Business Investments
-                    </h1>
-                    <p class="mt-2 text-sm text-muted-foreground">
-                        Fund cycle capital placed with an outside business. Each
-                        one is a sub-business with its own income and expense.
-                    </p>
-                </div>
-                <Button class="shrink-0" @click="isCreateDialogOpen = true">
+            <template #actions>
+                <Button @click="isCreateDialogOpen = true">
                     <Plus class="size-4" />
                     New investment
                 </Button>
-            </div>
-        </section>
+            </template>
+        </PageHeader>
 
-        <section
-            class="overflow-hidden rounded-xl border border-sidebar-border/70 bg-background shadow-sm dark:border-sidebar-border"
-        >
-            <div class="overflow-x-auto">
-                <table
-                    class="min-w-full divide-y divide-sidebar-border/70 text-sm"
-                >
-                    <thead class="bg-muted/40 text-left">
-                        <tr>
-                            <th class="px-4 py-3 font-medium">Title</th>
-                            <th class="px-4 py-3 font-medium">Fund cycle</th>
-                            <th class="px-4 py-3 font-medium">Status</th>
-                            <th class="px-4 py-3 text-right font-medium">
-                                Capital invested
-                            </th>
-                            <th class="px-4 py-3 text-right font-medium">
-                                Result
-                            </th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-sidebar-border/70">
-                        <tr
-                            v-for="investment in props.investments"
-                            :key="investment.id"
+        <Card class="py-0">
+            <Table>
+                <TableHeader>
+                    <TableRow>
+                        <TableHead class="pl-4">Business</TableHead>
+                        <TableHead>Fund cycle</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead class="text-right"
+                            >Capital invested</TableHead
                         >
-                            <td class="px-4 py-3">
-                                <Link
-                                    :href="`/admin/businesses/${investment.id}`"
-                                    class="font-medium text-primary underline underline-offset-4"
-                                >
-                                    {{ investment.title }}
-                                </Link>
-                                <p class="text-xs text-muted-foreground">
-                                    {{ investment.counterparty || '-' }}
-                                </p>
-                            </td>
-                            <td class="px-4 py-3 text-muted-foreground">
-                                {{ investment.fund_cycle.name }}
-                            </td>
-                            <td class="px-4 py-3">
-                                <Badge
-                                    :variant="
-                                        investment.status === 'closed'
-                                            ? 'secondary'
-                                            : 'default'
-                                    "
-                                >
-                                    {{ investment.status }}
-                                </Badge>
-                            </td>
-                            <td class="px-4 py-3 text-right tabular-nums">
-                                {{ money(investment.invested_capital) }}
-                            </td>
-                            <td
-                                class="px-4 py-3 text-right tabular-nums"
-                                :class="
-                                    investment.result < 0
-                                        ? 'text-destructive'
-                                        : ''
-                                "
+                        <TableHead class="pr-4 text-right">Result</TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    <TableRow
+                        v-for="investment in props.investments"
+                        :key="investment.id"
+                    >
+                        <TableCell class="pl-4">
+                            <Link
+                                :href="`/admin/businesses/${investment.id}`"
+                                class="font-medium hover:underline"
                             >
-                                {{ money(investment.result) }}
-                            </td>
-                        </tr>
-                        <tr v-if="props.investments.length === 0">
-                            <td
-                                colspan="5"
-                                class="px-4 py-8 text-center text-muted-foreground"
-                            >
-                                No business investments yet.
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </section>
+                                {{ investment.title }}
+                            </Link>
+                            <p class="text-xs text-muted-foreground">
+                                {{ investment.counterparty || '—' }}
+                            </p>
+                        </TableCell>
+                        <TableCell class="text-muted-foreground">
+                            {{ investment.fund_cycle.name }}
+                        </TableCell>
+                        <TableCell>
+                            <StatusBadge :status="investment.status" />
+                        </TableCell>
+                        <TableCell class="text-right tabular-nums">
+                            {{ formatMoney(investment.invested_capital) }}
+                        </TableCell>
+                        <TableCell
+                            class="pr-4 text-right font-medium tabular-nums"
+                            :class="amountToneClass(investment.result)"
+                        >
+                            {{ formatSignedMoney(investment.result) }}
+                        </TableCell>
+                    </TableRow>
+                    <TableEmpty
+                        v-if="props.investments.length === 0"
+                        :colspan="5"
+                    >
+                        No business investments yet.
+                    </TableEmpty>
+                </TableBody>
+            </Table>
+        </Card>
 
         <LedgerEntryDialog
             v-model:isOpen="isCreateDialogOpen"

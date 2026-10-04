@@ -1,9 +1,22 @@
 <script setup lang="ts">
 import { Head } from '@inertiajs/vue3';
-import { Plus, SquarePen } from 'lucide-vue-next';
+import { FileText, Plus, SquarePen } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 import GeneralIncomeFormDialog from '@/components/admin/GeneralIncomeFormDialog.vue';
+import PageHeader from '@/components/shared/PageHeader.vue';
+import StatCard from '@/components/shared/StatCard.vue';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableEmpty,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
+import { formatMoney } from '@/lib/format';
 
 type IncomeCategoryOption = {
     value: string;
@@ -47,7 +60,12 @@ const selectedIncome = ref<GeneralIncomeItem | null>(null);
 
 const editableIncome = computed(() => selectedIncome.value);
 
-const money = (amount: number): string => `${amount.toLocaleString()} BDT`;
+const total = computed(() =>
+    props.generalIncomes.reduce(
+        (sum, income) => sum + Number(income.amount),
+        0,
+    ),
+);
 
 const openEditDialog = (income: GeneralIncomeItem) => {
     selectedIncome.value = income;
@@ -58,105 +76,82 @@ const openEditDialog = (income: GeneralIncomeItem) => {
 <template>
     <Head title="General Incomes" />
 
-    <div class="flex h-full flex-1 flex-col gap-4 rounded-xl p-4">
-        <section
-            class="rounded-xl border border-sidebar-border/70 bg-background p-6 shadow-sm dark:border-sidebar-border"
+    <div class="flex flex-1 flex-col gap-6 p-4 md:p-6">
+        <PageHeader
+            title="General incomes"
+            description="Platform income such as donations, bank interest and sponsorships. Added to the platform fund."
         >
-            <div
-                class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between"
-            >
-                <div class="max-w-2xl">
-                    <h1 class="text-2xl font-semibold tracking-tight">
-                        General Incomes
-                    </h1>
-                    <p class="mt-2 text-sm text-muted-foreground">
-                        Keep independent records of general incomes like
-                        donations, membership fees, bank interest, and
-                        sponsorships.
-                    </p>
-                </div>
-
-                <Button class="shrink-0" @click="isCreateDialogOpen = true">
+            <template #actions>
+                <Button @click="isCreateDialogOpen = true">
                     <Plus class="size-4" />
-                    Add Income
+                    Add income
                 </Button>
-            </div>
-        </section>
+            </template>
+        </PageHeader>
 
-        <section
-            class="overflow-hidden rounded-xl border border-sidebar-border/70 bg-background shadow-sm dark:border-sidebar-border"
-        >
-            <div class="overflow-x-auto">
-                <table
-                    class="min-w-full divide-y divide-sidebar-border/70 text-sm"
-                >
-                    <thead class="bg-muted/40 text-left">
-                        <tr>
-                            <th class="px-4 py-3 font-medium">Date</th>
-                            <th class="px-4 py-3 font-medium">Category</th>
-                            <th class="px-4 py-3 font-medium">Amount</th>
-                            <th class="px-4 py-3 font-medium">Description</th>
-                            <th class="px-4 py-3 font-medium">Attachment</th>
-                            <th class="px-4 py-3 font-medium">Added By</th>
-                            <th class="px-4 py-3 font-medium">Action</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-sidebar-border/70">
-                        <tr
-                            v-for="income in generalIncomes"
-                            :key="income.id"
+        <StatCard
+            class="sm:max-w-xs"
+            label="Total"
+            :value="formatMoney(total)"
+            :hint="`${generalIncomes.length} records`"
+        />
+
+        <Card class="py-0">
+            <Table>
+                <TableHeader>
+                    <TableRow>
+                        <TableHead class="pl-4">Date</TableHead>
+                        <TableHead>Category</TableHead>
+                        <TableHead class="text-right">Amount</TableHead>
+                        <TableHead>Description</TableHead>
+                        <TableHead>Added by</TableHead>
+                        <TableHead class="pr-4 text-right" />
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    <TableRow v-for="income in generalIncomes" :key="income.id">
+                        <TableCell class="pl-4 font-medium">
+                            {{ income.income_date }}
+                        </TableCell>
+                        <TableCell>{{ income.category_label }}</TableCell>
+                        <TableCell class="text-right font-medium tabular-nums">
+                            {{ formatMoney(income.amount) }}
+                        </TableCell>
+                        <TableCell
+                            class="max-w-sm whitespace-normal text-muted-foreground"
                         >
-                            <td class="px-4 py-3 font-medium">
-                                {{ income.income_date }}
-                            </td>
-                            <td class="px-4 py-3 text-muted-foreground">
-                                {{ income.category_label }}
-                            </td>
-                            <td class="px-4 py-3 text-muted-foreground">
-                                {{ money(income.amount) }}
-                            </td>
-                            <td
-                                class="max-w-sm px-4 py-3 text-muted-foreground"
+                            {{ income.description || '—' }}
+                            <a
+                                v-if="income.receipt_url"
+                                :href="income.receipt_url"
+                                target="_blank"
+                                rel="noopener"
+                                class="mt-1 flex items-center gap-1 text-xs text-foreground underline underline-offset-4"
                             >
-                                {{ income.description || '-' }}
-                            </td>
-                            <td class="px-4 py-3 text-muted-foreground">
-                                <a
-                                    v-if="income.receipt_url"
-                                    :href="income.receipt_url"
-                                    target="_blank"
-                                    class="text-primary underline underline-offset-4"
-                                >
-                                    View Attachment
-                                </a>
-                                <span v-else>-</span>
-                            </td>
-                            <td class="px-4 py-3 text-muted-foreground">
-                                {{ income.created_by_name || '-' }}
-                            </td>
-                            <td class="px-4 py-3">
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    @click="openEditDialog(income)"
-                                >
-                                    <SquarePen class="size-4" />
-                                    Edit
-                                </Button>
-                            </td>
-                        </tr>
-                        <tr v-if="generalIncomes.length === 0">
-                            <td
-                                colspan="7"
-                                class="px-4 py-8 text-center text-muted-foreground"
+                                <FileText class="size-3" />
+                                Attachment
+                            </a>
+                        </TableCell>
+                        <TableCell class="text-muted-foreground">
+                            {{ income.created_by_name || '—' }}
+                        </TableCell>
+                        <TableCell class="pr-4 text-right">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                @click="openEditDialog(income)"
                             >
-                                No general incomes found.
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </section>
+                                <SquarePen class="size-4" />
+                                Edit
+                            </Button>
+                        </TableCell>
+                    </TableRow>
+                    <TableEmpty v-if="generalIncomes.length === 0" :colspan="6">
+                        No incomes recorded yet.
+                    </TableEmpty>
+                </TableBody>
+            </Table>
+        </Card>
 
         <GeneralIncomeFormDialog
             v-model:isOpen="isCreateDialogOpen"

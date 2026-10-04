@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Enums\DepositSubmissionStatus;
 use App\Enums\MemberStatus;
+use App\Ledger\Account;
 use App\Ledger\Ledger;
 use App\Ledger\Money;
 use App\Ledger\Postings\MemberPostings;
@@ -96,8 +97,40 @@ class DashboardController extends Controller
                 'unit_amount' => $nextOpenCycle->unit_amount,
                 'status_label' => FundCycle::statusLabel($nextOpenCycle->status),
             ] : null,
+            'balance' => [
+                'deposits' => Money::toTaka($balance['deposits']),
+                'fees' => Money::toTaka($balance['fees']),
+                'cycle_allocations' => Money::toTaka($balance['cycle_allocations']),
+                'cycle_returns' => Money::toTaka($balance['cycle_returns']),
+                'payouts' => Money::toTaka($balance['payouts']),
+                'available' => Money::toTaka($balance['available']),
+            ],
+            'members' => $this->buildPersonalMembers($user),
             'recent_activity' => $this->buildPersonalRecentActivity($user),
         ];
+    }
+
+    private function buildPersonalMembers(User $user): array
+    {
+        $capitalByMember = app(Ledger::class)
+            ->balancesBy('member_id', Account::CycleCapital, ['user_id' => $user->id])
+            ->map(fn (int $balance): int => -$balance);
+
+        return Member::query()
+            ->where('managed_by_user_id', $user->id)
+            ->latest('applied_at')
+            ->latest('id')
+            ->get(['id', 'full_name', 'status', 'units', 'activated_at'])
+            ->map(fn (Member $member): array => [
+                'id' => $member->id,
+                'full_name' => $member->full_name,
+                'status' => $member->status->value,
+                'is_active' => $member->isActive(),
+                'units' => $member->units,
+                'capital_in_cycles' => Money::toTaka($capitalByMember->get($member->id, 0)),
+            ])
+            ->values()
+            ->all();
     }
 
     private function buildAdminDashboard(): array

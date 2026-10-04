@@ -3,7 +3,19 @@ import { Head } from '@inertiajs/vue3';
 import { Plus, SquarePen } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 import UserFormDialog from '@/components/admin/UserFormDialog.vue';
+import PageHeader from '@/components/shared/PageHeader.vue';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableEmpty,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
+import { formatMoney, titleCase } from '@/lib/format';
 import type { UserRole } from '@/types';
 
 type AdminUser = {
@@ -27,11 +39,7 @@ defineOptions({
     layout: {
         breadcrumbs: [
             {
-                title: 'Settings',
-                href: '/admin/settings',
-            },
-            {
-                title: 'User List',
+                title: 'Users',
                 href: '/admin/users',
             },
         ],
@@ -58,11 +66,6 @@ const editableUser = computed(() => {
     };
 });
 
-const money = (amount: number): string => `${amount.toLocaleString()} BDT`;
-
-const roleLabel = (role: UserRole): string =>
-    role.replace('_', ' ').replace(/\b\w/g, (char) => char.toUpperCase());
-
 const openEditDialog = (user: AdminUser) => {
     if (!user.can_edit) {
         return;
@@ -74,120 +77,95 @@ const openEditDialog = (user: AdminUser) => {
 </script>
 
 <template>
-    <Head title="User List" />
+    <Head title="Users" />
 
-    <div class="flex h-full flex-1 flex-col gap-4 rounded-xl p-4">
-        <section
-            class="rounded-xl border border-sidebar-border/70 bg-background p-6 shadow-sm dark:border-sidebar-border"
+    <div class="flex flex-1 flex-col gap-6 p-4 md:p-6">
+        <PageHeader
+            title="Users"
+            description="Accounts, their roles and where each user’s money stands."
         >
-            <div
-                class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between"
-            >
-                <div>
-                    <h1 class="text-2xl font-semibold tracking-tight">
-                        User List
-                    </h1>
-                </div>
-
-                <Button class="shrink-0" @click="isCreateDialogOpen = true">
+            <template #actions>
+                <Button @click="isCreateDialogOpen = true">
                     <Plus class="size-4" />
-                    Add User
+                    Add user
                 </Button>
-            </div>
-        </section>
+            </template>
+        </PageHeader>
 
-        <section
-            class="overflow-hidden rounded-xl border border-sidebar-border/70 bg-background shadow-sm dark:border-sidebar-border"
-        >
-            <div class="overflow-x-auto">
-                <table
-                    class="min-w-full divide-y divide-sidebar-border/70 text-sm"
-                >
-                    <thead class="bg-muted/40 text-left">
-                        <tr>
-                            <th class="px-4 py-3 font-medium">Name</th>
-                            <th class="px-4 py-3 font-medium">Phone</th>
-                            <th class="px-4 py-3 text-center font-medium">
-                                Member Allocated / Verified Deposit
-                            </th>
-                            <th class="px-4 py-3 text-right font-medium">
-                                Available
-                            </th>
-                            <th class="px-4 py-3 font-medium">Role</th>
-                            <th class="px-4 py-3 font-medium">Action</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-sidebar-border/70">
-                        <tr v-for="user in users" :key="user.id">
-                            <td class="px-4 py-3 font-medium">
-                                {{ user.name }}
-                            </td>
-                            <td class="px-4 py-3 text-muted-foreground">
-                                {{ user.phone || 'Not set' }}
-                            </td>
-                            <td class="px-4 py-3 text-muted-foreground">
-                                <div
-                                    class="flex flex-wrap items-center justify-center gap-1"
-                                >
-                                    <div>
-                                        {{
-                                            money(
-                                                user.member_total_allocated_amount,
-                                            )
-                                        }}
-                                    </div>
-                                    <div class="font-bold">
-                                        {{
-                                            money(
-                                                user.total_verified_deposit_amount,
-                                            )
-                                        }}
-                                    </div>
-                                </div>
-                            </td>
-                            <td
-                                class="px-4 py-3 text-right tabular-nums"
-                                :class="
-                                    user.available_balance < 0
-                                        ? 'text-red-600 dark:text-red-400'
-                                        : ''
-                                "
+        <Card class="py-0">
+            <Table>
+                <TableHeader>
+                    <TableRow>
+                        <TableHead class="pl-4">Name</TableHead>
+                        <TableHead>Phone</TableHead>
+                        <TableHead class="text-right">
+                            Verified deposits
+                        </TableHead>
+                        <TableHead class="text-right">Invested</TableHead>
+                        <TableHead class="text-right">Available</TableHead>
+                        <TableHead>Role</TableHead>
+                        <TableHead class="pr-4 text-right" />
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    <TableRow v-for="user in users" :key="user.id">
+                        <TableCell class="pl-4">
+                            <p class="font-medium">{{ user.name }}</p>
+                            <p class="text-xs text-muted-foreground">
+                                {{ user.email }}
+                            </p>
+                        </TableCell>
+                        <TableCell class="text-muted-foreground">
+                            {{ user.phone || '—' }}
+                        </TableCell>
+                        <TableCell class="text-right tabular-nums">
+                            {{
+                                formatMoney(user.total_verified_deposit_amount)
+                            }}
+                        </TableCell>
+                        <TableCell class="text-right tabular-nums">
+                            {{
+                                formatMoney(user.member_total_allocated_amount)
+                            }}
+                        </TableCell>
+                        <TableCell
+                            class="text-right font-medium tabular-nums"
+                            :class="
+                                user.available_balance < 0
+                                    ? 'text-rose-600 dark:text-rose-400'
+                                    : ''
+                            "
+                        >
+                            {{ formatMoney(user.available_balance) }}
+                        </TableCell>
+                        <TableCell>
+                            <span
+                                class="rounded-md bg-muted px-2 py-0.5 text-xs font-medium"
                             >
-                                {{ money(user.available_balance) }}
-                            </td>
-                            <td class="px-4 py-3 capitalize">
-                                {{ roleLabel(user.role) }}
-                            </td>
-                            <td class="px-4 py-3">
-                                <Button
-                                    v-if="user.can_edit"
-                                    variant="outline"
-                                    size="sm"
-                                    @click="openEditDialog(user)"
-                                >
-                                    <SquarePen class="size-4" />
-                                    Edit
-                                </Button>
-                                <span
-                                    v-else
-                                    class="text-sm text-muted-foreground"
-                                >
-                                    Restricted
-                                </span>
-                            </td>
-                        </tr>
-                        <tr v-if="users.length === 0">
-                            <td
-                                colspan="6"
-                                class="px-4 py-8 text-center text-muted-foreground"
+                                {{ titleCase(user.role) }}
+                            </span>
+                        </TableCell>
+                        <TableCell class="pr-4 text-right">
+                            <Button
+                                v-if="user.can_edit"
+                                variant="outline"
+                                size="sm"
+                                @click="openEditDialog(user)"
                             >
-                                No users found.
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </section>
+                                <SquarePen class="size-4" />
+                                Edit
+                            </Button>
+                            <span v-else class="text-xs text-muted-foreground">
+                                Restricted
+                            </span>
+                        </TableCell>
+                    </TableRow>
+                    <TableEmpty v-if="users.length === 0" :colspan="7">
+                        No users found.
+                    </TableEmpty>
+                </TableBody>
+            </Table>
+        </Card>
 
         <UserFormDialog
             v-model:isOpen="isCreateDialogOpen"

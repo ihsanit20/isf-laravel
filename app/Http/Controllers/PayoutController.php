@@ -10,8 +10,6 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
-use Inertia\Inertia;
-use Inertia\Response;
 
 /**
  * A user withdraws money from their available balance.
@@ -19,25 +17,6 @@ use Inertia\Response;
 class PayoutController extends Controller
 {
     public function __construct(private readonly MemberPostings $memberPostings) {}
-
-    public function index(Request $request): Response
-    {
-        /** @var User $user */
-        $user = $request->user();
-
-        return Inertia::render('Payouts', [
-            'summary' => $this->summaryFor($user),
-            'paymentMethods' => collect(PayoutRequest::PAYMENT_METHODS)
-                ->map(fn (string $method): array => ['value' => $method, 'label' => str($method)->replace('_', ' ')->title()->toString()])
-                ->values(),
-            'payouts' => PayoutRequest::query()
-                ->where('user_id', $user->id)
-                ->latest('id')
-                ->get()
-                ->map(fn (PayoutRequest $payout): array => self::transform($payout))
-                ->values(),
-        ]);
-    }
 
     public function store(Request $request): RedirectResponse
     {
@@ -66,22 +45,7 @@ class PayoutController extends Controller
             ]);
         });
 
-        return to_route('payouts.index');
-    }
-
-    /**
-     * @return array{available_balance: float, pending_amount: float, requestable_amount: float}
-     */
-    private function summaryFor(User $user): array
-    {
-        $available = $this->memberPostings->availableBalance($user->id);
-        $pending = $this->pendingPaisa($user->id);
-
-        return [
-            'available_balance' => Money::toTaka($available),
-            'pending_amount' => Money::toTaka($pending),
-            'requestable_amount' => Money::toTaka(max(0, $available - $pending)),
-        ];
+        return to_route('wallet.index');
     }
 
     private function pendingPaisa(int $userId): int

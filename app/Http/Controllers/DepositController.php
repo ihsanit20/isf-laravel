@@ -131,6 +131,10 @@ class DepositController extends Controller
             }
         });
 
+        if ($request->string('return_to')->toString() === 'members') {
+            return to_route('members.index');
+        }
+
         return to_route('deposits.index');
     }
 

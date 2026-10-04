@@ -2,8 +2,21 @@
 import { Head, router } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import LedgerEntryDialog from '@/components/admin/LedgerEntryDialog.vue';
-import { Badge } from '@/components/ui/badge';
+import PageHeader from '@/components/shared/PageHeader.vue';
+import StatusBadge from '@/components/shared/StatusBadge.vue';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableEmpty,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { formatMoney, titleCase } from '@/lib/format';
 
 type PayoutItem = {
     id: number;
@@ -33,7 +46,7 @@ type Props = {
 
 defineOptions({
     layout: {
-        breadcrumbs: [{ title: 'Payout Requests', href: '/admin/payouts' }],
+        breadcrumbs: [{ title: 'Payouts', href: '/admin/payouts' }],
     },
 });
 
@@ -41,9 +54,6 @@ const props = defineProps<Props>();
 const selected = ref<PayoutItem | null>(null);
 const isPayDialogOpen = ref(false);
 const isRejectDialogOpen = ref(false);
-
-const money = (amount: number): string =>
-    `${amount.toLocaleString(undefined, { maximumFractionDigits: 2 })} BDT`;
 
 const filterBy = (status: string) =>
     router.get('/admin/payouts', status ? { status } : {}, {
@@ -62,89 +72,70 @@ const openReject = (payout: PayoutItem) => {
 </script>
 
 <template>
-    <Head title="Payout Requests" />
+    <Head title="Payouts" />
 
-    <div class="flex h-full flex-1 flex-col gap-4 rounded-xl p-4">
-        <section
-            class="rounded-xl border border-sidebar-border/70 bg-background p-6 shadow-sm dark:border-sidebar-border"
-        >
-            <h1 class="text-2xl font-semibold tracking-tight">
-                Payout Requests
-            </h1>
-            <p class="mt-2 text-sm text-muted-foreground">
-                Pay members from their available balance. Marking as paid posts
-                a journal entry and sends an SMS.
-            </p>
-            <div class="mt-4 flex flex-wrap gap-2">
-                <Button
-                    v-for="status in ['', 'pending', 'paid', 'rejected']"
+    <div class="flex flex-1 flex-col gap-6 p-4 md:p-6">
+        <PageHeader
+            title="Payouts"
+            description="Withdrawal requests from members’ available balance. Marking one paid posts a journal entry and sends an SMS."
+        />
+
+        <Tabs :model-value="props.filters.status || 'all'">
+            <TabsList>
+                <TabsTrigger
+                    v-for="status in ['all', 'pending', 'paid', 'rejected']"
                     :key="status"
-                    size="sm"
-                    :variant="
-                        props.filters.status === status ? 'default' : 'outline'
-                    "
-                    @click="filterBy(status)"
+                    :value="status"
+                    @click="filterBy(status === 'all' ? '' : status)"
                 >
-                    {{ status || 'all' }}
-                </Button>
-            </div>
-        </section>
+                    {{ titleCase(status) }}
+                </TabsTrigger>
+            </TabsList>
+        </Tabs>
 
-        <section
-            class="overflow-x-auto rounded-xl border border-sidebar-border/70 bg-background shadow-sm dark:border-sidebar-border"
-        >
-            <table class="min-w-full divide-y divide-sidebar-border/70 text-sm">
-                <thead class="bg-muted/40 text-left">
-                    <tr>
-                        <th class="px-4 py-3 font-medium">User</th>
-                        <th class="px-4 py-3 font-medium">Method</th>
-                        <th class="px-4 py-3 text-right font-medium">Amount</th>
-                        <th class="px-4 py-3 text-right font-medium">
-                            Balance now
-                        </th>
-                        <th class="px-4 py-3 font-medium">Status</th>
-                        <th class="px-4 py-3 font-medium">Action</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-sidebar-border/70">
-                    <tr v-for="payout in props.payouts" :key="payout.id">
-                        <td class="px-4 py-3">
+        <Card class="py-0">
+            <Table>
+                <TableHeader>
+                    <TableRow>
+                        <TableHead class="pl-4">User</TableHead>
+                        <TableHead>Receive via</TableHead>
+                        <TableHead class="text-right">Amount</TableHead>
+                        <TableHead class="text-right">Balance now</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead class="pr-4 text-right" />
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    <TableRow v-for="payout in props.payouts" :key="payout.id">
+                        <TableCell class="pl-4">
                             <p class="font-medium">{{ payout.user.name }}</p>
                             <p class="text-xs text-muted-foreground">
                                 {{ payout.user.phone || payout.user.email }} ·
                                 {{ payout.requested_at }}
                             </p>
-                        </td>
-                        <td class="px-4 py-3 text-muted-foreground">
+                        </TableCell>
+                        <TableCell>
                             {{ payout.payment_method_label }}
-                            <p class="text-xs">{{ payout.account_details }}</p>
-                        </td>
-                        <td class="px-4 py-3 text-right tabular-nums">
-                            {{ money(payout.amount) }}
-                        </td>
-                        <td
-                            class="px-4 py-3 text-right tabular-nums"
+                            <p class="text-xs text-muted-foreground">
+                                {{ payout.account_details }}
+                            </p>
+                        </TableCell>
+                        <TableCell class="text-right font-medium tabular-nums">
+                            {{ formatMoney(payout.amount) }}
+                        </TableCell>
+                        <TableCell
+                            class="text-right tabular-nums"
                             :class="
                                 payout.status === 'pending' &&
                                 payout.available_balance < payout.amount
-                                    ? 'text-destructive'
+                                    ? 'text-rose-600 dark:text-rose-400'
                                     : 'text-muted-foreground'
                             "
                         >
-                            {{ money(payout.available_balance) }}
-                        </td>
-                        <td class="px-4 py-3">
-                            <Badge
-                                :variant="
-                                    payout.status === 'paid'
-                                        ? 'default'
-                                        : payout.status === 'rejected'
-                                          ? 'destructive'
-                                          : 'secondary'
-                                "
-                            >
-                                {{ payout.status }}
-                            </Badge>
+                            {{ formatMoney(payout.available_balance) }}
+                        </TableCell>
+                        <TableCell class="max-w-xs whitespace-normal">
+                            <StatusBadge :status="payout.status" />
                             <p
                                 v-if="payout.status !== 'pending'"
                                 class="mt-1 text-xs text-muted-foreground"
@@ -158,11 +149,11 @@ const openReject = (payout: PayoutItem) => {
                                     · {{ payout.rejection_reason }}
                                 </span>
                             </p>
-                        </td>
-                        <td class="px-4 py-3">
+                        </TableCell>
+                        <TableCell class="pr-4">
                             <div
                                 v-if="payout.status === 'pending'"
-                                class="flex gap-2"
+                                class="flex justify-end gap-2"
                             >
                                 <Button size="sm" @click="openPay(payout)">
                                     Mark paid
@@ -175,25 +166,20 @@ const openReject = (payout: PayoutItem) => {
                                     Reject
                                 </Button>
                             </div>
-                        </td>
-                    </tr>
-                    <tr v-if="props.payouts.length === 0">
-                        <td
-                            colspan="6"
-                            class="px-4 py-8 text-center text-muted-foreground"
-                        >
-                            No payout requests.
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
-        </section>
+                        </TableCell>
+                    </TableRow>
+                    <TableEmpty v-if="props.payouts.length === 0" :colspan="6">
+                        No payout requests.
+                    </TableEmpty>
+                </TableBody>
+            </Table>
+        </Card>
 
         <LedgerEntryDialog
             v-if="selected"
             v-model:isOpen="isPayDialogOpen"
             title="Mark payout as paid"
-            :description="`${selected.user.name} · ${money(selected.amount)} via ${selected.payment_method_label}`"
+            :description="`${selected.user.name} · ${formatMoney(selected.amount)} via ${selected.payment_method_label}`"
             :action="`/admin/payouts/${selected.id}`"
             method="patch"
             submit-label="Confirm paid"

@@ -2,83 +2,24 @@
 
 namespace App\Http\Controllers;
 
-use App\Enums\MemberStatus;
 use App\Http\Requests\Members\StoreMemberFundCycleAllocationRequest;
-use App\Ledger\Money;
 use App\Ledger\Postings\MemberPostings;
 use App\Models\FundCycle;
-use App\Models\FundCycleAllocation;
 use App\Models\Member;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Inertia\Inertia;
-use Inertia\Response;
 
 class MemberFundCycleController extends Controller
 {
-    public function index(Request $request, Member $member): Response
+    public function index(Request $request, Member $member): RedirectResponse
     {
         /** @var User $user */
         $user = $request->user();
 
         abort_unless($member->managed_by_user_id === $user->id, 404);
 
-        $remainingPool = $this->remainingPoolForUser($user);
-        $allocatedByCycle = app(MemberPostings::class)->allocatedCapitalBy('fund_cycle_id');
-
-        return Inertia::render('members/FundCycles', [
-            'member' => [
-                'id' => $member->id,
-                'full_name' => $member->full_name,
-                'status' => $member->status->value,
-                'units' => $member->units,
-                'approved_at' => $member->approved_at?->format('d M Y, h:i A'),
-                'activated_at' => $member->activated_at?->format('d M Y, h:i A'),
-                'remaining_pool' => $remainingPool,
-            ],
-            'fundCycles' => FundCycle::query()
-                ->withCount('allocations')
-                ->with([
-                    'allocations' => fn ($query) => $query
-                        ->where('member_id', $member->id)
-                        ->select(['id', 'fund_cycle_id', 'member_id', 'slot_key', 'amount']),
-                ])
-                ->where('status', FundCycle::STATUS_OPEN)
-                ->latest('start_date')
-                ->latest('id')
-                ->get()
-                ->map(fn (FundCycle $fundCycle): array => [
-                    'id' => $fundCycle->id,
-                    'name' => $fundCycle->name,
-                    'status' => $fundCycle->status,
-                    'status_label' => FundCycle::statusLabel($fundCycle->status),
-                    'start_date' => $fundCycle->start_date?->format('d M Y'),
-                    'lock_date' => $fundCycle->lock_date?->format('d M Y'),
-                    'maturity_date' => $fundCycle->maturity_date?->format('d M Y'),
-                    'settlement_date' => $fundCycle->settlement_date?->format('d M Y'),
-                    'unit_amount' => $fundCycle->unit_amount,
-                    'slots' => collect($fundCycle->slots ?? [])->values(),
-                    'allocation_amount' => $fundCycle->allocationAmountFor($member->units),
-                    'total_allocated_amount' => Money::toTaka($allocatedByCycle->get($fundCycle->id, 0)),
-                    'allocations_count' => $fundCycle->allocations_count,
-                    'allocated_slots' => $fundCycle->allocations
-                        ->pluck('slot_key')
-                        ->filter()
-                        ->values(),
-                    'allocated_slot_amounts' => $fundCycle->allocations
-                        ->filter(fn (FundCycleAllocation $allocation) => filled($allocation->slot_key))
-                        ->mapWithKeys(fn (FundCycleAllocation $allocation): array => [
-                            $allocation->slot_key => $allocation->amount,
-                        ]),
-                    'is_locked' => $fundCycle->lock_date !== null && now()->startOfDay()->greaterThanOrEqualTo($fundCycle->lock_date),
-                    'can_allocate' => $member->status === MemberStatus::Approved
-                        && $member->activated_at !== null
-                        && ($fundCycle->lock_date === null || now()->startOfDay()->lt($fundCycle->lock_date))
-                        && $remainingPool >= $fundCycle->allocationAmountFor($member->units),
-                ])
-                ->values(),
-        ]);
+        return to_route('allocations.index', ['member' => $member->id]);
     }
 
     public function store(
@@ -102,14 +43,9 @@ class MemberFundCycleController extends Controller
         ], $user->id);
 
         if ($request->string('return_to')->toString() === 'allocations') {
-            return to_route('allocations.index');
+            return to_route('allocations.index', ['member' => $member->id]);
         }
 
         return to_route('members.fund-cycles.index', $member);
-    }
-
-    private function remainingPoolForUser(User $user): int
-    {
-        return (int) Money::toTaka(app(MemberPostings::class)->availableBalance($user->id));
     }
 }

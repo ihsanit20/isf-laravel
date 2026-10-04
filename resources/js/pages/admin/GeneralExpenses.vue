@@ -1,9 +1,22 @@
 <script setup lang="ts">
 import { Head } from '@inertiajs/vue3';
-import { Plus, SquarePen } from 'lucide-vue-next';
+import { FileText, Plus, SquarePen } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 import GeneralExpenseFormDialog from '@/components/admin/GeneralExpenseFormDialog.vue';
+import PageHeader from '@/components/shared/PageHeader.vue';
+import StatCard from '@/components/shared/StatCard.vue';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableEmpty,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
+import { formatMoney } from '@/lib/format';
 
 type ExpenseCategoryOption = {
     value: string;
@@ -47,7 +60,12 @@ const selectedExpense = ref<GeneralExpenseItem | null>(null);
 
 const editableExpense = computed(() => selectedExpense.value);
 
-const money = (amount: number): string => `${amount.toLocaleString()} BDT`;
+const total = computed(() =>
+    props.generalExpenses.reduce(
+        (sum, expense) => sum + Number(expense.amount),
+        0,
+    ),
+);
 
 const openEditDialog = (expense: GeneralExpenseItem) => {
     selectedExpense.value = expense;
@@ -58,104 +76,88 @@ const openEditDialog = (expense: GeneralExpenseItem) => {
 <template>
     <Head title="General Expenses" />
 
-    <div class="flex h-full flex-1 flex-col gap-4 rounded-xl p-4">
-        <section
-            class="rounded-xl border border-sidebar-border/70 bg-background p-6 shadow-sm dark:border-sidebar-border"
+    <div class="flex flex-1 flex-col gap-6 p-4 md:p-6">
+        <PageHeader
+            title="General expenses"
+            description="Platform expenses such as printing, IT, utilities and transport. Paid from the platform fund."
         >
-            <div
-                class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between"
-            >
-                <div class="max-w-2xl">
-                    <h1 class="text-2xl font-semibold tracking-tight">
-                        General Expenses
-                    </h1>
-                    <p class="mt-2 text-sm text-muted-foreground">
-                        Keep independent records of routine admin expenses like
-                        printing, IT, utilities, and transport.
-                    </p>
-                </div>
-
-                <Button class="shrink-0" @click="isCreateDialogOpen = true">
+            <template #actions>
+                <Button @click="isCreateDialogOpen = true">
                     <Plus class="size-4" />
-                    Add Expense
+                    Add expense
                 </Button>
-            </div>
-        </section>
+            </template>
+        </PageHeader>
 
-        <section
-            class="overflow-hidden rounded-xl border border-sidebar-border/70 bg-background shadow-sm dark:border-sidebar-border"
-        >
-            <div class="overflow-x-auto">
-                <table
-                    class="min-w-full divide-y divide-sidebar-border/70 text-sm"
-                >
-                    <thead class="bg-muted/40 text-left">
-                        <tr>
-                            <th class="px-4 py-3 font-medium">Date</th>
-                            <th class="px-4 py-3 font-medium">Category</th>
-                            <th class="px-4 py-3 font-medium">Amount</th>
-                            <th class="px-4 py-3 font-medium">Description</th>
-                            <th class="px-4 py-3 font-medium">Receipt</th>
-                            <th class="px-4 py-3 font-medium">Added By</th>
-                            <th class="px-4 py-3 font-medium">Action</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-sidebar-border/70">
-                        <tr
-                            v-for="expense in generalExpenses"
-                            :key="expense.id"
+        <StatCard
+            class="sm:max-w-xs"
+            label="Total"
+            :value="formatMoney(total)"
+            :hint="`${generalExpenses.length} records`"
+        />
+
+        <Card class="py-0">
+            <Table>
+                <TableHeader>
+                    <TableRow>
+                        <TableHead class="pl-4">Date</TableHead>
+                        <TableHead>Category</TableHead>
+                        <TableHead class="text-right">Amount</TableHead>
+                        <TableHead>Description</TableHead>
+                        <TableHead>Added by</TableHead>
+                        <TableHead class="pr-4 text-right" />
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    <TableRow
+                        v-for="expense in generalExpenses"
+                        :key="expense.id"
+                    >
+                        <TableCell class="pl-4 font-medium">
+                            {{ expense.expense_date }}
+                        </TableCell>
+                        <TableCell>{{ expense.category_label }}</TableCell>
+                        <TableCell class="text-right font-medium tabular-nums">
+                            {{ formatMoney(expense.amount) }}
+                        </TableCell>
+                        <TableCell
+                            class="max-w-sm whitespace-normal text-muted-foreground"
                         >
-                            <td class="px-4 py-3 font-medium">
-                                {{ expense.expense_date }}
-                            </td>
-                            <td class="px-4 py-3 text-muted-foreground">
-                                {{ expense.category_label }}
-                            </td>
-                            <td class="px-4 py-3 text-muted-foreground">
-                                {{ money(expense.amount) }}
-                            </td>
-                            <td
-                                class="max-w-sm px-4 py-3 text-muted-foreground"
+                            {{ expense.description || '—' }}
+                            <a
+                                v-if="expense.receipt_url"
+                                :href="expense.receipt_url"
+                                target="_blank"
+                                rel="noopener"
+                                class="mt-1 flex items-center gap-1 text-xs text-foreground underline underline-offset-4"
                             >
-                                {{ expense.description || '-' }}
-                            </td>
-                            <td class="px-4 py-3 text-muted-foreground">
-                                <a
-                                    v-if="expense.receipt_url"
-                                    :href="expense.receipt_url"
-                                    target="_blank"
-                                    class="text-primary underline underline-offset-4"
-                                >
-                                    View Attachment
-                                </a>
-                                <span v-else>-</span>
-                            </td>
-                            <td class="px-4 py-3 text-muted-foreground">
-                                {{ expense.created_by_name || '-' }}
-                            </td>
-                            <td class="px-4 py-3">
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    @click="openEditDialog(expense)"
-                                >
-                                    <SquarePen class="size-4" />
-                                    Edit
-                                </Button>
-                            </td>
-                        </tr>
-                        <tr v-if="generalExpenses.length === 0">
-                            <td
-                                colspan="7"
-                                class="px-4 py-8 text-center text-muted-foreground"
+                                <FileText class="size-3" />
+                                Receipt
+                            </a>
+                        </TableCell>
+                        <TableCell class="text-muted-foreground">
+                            {{ expense.created_by_name || '—' }}
+                        </TableCell>
+                        <TableCell class="pr-4 text-right">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                @click="openEditDialog(expense)"
                             >
-                                No general expenses found.
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </section>
+                                <SquarePen class="size-4" />
+                                Edit
+                            </Button>
+                        </TableCell>
+                    </TableRow>
+                    <TableEmpty
+                        v-if="generalExpenses.length === 0"
+                        :colspan="6"
+                    >
+                        No expenses recorded yet.
+                    </TableEmpty>
+                </TableBody>
+            </Table>
+        </Card>
 
         <GeneralExpenseFormDialog
             v-model:isOpen="isCreateDialogOpen"

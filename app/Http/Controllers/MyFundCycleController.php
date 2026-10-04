@@ -9,6 +9,7 @@ use App\Ledger\Postings\InvestmentPostings;
 use App\Ledger\Postings\MemberPostings;
 use App\Models\CycleInvestment;
 use App\Models\FundCycle;
+use App\Models\FundCycleAllocation;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -119,6 +120,29 @@ class MyFundCycleController extends Controller
                 'my_share' => Money::toTaka((int) $myRows->sum('share')),
                 'my_payout' => Money::toTaka((int) $myRows->sum('payout')),
             ],
+            'myMembers' => $myRows
+                ->map(fn (array $row): array => [
+                    'member_id' => $row['member_id'],
+                    'name' => $row['name'],
+                    'capital' => Money::toTaka($row['capital']),
+                    'share' => Money::toTaka($row['share']),
+                    'payout' => Money::toTaka($row['payout']),
+                ])
+                ->values(),
+            'myAllocations' => FundCycleAllocation::query()
+                ->with('member:id,full_name')
+                ->where('fund_cycle_id', $fundCycle->id)
+                ->whereHas('member', fn ($query) => $query->where('managed_by_user_id', $user->id))
+                ->orderBy('allocated_at')
+                ->get()
+                ->map(fn (FundCycleAllocation $allocation): array => [
+                    'id' => $allocation->id,
+                    'member_name' => $allocation->member?->full_name,
+                    'slot_key' => $allocation->slot_key,
+                    'amount' => $allocation->amount,
+                    'allocated_at' => $allocation->allocated_at?->format('d M Y'),
+                ])
+                ->values(),
         ]);
     }
 }

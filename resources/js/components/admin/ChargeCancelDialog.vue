@@ -65,8 +65,9 @@ watch(
                 <DialogTitle>Cancel Charge</DialogTitle>
                 <DialogDescription>
                     {{ charge?.category.title || 'This charge' }} for
-                    {{ charge?.member.full_name || 'the selected member' }} will be cancelled.
-                    Any posted allocation against this charge will return to the deposit pool.
+                    {{ charge?.member.full_name || 'the selected member' }} will
+                    be cancelled. Any posted allocation against this charge will
+                    return to the deposit pool.
                 </DialogDescription>
             </DialogHeader>
 
@@ -74,7 +75,12 @@ watch(
                 <Button type="button" variant="secondary" @click="closeDialog">
                     Keep Charge
                 </Button>
-                <Button type="button" variant="destructive" @click="submit" :disabled="form.processing">
+                <Button
+                    type="button"
+                    variant="destructive"
+                    @click="submit"
+                    :disabled="form.processing"
+                >
                     Cancel Charge
                 </Button>
             </DialogFooter>

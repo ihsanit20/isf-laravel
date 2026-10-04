@@ -149,9 +149,7 @@ watch(
             <DialogHeader>
                 <DialogTitle>
                     {{
-                        isEditing
-                            ? 'Edit General Income'
-                            : 'Add General Income'
+                        isEditing ? 'Edit General Income' : 'Add General Income'
                     }}
                 </DialogTitle>
                 <DialogDescription>

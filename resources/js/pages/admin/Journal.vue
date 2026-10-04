@@ -9,9 +9,12 @@ import {
     X,
 } from 'lucide-vue-next';
 import { computed, reactive, ref } from 'vue';
+import PageHeader from '@/components/shared/PageHeader.vue';
+import StatCard from '@/components/shared/StatCard.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { formatMoney } from '@/lib/format';
 
 type Option = { value: string; label: string };
 
@@ -320,29 +323,23 @@ const labelClass = 'mb-1 block text-xs font-medium text-muted-foreground';
 <template>
     <Head title="Journal" />
 
-    <div class="flex h-full flex-1 flex-col gap-4 rounded-xl p-4">
-        <section
-            class="rounded-xl border border-sidebar-border/70 bg-background p-6 shadow-sm dark:border-sidebar-border"
+    <div class="flex flex-1 flex-col gap-6 p-4 md:p-6">
+        <PageHeader
+            title="Journal"
+            description="Every money movement, immutable. Corrections appear as reversal entries."
         >
-            <div class="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                    <h1 class="text-2xl font-semibold tracking-tight">
-                        Journal
-                    </h1>
-                    <p class="mt-2 text-sm text-muted-foreground">
-                        Every money movement, immutable. Corrections appear as
-                        reversal entries.
-                    </p>
-                </div>
-                <Button variant="outline" size="sm" as-child>
+            <template #actions>
+                <Button variant="outline" as-child>
                     <a :href="exportUrl">
                         <Download class="size-4" />
                         Export CSV
                     </a>
                 </Button>
-            </div>
+            </template>
+        </PageHeader>
 
-            <form class="mt-5 space-y-4" @submit.prevent="apply">
+        <section class="rounded-xl border bg-card p-4 shadow-xs">
+            <form class="space-y-4" @submit.prevent="apply">
                 <div class="flex flex-wrap items-center gap-2">
                     <div class="relative min-w-64 flex-1">
                         <Search
@@ -397,7 +394,7 @@ const labelClass = 'mb-1 block text-xs font-medium text-muted-foreground';
 
                 <div
                     v-if="showAdvanced"
-                    class="grid gap-3 rounded-lg border border-sidebar-border/70 p-4 sm:grid-cols-2 lg:grid-cols-4"
+                    class="grid gap-3 rounded-lg border p-4 sm:grid-cols-2 lg:grid-cols-4"
                 >
                     <label>
                         <span :class="labelClass">Kind</span>
@@ -605,63 +602,35 @@ const labelClass = 'mb-1 block text-xs font-medium text-muted-foreground';
         </section>
 
         <section class="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-            <div
-                class="rounded-xl border border-sidebar-border/70 bg-background p-4 shadow-sm dark:border-sidebar-border"
-            >
-                <p class="text-xs text-muted-foreground">Entries</p>
-                <p class="mt-1 text-xl font-semibold tabular-nums">
-                    {{ props.summary.entries.toLocaleString() }}
-                </p>
-            </div>
-            <div
-                class="rounded-xl border border-sidebar-border/70 bg-background p-4 shadow-sm dark:border-sidebar-border"
-            >
-                <p class="text-xs text-muted-foreground">
-                    Total of entries (debit side)
-                </p>
-                <p class="mt-1 text-xl font-semibold tabular-nums">
-                    {{ money(props.summary.total) }}
-                </p>
-            </div>
+            <StatCard
+                label="Entries"
+                :value="props.summary.entries.toLocaleString()"
+            />
+            <StatCard
+                label="Total of entries (debit side)"
+                :value="formatMoney(props.summary.total)"
+            />
             <template v-if="props.summary.matched">
-                <div
-                    class="rounded-xl border border-primary/30 bg-background p-4 shadow-sm"
-                >
-                    <p class="text-xs text-muted-foreground">
-                        Matching lines · debit
-                    </p>
-                    <p class="mt-1 text-xl font-semibold tabular-nums">
-                        {{ money(props.summary.matched.debit) }}
-                    </p>
-                </div>
-                <div
-                    class="rounded-xl border border-primary/30 bg-background p-4 shadow-sm"
-                >
-                    <p class="text-xs text-muted-foreground">
-                        Matching lines · credit
-                    </p>
-                    <p class="mt-1 text-xl font-semibold tabular-nums">
-                        {{ money(props.summary.matched.credit) }}
-                    </p>
-                </div>
-                <div
-                    class="rounded-xl border border-primary/30 bg-background p-4 shadow-sm"
-                >
-                    <p class="text-xs text-muted-foreground">
-                        Net (debit − credit) ·
-                        {{ props.summary.matched.lines }} lines
-                    </p>
-                    <p
-                        class="mt-1 text-xl font-semibold tabular-nums"
-                        :class="
-                            props.summary.matched.net < 0
-                                ? 'text-red-600 dark:text-red-400'
-                                : ''
-                        "
-                    >
-                        {{ money(props.summary.matched.net) }}
-                    </p>
-                </div>
+                <StatCard
+                    class="border-primary/30"
+                    label="Matching lines · debit"
+                    :value="formatMoney(props.summary.matched.debit)"
+                />
+                <StatCard
+                    class="border-primary/30"
+                    label="Matching lines · credit"
+                    :value="formatMoney(props.summary.matched.credit)"
+                />
+                <StatCard
+                    class="border-primary/30"
+                    :label="`Net (debit − credit) · ${props.summary.matched.lines} lines`"
+                    :value="formatMoney(props.summary.matched.net)"
+                    :value-class="
+                        props.summary.matched.net < 0
+                            ? 'text-rose-600 dark:text-rose-400'
+                            : ''
+                    "
+                />
             </template>
         </section>
 
@@ -679,7 +648,7 @@ const labelClass = 'mb-1 block text-xs font-medium text-muted-foreground';
             <div class="flex items-center gap-2">
                 <select
                     v-model="form.sort"
-                    class="h-8 rounded-md border border-input bg-transparent px-2 text-sm"
+                    class="h-8 rounded-md border border-input bg-transparent px-2 text-sm shadow-xs dark:bg-input/30"
                     aria-label="Sort"
                     @change="apply"
                 >
@@ -693,7 +662,7 @@ const labelClass = 'mb-1 block text-xs font-medium text-muted-foreground';
                 </select>
                 <select
                     v-model="form.per_page"
-                    class="h-8 rounded-md border border-input bg-transparent px-2 text-sm"
+                    class="h-8 rounded-md border border-input bg-transparent px-2 text-sm shadow-xs dark:bg-input/30"
                     aria-label="Entries per page"
                     @change="apply"
                 >
@@ -712,15 +681,15 @@ const labelClass = 'mb-1 block text-xs font-medium text-muted-foreground';
             <article
                 v-for="entry in props.entries.data"
                 :key="entry.id"
-                class="overflow-hidden rounded-xl border bg-background shadow-sm"
+                class="overflow-hidden rounded-xl border bg-card shadow-xs"
                 :class="
                     entry.reversed_by_id || entry.reversal_of_id
-                        ? 'border-dashed border-sidebar-border dark:border-sidebar-border'
-                        : 'border-sidebar-border/70 dark:border-sidebar-border'
+                        ? 'border-dashed'
+                        : ''
                 "
             >
                 <header
-                    class="flex flex-wrap items-center gap-2 border-b border-sidebar-border/70 px-4 py-2 text-sm"
+                    class="flex flex-wrap items-center gap-2 border-b px-4 py-2 text-sm"
                 >
                     <button
                         type="button"
@@ -783,7 +752,7 @@ const labelClass = 'mb-1 block text-xs font-medium text-muted-foreground';
                 <div class="overflow-x-auto">
                     <table class="min-w-full text-sm">
                         <thead
-                            class="bg-muted/40 text-xs text-muted-foreground"
+                            class="bg-muted/50 text-xs text-muted-foreground"
                         >
                             <tr>
                                 <th class="px-4 py-1.5 text-left font-medium">
@@ -801,7 +770,7 @@ const labelClass = 'mb-1 block text-xs font-medium text-muted-foreground';
                                 </th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-sidebar-border/50">
+                        <tbody class="divide-y divide-border/60">
                             <tr
                                 v-for="line in entry.lines"
                                 :key="line.id"
@@ -848,9 +817,7 @@ const labelClass = 'mb-1 block text-xs font-medium text-muted-foreground';
                                 </td>
                             </tr>
                         </tbody>
-                        <tfoot
-                            class="border-t border-sidebar-border/70 text-xs font-medium"
-                        >
+                        <tfoot class="border-t text-xs font-medium">
                             <tr>
                                 <td class="px-4 py-1.5 text-muted-foreground">
                                     Total
@@ -868,7 +835,7 @@ const labelClass = 'mb-1 block text-xs font-medium text-muted-foreground';
             </article>
             <p
                 v-if="props.entries.data.length === 0"
-                class="rounded-xl border border-sidebar-border/70 bg-background p-8 text-center text-sm text-muted-foreground"
+                class="rounded-xl border border-dashed p-8 text-center text-sm text-muted-foreground"
             >
                 No journal entries match these filters.
             </p>

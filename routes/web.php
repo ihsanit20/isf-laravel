@@ -30,11 +30,10 @@ use App\Http\Controllers\DepositController;
 use App\Http\Controllers\MemberController;
 use App\Http\Controllers\MemberFundCycleController;
 use App\Http\Controllers\MyAllocationController;
-use App\Http\Controllers\MyChargeController;
 use App\Http\Controllers\MyFundCycleController;
 use App\Http\Controllers\PayoutController;
 use App\Http\Controllers\PublicPaymentReceiptController;
-use App\Http\Controllers\StatementController;
+use App\Http\Controllers\WalletController;
 use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Features;
 
@@ -70,12 +69,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('my-deposits', [DepositController::class, 'store'])->name('deposits.store');
     Route::post('my-deposits/allocate', [DepositController::class, 'storeAllocations'])->name('deposits.allocations.store');
     Route::get('my-allocations', [MyAllocationController::class, 'index'])->name('allocations.index');
-    Route::get('my-charges', [MyChargeController::class, 'index'])->name('charges.index');
+    Route::redirect('my-charges', '/my-membership')->name('charges.index');
     Route::get('fund-cycles', [MyFundCycleController::class, 'index'])->name('fund-cycles.index');
     Route::get('fund-cycles/{fundCycle}', [MyFundCycleController::class, 'show'])->name('fund-cycles.show');
-    Route::get('my-payouts', [PayoutController::class, 'index'])->name('payouts.index');
+    Route::get('my-wallet', [WalletController::class, 'index'])->name('wallet.index');
+    Route::redirect('my-statement', '/my-wallet')->name('statement.index');
+    Route::get('my-payouts', fn () => to_route('wallet.index'))->name('payouts.index');
     Route::post('my-payouts', [PayoutController::class, 'store'])->name('payouts.store');
-    Route::get('my-statement', [StatementController::class, 'index'])->name('statement.index');
 });
 
 Route::middleware(['auth', 'verified', 'admin'])->group(function () {

@@ -1,11 +1,22 @@
 <script setup lang="ts">
-import { Head } from '@inertiajs/vue3';
-import { Link } from '@inertiajs/vue3';
+import { Head, Link } from '@inertiajs/vue3';
 import { Plus } from 'lucide-vue-next';
 import { ref } from 'vue';
 import FundCycleFormDialog from '@/components/admin/FundCycleFormDialog.vue';
-import { Badge } from '@/components/ui/badge';
+import PageHeader from '@/components/shared/PageHeader.vue';
+import StatusBadge from '@/components/shared/StatusBadge.vue';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableEmpty,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
+import { formatMoney } from '@/lib/format';
 
 type FundCycleItem = {
     id: number;
@@ -44,183 +55,124 @@ defineOptions({
 
 const props = defineProps<Props>();
 const isCreateDialogOpen = ref(false);
-
-const money = (amount: number): string => `${amount.toLocaleString()} BDT`;
 </script>
 
 <template>
     <Head title="Fund Cycles" />
 
-    <div class="flex h-full flex-1 flex-col gap-4 rounded-xl p-4">
-        <section
-            class="rounded-xl border border-sidebar-border/70 bg-background p-6 shadow-sm dark:border-sidebar-border"
+    <div class="flex flex-1 flex-col gap-6 p-4 md:p-6">
+        <PageHeader
+            title="Fund cycles"
+            description="Each cycle collects member capital month by month, invests it in events and businesses, then settles back to members."
         >
-            <div
-                class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between"
-            >
-                <div class="max-w-2xl">
-                    <h1 class="text-2xl font-semibold tracking-tight">
-                        Fund Cycles
-                    </h1>
-                    <p class="mt-2 text-sm text-muted-foreground">
-                        Define cycle timeline and status before allocation,
-                        investment, return, and settlement slices are added.
-                    </p>
-                </div>
+            <template #actions>
+                <Button @click="isCreateDialogOpen = true">
+                    <Plus class="size-4" />
+                    New fund cycle
+                </Button>
+            </template>
+        </PageHeader>
 
-                <div class="flex flex-col gap-3 md:items-end">
-                    <Button class="shrink-0" @click="isCreateDialogOpen = true">
-                        <Plus class="size-4" />
-                        Add Fund Cycle
-                    </Button>
-                </div>
-            </div>
-        </section>
-
-        <section
-            class="overflow-hidden rounded-xl border border-sidebar-border/70 bg-background shadow-sm dark:border-sidebar-border"
-        >
-            <div class="overflow-x-auto">
-                <table
-                    class="min-w-full divide-y divide-sidebar-border/70 text-sm"
-                >
-                    <thead class="bg-muted/40 text-left">
-                        <tr>
-                            <th class="px-4 py-3 font-medium">Name</th>
-                            <th class="px-4 py-3 font-medium">Status</th>
-                            <th class="px-4 py-3 font-medium">Unit Price</th>
-                            <th class="px-4 py-3 font-medium">Timeline</th>
-                            <th class="px-4 py-3 font-medium">Slots</th>
-                            <th class="px-4 py-3 font-medium">Allocations</th>
-                            <th class="px-4 py-3 font-medium">Created By</th>
-                            <th class="px-4 py-3 font-medium">Created At</th>
-                            <th class="px-4 py-3 font-medium">Action</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-sidebar-border/70">
-                        <tr v-for="fundCycle in fundCycles" :key="fundCycle.id">
-                            <td class="px-4 py-3 font-medium">
-                                <div>{{ fundCycle.name }}</div>
-                                <div
-                                    v-if="fundCycle.notes"
-                                    class="mt-1 text-xs text-muted-foreground"
-                                >
-                                    {{ fundCycle.notes }}
-                                </div>
-                            </td>
-                            <td class="px-4 py-3">
-                                <Badge variant="outline">{{
-                                    fundCycle.status_label
-                                }}</Badge>
-                            </td>
-                            <td class="px-4 py-3 text-muted-foreground">
-                                {{ money(fundCycle.unit_amount) }}
-                            </td>
-                            <td class="px-4 py-3 text-muted-foreground">
-                                <div>
-                                    Start: {{ fundCycle.start_date || '-' }}
-                                </div>
-                                <div>
-                                    Lock: {{ fundCycle.lock_date || '-' }}
-                                </div>
-                                <div>
-                                    Maturity:
-                                    {{ fundCycle.maturity_date || '-' }}
-                                </div>
-                                <div>
-                                    Settlement:
-                                    {{ fundCycle.settlement_date || '-' }}
-                                </div>
-                            </td>
-                            <td class="px-4 py-3 text-muted-foreground">
-                                <div
-                                    v-if="fundCycle.slots.length > 0"
-                                    class="space-y-1 text-xs"
-                                >
-                                    <div
-                                        v-for="slot in fundCycle.slots"
-                                        :key="slot"
-                                    >
-                                        {{ slot }}
-                                    </div>
-                                </div>
-                                <div v-else class="text-xs">
-                                    No slots configured
-                                </div>
-                            </td>
-                            <td class="px-4 py-3 text-muted-foreground">
-                                <div class="font-medium text-foreground">
-                                    {{ money(fundCycle.allocated_amount) }}
-                                </div>
-                                <div
-                                    v-if="fundCycle.allocations_count > 0"
-                                    class="mt-1 text-xs"
-                                >
-                                    {{
-                                        fundCycle.allocations_count.toLocaleString()
-                                    }}
-                                    entries
-                                </div>
-                                <div v-else class="mt-1 text-xs">
-                                    No allocations yet
-                                </div>
-                            </td>
-                            <td class="px-4 py-3 text-muted-foreground">
-                                {{ fundCycle.created_by || '-' }}
-                            </td>
-                            <td class="px-4 py-3 text-muted-foreground">
-                                {{ fundCycle.created_at || '-' }}
-                            </td>
-                            <td class="px-4 py-3">
-                                <div class="flex flex-wrap gap-2">
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        as-child
-                                    >
-                                        <Link
-                                            :href="`/admin/fund-cycles/${fundCycle.id}`"
-                                        >
-                                            View details
-                                        </Link>
-                                    </Button>
-                                    <Button
-                                        variant="default"
-                                        size="sm"
-                                        as-child
-                                    >
-                                        <Link
-                                            :href="`/admin/fund-cycles/${fundCycle.id}/allocations`"
-                                        >
-                                            Allocations
-                                        </Link>
-                                    </Button>
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        as-child
-                                    >
-                                        <Link
-                                            :href="`/admin/fund-cycles/${fundCycle.id}/events`"
-                                        >
-                                            Events
-                                        </Link>
-                                    </Button>
-                                </div>
-                            </td>
-                        </tr>
-                        <tr v-if="fundCycles.length === 0">
-                            <td
-                                colspan="9"
-                                class="px-4 py-8 text-center text-muted-foreground"
+        <Card class="py-0">
+            <Table>
+                <TableHeader>
+                    <TableRow>
+                        <TableHead class="pl-4">Cycle</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead class="text-right">Unit amount</TableHead>
+                        <TableHead>Timeline</TableHead>
+                        <TableHead class="text-right">Allocated</TableHead>
+                        <TableHead class="pr-4 text-right" />
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    <TableRow
+                        v-for="fundCycle in fundCycles"
+                        :key="fundCycle.id"
+                    >
+                        <TableCell class="max-w-xs pl-4 whitespace-normal">
+                            <Link
+                                :href="`/admin/fund-cycles/${fundCycle.id}`"
+                                class="font-medium hover:underline"
                             >
-                                No fund cycles found.
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </section>
+                                {{ fundCycle.name }}
+                            </Link>
+                            <p class="text-xs text-muted-foreground">
+                                {{ fundCycle.slots.length }} month(s)
+                                <template v-if="fundCycle.slots.length > 0">
+                                    · {{ fundCycle.slots[0] }} –
+                                    {{
+                                        fundCycle.slots[
+                                            fundCycle.slots.length - 1
+                                        ]
+                                    }}
+                                </template>
+                            </p>
+                            <p
+                                v-if="fundCycle.notes"
+                                class="mt-1 text-xs text-muted-foreground"
+                            >
+                                {{ fundCycle.notes }}
+                            </p>
+                        </TableCell>
+                        <TableCell>
+                            <StatusBadge
+                                :status="fundCycle.status"
+                                :label="fundCycle.status_label"
+                            />
+                        </TableCell>
+                        <TableCell class="text-right tabular-nums">
+                            {{ formatMoney(fundCycle.unit_amount) }}
+                        </TableCell>
+                        <TableCell class="text-xs text-muted-foreground">
+                            <p>Start {{ fundCycle.start_date || '—' }}</p>
+                            <p>Lock {{ fundCycle.lock_date || '—' }}</p>
+                            <p>Maturity {{ fundCycle.maturity_date || '—' }}</p>
+                            <p>
+                                Settlement
+                                {{ fundCycle.settlement_date || '—' }}
+                            </p>
+                        </TableCell>
+                        <TableCell class="text-right">
+                            <p class="font-medium tabular-nums">
+                                {{ formatMoney(fundCycle.allocated_amount) }}
+                            </p>
+                            <p class="text-xs text-muted-foreground">
+                                {{ fundCycle.allocations_count }} entries
+                            </p>
+                        </TableCell>
+                        <TableCell class="pr-4">
+                            <div class="flex justify-end gap-2">
+                                <Button variant="outline" size="sm" as-child>
+                                    <Link
+                                        :href="`/admin/fund-cycles/${fundCycle.id}/allocations`"
+                                    >
+                                        Allocations
+                                    </Link>
+                                </Button>
+                                <Button variant="outline" size="sm" as-child>
+                                    <Link
+                                        :href="`/admin/fund-cycles/${fundCycle.id}/events`"
+                                    >
+                                        Events
+                                    </Link>
+                                </Button>
+                                <Button size="sm" as-child>
+                                    <Link
+                                        :href="`/admin/fund-cycles/${fundCycle.id}`"
+                                    >
+                                        Details
+                                    </Link>
+                                </Button>
+                            </div>
+                        </TableCell>
+                    </TableRow>
+                    <TableEmpty v-if="fundCycles.length === 0" :colspan="6">
+                        No fund cycles yet.
+                    </TableEmpty>
+                </TableBody>
+            </Table>
+        </Card>
 
         <FundCycleFormDialog
             v-model:isOpen="isCreateDialogOpen"

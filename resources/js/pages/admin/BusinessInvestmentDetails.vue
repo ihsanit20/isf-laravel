@@ -1,12 +1,30 @@
 <script setup lang="ts">
 import { Head, Link, router } from '@inertiajs/vue3';
-import { Plus, Trash2 } from 'lucide-vue-next';
+import { Plus, SquarePen, Trash2 } from 'lucide-vue-next';
 import { ref } from 'vue';
 import InvestmentLedgerPanel from '@/components/admin/InvestmentLedgerPanel.vue';
 import type { InvestmentLedger } from '@/components/admin/InvestmentLedgerPanel.vue';
 import LedgerEntryDialog from '@/components/admin/LedgerEntryDialog.vue';
-import { Badge } from '@/components/ui/badge';
+import PageHeader from '@/components/shared/PageHeader.vue';
+import StatusBadge from '@/components/shared/StatusBadge.vue';
 import { Button } from '@/components/ui/button';
+import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle,
+} from '@/components/ui/card';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableEmpty,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
+import { formatMoney } from '@/lib/format';
 
 type BusinessTransactionItem = {
     id: number;
@@ -47,9 +65,6 @@ const props = defineProps<Props>();
 const isTransactionDialogOpen = ref(false);
 const isEditDialogOpen = ref(false);
 
-const money = (amount: number): string =>
-    `${amount.toLocaleString(undefined, { maximumFractionDigits: 2 })} BDT`;
-
 const removeTransaction = (transaction: BusinessTransactionItem) => {
     if (
         !confirm(
@@ -83,128 +98,128 @@ const closeInvestment = () => {
 <template>
     <Head :title="`${props.investment.title} - Business Investment`" />
 
-    <div class="flex h-full flex-1 flex-col gap-4 rounded-xl p-4">
-        <section
-            class="rounded-xl border border-sidebar-border/70 bg-background p-6 shadow-sm dark:border-sidebar-border"
-        >
-            <div
-                class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between"
-            >
-                <div class="max-w-3xl space-y-2">
-                    <h1 class="text-2xl font-semibold tracking-tight">
-                        {{ props.investment.title }}
-                    </h1>
-                    <div
-                        class="flex flex-wrap items-center gap-2 text-sm text-muted-foreground"
-                    >
-                        <Badge
-                            :variant="
-                                props.investment.status === 'closed'
-                                    ? 'secondary'
-                                    : 'default'
-                            "
-                        >
-                            {{ props.investment.status }}
-                        </Badge>
-                        <span>{{ props.investment.counterparty || '-' }}</span>
-                        <span>·</span>
-                        <Link
-                            :href="`/admin/fund-cycles/${props.investment.fund_cycle.id}`"
-                            class="text-primary underline underline-offset-4"
-                        >
-                            {{ props.investment.fund_cycle.name }}
-                        </Link>
-                    </div>
-                    <p
-                        v-if="props.investment.terms"
-                        class="text-sm whitespace-pre-line text-muted-foreground"
-                    >
-                        {{ props.investment.terms }}
-                    </p>
-                </div>
+    <div class="flex flex-1 flex-col gap-6 p-4 md:p-6">
+        <PageHeader :title="props.investment.title">
+            <template #actions>
                 <Button
                     v-if="!props.ledger.is_closed"
                     variant="outline"
                     @click="isEditDialogOpen = true"
                 >
+                    <SquarePen class="size-4" />
                     Edit details
                 </Button>
-            </div>
-        </section>
+            </template>
+        </PageHeader>
 
-        <section
-            class="rounded-xl border border-sidebar-border/70 bg-background shadow-sm dark:border-sidebar-border"
+        <div
+            class="-mt-3 flex flex-wrap items-center gap-2 text-sm text-muted-foreground"
         >
-            <div
-                class="flex items-center justify-between gap-2 border-b border-sidebar-border/70 px-4 py-3"
+            <StatusBadge :status="props.investment.status" />
+            <span>{{ props.investment.counterparty || '—' }}</span>
+            <span>·</span>
+            <Link
+                :href="`/admin/fund-cycles/${props.investment.fund_cycle.id}`"
+                class="underline underline-offset-4 hover:text-foreground"
             >
-                <div>
-                    <h2 class="text-base font-semibold">Transactions</h2>
-                    <p class="text-xs text-muted-foreground">
-                        Capital out, profit in, capital back, losses and other
-                        income/expense — each one is a journal entry.
-                    </p>
-                </div>
-                <Button
-                    v-if="!props.ledger.is_closed"
-                    size="sm"
-                    @click="isTransactionDialogOpen = true"
-                >
-                    <Plus class="size-4" />
-                    Add transaction
-                </Button>
-            </div>
-            <table class="min-w-full text-sm">
-                <tbody class="divide-y divide-sidebar-border/70">
-                    <tr
-                        v-for="transaction in props.transactions"
-                        :key="transaction.id"
+                {{ props.investment.fund_cycle.name }}
+            </Link>
+            <span v-if="props.investment.invested_at">
+                · since {{ props.investment.invested_at }}
+            </span>
+        </div>
+        <p
+            v-if="props.investment.terms"
+            class="-mt-3 max-w-3xl text-sm whitespace-pre-line text-muted-foreground"
+        >
+            {{ props.investment.terms }}
+        </p>
+
+        <Card class="gap-4">
+            <CardHeader>
+                <div class="flex items-start justify-between gap-2">
+                    <div>
+                        <CardTitle>Transactions</CardTitle>
+                        <CardDescription class="mt-1">
+                            Capital out, profit in, capital back, losses and
+                            other income or expense. Each one is a journal
+                            entry.
+                        </CardDescription>
+                    </div>
+                    <Button
+                        v-if="!props.ledger.is_closed"
+                        size="sm"
+                        @click="isTransactionDialogOpen = true"
                     >
-                        <td class="px-4 py-2">
-                            {{ transaction.transaction_date }}
-                        </td>
-                        <td class="px-4 py-2">{{ transaction.type_label }}</td>
-                        <td class="px-4 py-2 text-muted-foreground">
-                            {{ transaction.description || '-' }}
-                            <span v-if="transaction.reference_no">
-                                · {{ transaction.reference_no }}
-                            </span>
-                        </td>
-                        <td class="px-4 py-2 text-right tabular-nums">
-                            {{ money(transaction.amount) }}
-                        </td>
-                        <td class="w-10 px-2 py-2">
-                            <Button
-                                v-if="!props.ledger.is_closed"
-                                size="icon"
-                                variant="ghost"
-                                @click="removeTransaction(transaction)"
+                        <Plus class="size-4" />
+                        Add transaction
+                    </Button>
+                </div>
+            </CardHeader>
+            <CardContent class="px-0">
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead class="pl-6">Date</TableHead>
+                            <TableHead>Type</TableHead>
+                            <TableHead>Description</TableHead>
+                            <TableHead class="text-right">Amount</TableHead>
+                            <TableHead class="w-12 pr-6" />
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        <TableRow
+                            v-for="transaction in props.transactions"
+                            :key="transaction.id"
+                        >
+                            <TableCell class="pl-6">
+                                {{ transaction.transaction_date }}
+                            </TableCell>
+                            <TableCell class="font-medium">
+                                {{ transaction.type_label }}
+                            </TableCell>
+                            <TableCell
+                                class="whitespace-normal text-muted-foreground"
                             >
-                                <Trash2 class="size-4" />
-                            </Button>
-                        </td>
-                    </tr>
-                    <tr v-if="props.transactions.length === 0">
-                        <td
-                            colspan="5"
-                            class="px-4 py-6 text-center text-muted-foreground"
+                                {{ transaction.description || '—' }}
+                                <span v-if="transaction.reference_no">
+                                    · {{ transaction.reference_no }}
+                                </span>
+                            </TableCell>
+                            <TableCell class="text-right tabular-nums">
+                                {{ formatMoney(transaction.amount) }}
+                            </TableCell>
+                            <TableCell class="pr-6">
+                                <Button
+                                    v-if="!props.ledger.is_closed"
+                                    size="icon"
+                                    variant="ghost"
+                                    @click="removeTransaction(transaction)"
+                                >
+                                    <Trash2 class="size-4" />
+                                </Button>
+                            </TableCell>
+                        </TableRow>
+                        <TableEmpty
+                            v-if="props.transactions.length === 0"
+                            :colspan="5"
                         >
                             No transactions yet. Start with "Capital invested".
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
-        </section>
+                        </TableEmpty>
+                    </TableBody>
+                </Table>
+            </CardContent>
+        </Card>
 
-        <section
-            class="rounded-xl border border-sidebar-border/70 bg-background p-6 shadow-sm dark:border-sidebar-border"
-        >
-            <InvestmentLedgerPanel
-                :ledger="props.ledger"
-                close-label="Close investment"
-                @close="closeInvestment"
-            />
-        </section>
+        <Card>
+            <CardContent>
+                <InvestmentLedgerPanel
+                    :ledger="props.ledger"
+                    close-label="Close investment"
+                    @close="closeInvestment"
+                />
+            </CardContent>
+        </Card>
 
         <LedgerEntryDialog
             v-model:isOpen="isTransactionDialogOpen"

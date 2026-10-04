@@ -138,7 +138,9 @@ watch(
                     This reduces Deposits → Current Balance immediately. Total
                     withdrawals for this fund cycle cannot exceed member
                     allocations (remaining budget:
-                    {{ cycleWithdrawalBudget.remaining_amount.toLocaleString() }}
+                    {{
+                        cycleWithdrawalBudget.remaining_amount.toLocaleString()
+                    }}
                     BDT).
                 </DialogDescription>
             </DialogHeader>
@@ -146,7 +148,9 @@ watch(
             <form class="space-y-4" @submit.prevent="submit">
                 <div class="grid gap-4 md:grid-cols-2">
                     <div class="grid gap-2">
-                        <Label for="bank-withdrawal-date">Withdrawal Date</Label>
+                        <Label for="bank-withdrawal-date"
+                            >Withdrawal Date</Label
+                        >
                         <Input
                             id="bank-withdrawal-date"
                             v-model="form.withdrawal_date"
