@@ -25,26 +25,6 @@ use function Pest\Laravel\actingAs;
  *
  * @return array{admin: User, cycle: FundCycle, user: User, member: Member}
  */
-function fundedCycle(int $capital = 100000, int $extraDeposit = 0): array
-{
-    $admin = ledgerAdmin();
-    $user = User::factory()->create();
-    $cycle = ledgerCycle($admin);
-    $member = ledgerMember($user, 1);
-    ledgerVerifiedDeposit($user, $capital + $extraDeposit);
-
-    app(MemberPostings::class)->allocateToCycle([
-        'fund_cycle_id' => $cycle->id,
-        'member_id' => $member->id,
-        'slot_key' => 'S1',
-        'amount' => $capital,
-        'allocated_at' => now(),
-        'created_by_user_id' => $admin->id,
-    ], $user->id);
-
-    return compact('admin', 'cycle', 'user', 'member');
-}
-
 test('event accounts: other income, charges and finalize through the admin UI', function () {
     ['admin' => $admin, 'cycle' => $cycle] = fundedCycle();
     $event = ledgerEvent($cycle);

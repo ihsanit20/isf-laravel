@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button';
 import { formatMoney } from '@/lib/format';
 
 type FundCycleDetails = {
+    is_settled: boolean;
     id: number;
     name: string;
     status: string;
@@ -78,7 +79,11 @@ const isEditDialogOpen = ref(false);
             :description="props.fundCycle.notes ?? undefined"
         >
             <template #actions>
-                <Button variant="outline" @click="isEditDialogOpen = true">
+                <Button
+                    v-if="!props.fundCycle.is_settled"
+                    variant="outline"
+                    @click="isEditDialogOpen = true"
+                >
                     <SquarePen class="size-4" />
                     Edit
                 </Button>

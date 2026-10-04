@@ -38,6 +38,7 @@ class FundCycleController extends Controller
                     'name' => $fundCycle->name,
                     'status' => $fundCycle->status,
                     'status_label' => FundCycle::statusLabel($fundCycle->status),
+                    'is_settled' => $fundCycle->isSettled(),
                     'unit_amount' => $fundCycle->unit_amount,
                     'start_date' => $fundCycle->start_date?->format('Y-m-d'),
                     'lock_date' => $fundCycle->lock_date?->format('Y-m-d'),
@@ -52,7 +53,7 @@ class FundCycleController extends Controller
                     'allocated_amount' => Money::toTaka($allocatedByCycle->get($fundCycle->id, 0)),
                 ])
                 ->values(),
-            'statuses' => FundCycle::statuses(),
+            'statuses' => FundCycle::editableStatuses(),
             'eligibleMembers' => Member::query()
                 ->where('status', MemberStatus::Approved)
                 ->orderBy('full_name')
@@ -91,6 +92,7 @@ class FundCycleController extends Controller
                 'name' => $fundCycle->name,
                 'status' => $fundCycle->status,
                 'status_label' => FundCycle::statusLabel($fundCycle->status),
+                'is_settled' => $fundCycle->isSettled(),
                 'unit_amount' => $fundCycle->unit_amount,
                 'start_date' => $fundCycle->start_date?->format('Y-m-d'),
                 'lock_date' => $fundCycle->lock_date?->format('Y-m-d'),
@@ -113,7 +115,7 @@ class FundCycleController extends Controller
                 'remaining_amount' => $remainingAmount,
                 'settled_at' => $fundCycle->settled_at?->format('d M Y, h:i A'),
             ],
-            'statuses' => FundCycle::statuses(),
+            'statuses' => FundCycle::editableStatuses(),
             'ledger' => $this->cycleLedger($fundCycle),
             'transactions' => $fundCycle->transactions()
                 ->with('createdBy:id,name')
@@ -187,6 +189,7 @@ class FundCycleController extends Controller
                 'name' => $fundCycle->name,
                 'status' => $fundCycle->status,
                 'status_label' => FundCycle::statusLabel($fundCycle->status),
+                'is_settled' => $fundCycle->isSettled(),
                 'unit_amount' => $fundCycle->unit_amount,
                 'start_date' => $fundCycle->start_date?->format('Y-m-d'),
                 'lock_date' => $fundCycle->lock_date?->format('Y-m-d'),
@@ -239,7 +242,7 @@ class FundCycleController extends Controller
                     'units' => $member->units,
                 ])
                 ->values(),
-            'statuses' => FundCycle::statuses(),
+            'statuses' => FundCycle::editableStatuses(),
         ]);
     }
 
@@ -251,6 +254,7 @@ class FundCycleController extends Controller
                 'name' => $fundCycle->name,
                 'status' => $fundCycle->status,
                 'status_label' => FundCycle::statusLabel($fundCycle->status),
+                'is_settled' => $fundCycle->isSettled(),
                 'start_date' => $fundCycle->start_date?->format('Y-m-d'),
                 'lock_date' => $fundCycle->lock_date?->format('Y-m-d'),
                 'maturity_date' => $fundCycle->maturity_date?->format('Y-m-d'),
@@ -328,6 +332,8 @@ class FundCycleController extends Controller
 
     public function update(UpdateFundCycleRequest $request, FundCycle $fundCycle): RedirectResponse
     {
+        $fundCycle->ensureNotSettled();
+
         $fundCycle->update($request->validated());
 
         return to_route('admin.fund-cycles.index');

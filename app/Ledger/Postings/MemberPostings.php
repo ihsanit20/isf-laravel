@@ -8,6 +8,7 @@ use App\Ledger\Money;
 use App\Models\ChargeAllocation;
 use App\Models\ChargeCategory;
 use App\Models\DepositSubmission;
+use App\Models\FundCycle;
 use App\Models\FundCycleAllocation;
 use App\Models\JournalLine;
 use App\Models\LedgerAccount;
@@ -163,6 +164,8 @@ class MemberPostings
      */
     public function allocateToCycle(array $attributes, int $managerUserId): FundCycleAllocation
     {
+        FundCycle::query()->findOrFail($attributes['fund_cycle_id'])->ensureNotSettled();
+
         return DB::transaction(function () use ($attributes, $managerUserId): FundCycleAllocation {
             $this->lockAndAssertAvailable(
                 $managerUserId,

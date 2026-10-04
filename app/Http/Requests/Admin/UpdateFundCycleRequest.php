@@ -18,7 +18,7 @@ class UpdateFundCycleRequest extends FormRequest
     {
         return [
             'name' => ['required', 'string', 'max:255'],
-            'status' => ['required', 'string', Rule::in(FundCycle::statuses())],
+            'status' => ['required', 'string', Rule::in(FundCycle::editableStatuses())],
             'unit_amount' => ['required', 'integer', 'min:1'],
             'start_date' => ['required', 'date'],
             'lock_date' => ['nullable', 'date', 'after_or_equal:start_date'],

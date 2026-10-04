@@ -37,6 +37,7 @@ type UserWithMembers = {
 };
 
 type FundCycleDetails = {
+    is_settled: boolean;
     id: number;
     name: string;
     status: string;
@@ -190,7 +191,10 @@ const clearFilters = () => {
                         Cycle details
                     </Link>
                 </Button>
-                <Button @click="isAllocateDialogOpen = true">
+                <Button
+                    v-if="!props.fundCycle.is_settled"
+                    @click="isAllocateDialogOpen = true"
+                >
                     <Plus class="size-4" />
                     Allocate
                 </Button>

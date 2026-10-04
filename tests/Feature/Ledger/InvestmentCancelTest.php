@@ -12,30 +12,9 @@ use App\Models\BusinessTransaction;
 use App\Models\CycleInvestment;
 use App\Models\EventBankWithdrawal;
 use App\Models\EventOrder;
-use App\Models\FundCycle;
 use App\Models\FundCycleEvent;
-use App\Models\User;
 
 use function Pest\Laravel\actingAs;
-
-/**
- * @return array{admin: User, user: User, cycle: FundCycle}
- */
-function cancelTestCycle(int $amount = 100000): array
-{
-    $admin = ledgerAdmin();
-    $user = ledgerAdmin();
-    $cycle = ledgerCycle($admin);
-    $member = ledgerMember($user, 1);
-    ledgerVerifiedDeposit($user, $amount);
-
-    app(MemberPostings::class)->allocateToCycle([
-        'fund_cycle_id' => $cycle->id, 'member_id' => $member->id, 'slot_key' => 'S1',
-        'amount' => $amount, 'allocated_at' => now(), 'created_by_user_id' => $admin->id,
-    ], $user->id);
-
-    return ['admin' => $admin, 'user' => $user, 'cycle' => $cycle];
-}
 
 function cancelTestOrder(FundCycleEvent $event, EventOrderStatus $status): EventOrder
 {
@@ -51,7 +30,7 @@ function cancelTestOrder(FundCycleEvent $event, EventOrderStatus $status): Event
 }
 
 test('an untouched event can be cancelled and no longer blocks settlement', function () {
-    ['admin' => $admin, 'user' => $user, 'cycle' => $cycle] = cancelTestCycle();
+    ['admin' => $admin, 'user' => $user, 'cycle' => $cycle] = fundedCycle();
     $event = ledgerEvent($cycle);
 
     expect(app(CyclePostings::class)->summary($cycle)['blockers'])->not->toBe([]);
@@ -72,7 +51,7 @@ test('an untouched event can be cancelled and no longer blocks settlement', func
 });
 
 test('an event with a live order cannot be cancelled until the order is cancelled', function () {
-    ['admin' => $admin, 'cycle' => $cycle] = cancelTestCycle();
+    ['admin' => $admin, 'cycle' => $cycle] = fundedCycle();
     $event = ledgerEvent($cycle);
     $order = cancelTestOrder($event, EventOrderStatus::Pending);
 
@@ -92,7 +71,7 @@ test('an event with a live order cannot be cancelled until the order is cancelle
 });
 
 test('an event cannot be cancelled once money has moved', function () {
-    ['admin' => $admin, 'cycle' => $cycle] = cancelTestCycle();
+    ['admin' => $admin, 'cycle' => $cycle] = fundedCycle();
     $event = ledgerEvent($cycle);
 
     app(InvestmentPostings::class)->eventWithdrawal(EventBankWithdrawal::query()->create([
@@ -108,7 +87,7 @@ test('an event cannot be cancelled once money has moved', function () {
 });
 
 test('a cancelled event is locked and cannot be cancelled again', function () {
-    ['admin' => $admin, 'cycle' => $cycle] = cancelTestCycle();
+    ['admin' => $admin, 'cycle' => $cycle] = fundedCycle();
     $event = ledgerEvent($cycle);
 
     actingAs($admin)->patch(route('admin.events.cancel', $event));
@@ -128,7 +107,7 @@ test('a cancelled event is locked and cannot be cancelled again', function () {
 });
 
 test('the event form cannot set the cancelled status', function () {
-    ['admin' => $admin, 'cycle' => $cycle] = cancelTestCycle();
+    ['admin' => $admin, 'cycle' => $cycle] = fundedCycle();
     $event = ledgerEvent($cycle);
 
     actingAs($admin)
@@ -144,7 +123,7 @@ test('the event form cannot set the cancelled status', function () {
 });
 
 test('a business can be cancelled only before any transaction', function () {
-    ['admin' => $admin, 'cycle' => $cycle] = cancelTestCycle();
+    ['admin' => $admin, 'cycle' => $cycle] = fundedCycle();
     $investments = app(InvestmentPostings::class);
 
     $untouched = CycleInvestment::query()->create(['fund_cycle_id' => $cycle->id, 'type' => 'business', 'title' => 'Empty']);

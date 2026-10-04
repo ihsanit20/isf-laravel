@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/table';
 
 type FundCycleEventPage = {
+    is_settled: boolean;
     id: number;
     name: string;
     status: string;
@@ -99,7 +100,10 @@ const formatDateTime = (value: string): string => {
                         Cycle details
                     </Link>
                 </Button>
-                <Button @click="isCreateDialogOpen = true">
+                <Button
+                    v-if="!props.fundCycle.is_settled"
+                    @click="isCreateDialogOpen = true"
+                >
                     <Plus class="size-4" />
                     Add event
                 </Button>

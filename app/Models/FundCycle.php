@@ -44,6 +44,17 @@ class FundCycle extends Model
         ];
     }
 
+    /**
+     * Statuses an admin can pick in the cycle form. "Settled" only comes
+     * from the settle action, which also returns the money to members.
+     *
+     * @return list<string>
+     */
+    public static function editableStatuses(): array
+    {
+        return array_values(array_diff(self::statuses(), [self::STATUS_SETTLED]));
+    }
+
     public static function statusLabel(string $value): string
     {
         return str($value)
@@ -98,5 +109,10 @@ class FundCycle extends Model
     public function isSettled(): bool
     {
         return $this->settled_at !== null;
+    }
+
+    public function ensureNotSettled(): void
+    {
+        abort_if($this->isSettled(), 403, 'This fund cycle has been settled and is locked for changes.');
     }
 }

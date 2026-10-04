@@ -66,3 +66,23 @@ function ledgerEvent(FundCycle $cycle, string $title = 'Mango Fair'): FundCycleE
         'order_close_at' => '2026-12-31 00:00:00',
     ]);
 }
+
+function fundedCycle(int $capital = 100000, int $extraDeposit = 0): array
+{
+    $admin = ledgerAdmin();
+    $user = User::factory()->create();
+    $cycle = ledgerCycle($admin);
+    $member = ledgerMember($user, 1);
+    ledgerVerifiedDeposit($user, $capital + $extraDeposit);
+
+    app(MemberPostings::class)->allocateToCycle([
+        'fund_cycle_id' => $cycle->id,
+        'member_id' => $member->id,
+        'slot_key' => 'S1',
+        'amount' => $capital,
+        'allocated_at' => now(),
+        'created_by_user_id' => $admin->id,
+    ], $user->id);
+
+    return compact('admin', 'cycle', 'user', 'member');
+}

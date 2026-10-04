@@ -50,6 +50,7 @@ class FundCycleEventController extends Controller
                 'name' => $fundCycle->name,
                 'status' => $fundCycle->status,
                 'status_label' => FundCycle::statusLabel($fundCycle->status),
+                'is_settled' => $fundCycle->isSettled(),
                 'start_date' => $fundCycle->start_date?->format('Y-m-d'),
                 'lock_date' => $fundCycle->lock_date?->format('Y-m-d'),
                 'maturity_date' => $fundCycle->maturity_date?->format('Y-m-d'),
@@ -81,6 +82,8 @@ class FundCycleEventController extends Controller
 
     public function store(StoreFundCycleEventRequest $request, FundCycle $fundCycle): RedirectResponse
     {
+        $fundCycle->ensureNotSettled();
+
         $attributes = $request->validated();
         $attributes['slug'] = $this->generateUniqueSlug($attributes['title']);
 
