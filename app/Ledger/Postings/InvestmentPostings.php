@@ -18,6 +18,7 @@ use App\Models\EventRefund;
 use App\Models\FundCycleEvent;
 use App\Models\JournalEntry;
 use App\Models\JournalLine;
+use App\Models\LedgerAccount;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
@@ -59,7 +60,14 @@ class InvestmentPostings
     public function result(CycleInvestment $investment): int
     {
         if ($investment->isClosed()) {
-            return $this->ledger->creditBalance(Account::CycleResult, $investment->dimensions());
+            // Read the closing entry, not the 2030 balance: settling the
+            // cycle moves 2030 to members and would zero it out.
+            return (int) JournalLine::query()
+                ->where('ledger_account_id', LedgerAccount::idFor(Account::CycleResult))
+                ->where('cycle_investment_id', $investment->id)
+                ->whereHas('entry', fn ($entry) => $entry->where('kind', 'investment_closed'))
+                ->selectRaw('COALESCE(SUM(credit), 0) - COALESCE(SUM(debit), 0) as balance')
+                ->value('balance');
         }
 
         return $this->ledger->creditBalance(Account::fundProfitAndLoss(), $investment->dimensions());

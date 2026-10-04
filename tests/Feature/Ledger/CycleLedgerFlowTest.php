@@ -244,6 +244,10 @@ test('full mudaraba cycle from the plan settles to the expected balances', funct
     expect($settled['result'])->toBe(taka(96000))
         ->and($settled['members'][0]['payout'])->toBe(taka(357600));
 
+    // settling moves 2030 to members; each project's result must survive it
+    expect($investments->result($eventInvestment))->toBe(taka(52200))
+        ->and($investments->result($business->refresh()))->toBe(taka(45000));
+
     expect(JournalEntry::query()->where('kind', 'cycle_settled')->count())->toBe(1);
 });
 
@@ -278,7 +282,8 @@ test('a loss is borne by members in capital ratio', function () {
     $cycles->settle($cycle, $admin);
 
     expect($members->availableBalance($userA->id))->toBe(taka(184000))
-        ->and($members->availableBalance($userB->id))->toBe(taka(276000));
+        ->and($members->availableBalance($userB->id))->toBe(taka(276000))
+        ->and($investments->result($business->refresh()))->toBe(taka(-40000));
 });
 
 test('closing is blocked while event money is outside the bank', function () {
