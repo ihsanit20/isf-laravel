@@ -6,8 +6,10 @@ use App\Enums\GeneralIncomeCategory;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreGeneralIncomeRequest;
 use App\Http\Requests\Admin\UpdateGeneralIncomeRequest;
+use App\Ledger\Postings\PlatformPostings;
 use App\Models\GeneralIncome;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -23,7 +25,7 @@ class GeneralIncomeController extends Controller
                 ->orderByDesc('income_date')
                 ->orderByDesc('id')
                 ->get()
-                ->map(fn(GeneralIncome $income): array => [
+                ->map(fn (GeneralIncome $income): array => [
                     'id' => $income->id,
                     'income_date' => $income->income_date?->format('Y-m-d'),
                     'category' => $income->category->value,
@@ -43,11 +45,15 @@ class GeneralIncomeController extends Controller
     {
         $receiptPath = $request->file('receipt')?->store('general-income-attachments', GeneralIncome::attachmentDisk());
 
-        GeneralIncome::query()->create([
-            ...$request->safe()->only(['income_date', 'category', 'amount', 'description']),
-            'receipt_path' => $receiptPath,
-            'created_by_user_id' => $request->user()?->id,
-        ]);
+        DB::transaction(function () use ($request, $receiptPath): void {
+            $income = GeneralIncome::query()->create([
+                ...$request->safe()->only(['income_date', 'category', 'amount', 'description']),
+                'receipt_path' => $receiptPath,
+                'created_by_user_id' => $request->user()?->id,
+            ]);
+
+            app(PlatformPostings::class)->incomeRecorded($income, $request->user());
+        });
 
         return to_route('admin.general-incomes.index');
     }
@@ -64,7 +70,10 @@ class GeneralIncomeController extends Controller
             $attributes['receipt_path'] = $request->file('receipt')?->store('general-income-attachments', GeneralIncome::attachmentDisk());
         }
 
-        $generalIncome->update($attributes);
+        DB::transaction(function () use ($request, $generalIncome, $attributes): void {
+            $generalIncome->update($attributes);
+            app(PlatformPostings::class)->incomeRecorded($generalIncome, $request->user());
+        });
 
         return to_route('admin.general-incomes.index');
     }

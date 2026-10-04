@@ -13,11 +13,19 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 
 type EditableBankDeposit = {
     id: number;
     deposit_date: string;
     amount: number;
+    source?: string;
     description: string | null;
     reference_no: string | null;
 };
@@ -38,11 +46,13 @@ const isEditing = computed(() => props.mode === 'edit' && !!props.bankDeposit);
 const form = useForm<{
     deposit_date: string;
     amount: string;
+    source: string;
     description: string;
     reference_no: string;
 }>({
     deposit_date: today,
     amount: '',
+    source: 'cash',
     description: '',
     reference_no: '',
 });
@@ -53,12 +63,14 @@ const resetFormState = () => {
             ? {
                   deposit_date: props.bankDeposit.deposit_date,
                   amount: String(props.bankDeposit.amount),
+                  source: props.bankDeposit.source ?? 'cash',
                   description: props.bankDeposit.description ?? '',
                   reference_no: props.bankDeposit.reference_no ?? '',
               }
             : {
                   deposit_date: today,
                   amount: '',
+                  source: 'cash',
                   description: '',
                   reference_no: '',
               };
@@ -119,9 +131,7 @@ watch(
             <DialogHeader>
                 <DialogTitle>
                     {{
-                        isEditing
-                            ? 'Edit Bank Deposit'
-                            : 'Record Bank Deposit'
+                        isEditing ? 'Edit Bank Deposit' : 'Record Bank Deposit'
                     }}
                 </DialogTitle>
                 <DialogDescription>
@@ -153,6 +163,24 @@ watch(
                         />
                         <InputError :message="form.errors.amount" />
                     </div>
+                </div>
+
+                <div class="grid gap-2">
+                    <Label for="bank-deposit-source">Money came from</Label>
+                    <Select v-model="form.source">
+                        <SelectTrigger id="bank-deposit-source" class="w-full">
+                            <SelectValue placeholder="Select source" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="cash">
+                                Event cash (customer cash / leftover float)
+                            </SelectItem>
+                            <SelectItem value="bkash">
+                                bKash settlement
+                            </SelectItem>
+                        </SelectContent>
+                    </Select>
+                    <InputError :message="form.errors.source" />
                 </div>
 
                 <div class="grid gap-2">

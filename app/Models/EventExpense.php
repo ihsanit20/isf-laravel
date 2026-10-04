@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Storage;
     'fund_cycle_event_id',
     'expense_date',
     'category',
+    'paid_from',
     'amount',
     'description',
     'receipt_path',

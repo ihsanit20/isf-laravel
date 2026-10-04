@@ -2,12 +2,11 @@
 
 namespace App\Http\Controllers;
 
-use App\Enums\DepositSubmissionStatus;
 use App\Enums\MemberStatus;
 use App\Http\Requests\Members\StoreMemberRequest;
-use App\Models\ChargeAllocation;
+use App\Ledger\Money;
+use App\Ledger\Postings\MemberPostings;
 use App\Models\ChargeCategory;
-use App\Models\DepositSubmission;
 use App\Models\Member;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
@@ -22,26 +21,16 @@ class MemberController extends Controller
         /** @var User $user */
         $user = $request->user();
 
-        $verifiedDepositAmount = (int) DepositSubmission::query()
-            ->where('user_id', $user->id)
-            ->where('status', DepositSubmissionStatus::Verified)
-            ->sum('amount');
-
-        $chargeAllocatedAmount = (int) ChargeAllocation::query()
-            ->whereNull('reversed_at')
-            ->whereHas('charge.member', fn($query) => $query->where('managed_by_user_id', $user->id))
-            ->sum('amount');
-
         return Inertia::render('Members', [
             'allocationSummary' => [
-                'available_to_allocate' => max(0, $verifiedDepositAmount - $chargeAllocatedAmount),
+                'available_to_allocate' => (int) Money::toTaka(app(MemberPostings::class)->availableBalance($user->id)),
             ],
             'members' => $user->managedMembers()
                 ->with(['charges.category', 'charges.allocations'])
                 ->latest('applied_at')
                 ->latest('id')
                 ->get()
-                ->map(fn(Member $member): array => $this->transformMember($member))
+                ->map(fn (Member $member): array => $this->transformMember($member))
                 ->values(),
         ]);
     }
@@ -75,7 +64,7 @@ class MemberController extends Controller
     private function transformMember(Member $member): array
     {
         $registrationCharge = $member->charges->first(
-            fn($charge) => $charge->category?->code === ChargeCategory::CODE_REGISTRATION_FEE,
+            fn ($charge) => $charge->category?->code === ChargeCategory::CODE_REGISTRATION_FEE,
         );
         $registrationChargePaidAt = $registrationCharge?->allocations
             ->whereNull('reversed_at')

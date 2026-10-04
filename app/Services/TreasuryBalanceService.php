@@ -3,73 +3,52 @@
 namespace App\Services;
 
 use App\Enums\DepositSubmissionStatus;
-use App\Models\ChargeAllocation;
+use App\Ledger\Account;
+use App\Ledger\Ledger;
+use App\Ledger\Money;
 use App\Models\DepositSubmission;
-use App\Models\EventBankDeposit;
-use App\Models\EventBankWithdrawal;
-use App\Models\GeneralExpense;
-use App\Models\GeneralIncome;
 
 class TreasuryBalanceService
 {
+    public function __construct(private readonly Ledger $ledger) {}
+
     /**
-     * @return array{
-     *     total_deposit_amount: int,
-     *     verified_amount: int,
-     *     rejected_amount: int,
-     *     total_general_expense: int,
-     *     total_event_bank_withdrawals: int,
-     *     total_event_bank_deposits: int,
-     *     total_charge_settlements: int,
-     *     current_balance: int,
-     *     pending_amount: int,
-     *     pending_count: int,
-     * }
+     * Joint bank position from the journal, split by who the money belongs to.
+     * Amounts are in taka.
+     *
+     * @return array<string, int>
      */
     public function summary(): array
     {
-        $totalDepositAmount = (int) DepositSubmission::query()->sum('amount');
-        $verifiedAmount = (int) DepositSubmission::query()
-            ->where('status', DepositSubmissionStatus::Verified)
-            ->sum('amount');
-        $rejectedAmount = (int) DepositSubmission::query()
-            ->where('status', DepositSubmissionStatus::Rejected)
-            ->sum('amount');
-        $totalGeneralExpense = (int) GeneralExpense::query()->sum('amount');
-        $totalGeneralIncomes = (int) GeneralIncome::query()->sum('amount');
-        $totalEventBankWithdrawals = (int) EventBankWithdrawal::query()->sum('amount');
-        $totalEventBankDeposits = (int) EventBankDeposit::query()->sum('amount');
-        $totalChargeSettlements = (int) ChargeAllocation::query()
-            ->whereNull('reversed_at')
-            ->sum('amount');
-        $pendingAmount = (int) DepositSubmission::query()
-            ->where('status', DepositSubmissionStatus::Pending)
-            ->sum('amount');
-        $pendingCount = (int) DepositSubmission::query()
-            ->where('status', DepositSubmissionStatus::Pending)
-            ->count();
+        $balances = $this->ledger->balancesByAccount();
+        $debit = fn (Account ...$accounts): int => (int) Money::toTaka(array_sum(array_map(
+            fn (Account $account): int => (int) ($balances[$account->value] ?? 0),
+            $accounts,
+        )));
+        $credit = fn (Account ...$accounts): int => -$debit(...$accounts);
 
-        $currentBalance = max(
-            0,
-            $verifiedAmount
-                - $totalGeneralExpense
-                - $totalEventBankWithdrawals
-                + $totalEventBankDeposits
-                + $totalGeneralIncomes,
-        );
+        $platformIncome = array_values(array_filter(Account::cases(), fn (Account $a) => $a->scope() === 'platform' && $a->type() === 'income'));
+        $platformExpense = array_values(array_filter(Account::cases(), fn (Account $a) => $a->scope() === 'platform' && $a->type() === 'expense'));
+
+        $pending = DepositSubmission::query()->where('status', DepositSubmissionStatus::Pending);
 
         return [
-            'total_deposit_amount' => $totalDepositAmount,
-            'verified_amount' => $verifiedAmount,
-            'rejected_amount' => $rejectedAmount,
-            'total_general_expense' => $totalGeneralExpense,
-            'total_general_incomes' => $totalGeneralIncomes,
-            'total_event_bank_withdrawals' => $totalEventBankWithdrawals,
-            'total_event_bank_deposits' => $totalEventBankDeposits,
-            'total_charge_settlements' => $totalChargeSettlements,
-            'current_balance' => $currentBalance,
-            'pending_amount' => $pendingAmount,
-            'pending_count' => $pendingCount,
+            'bank_balance' => $debit(Account::Bank),
+            'bkash_balance' => $debit(Account::Bkash),
+            'event_cash' => $debit(Account::EventCash),
+            'business_investment' => $debit(Account::BusinessInvestment),
+            'members_available' => $credit(Account::MemberBalance),
+            'cycle_capital' => $credit(Account::CycleCapital),
+            'cycle_results' => $credit(Account::CycleResult),
+            'platform_fund' => (int) Money::toTaka($this->ledger->platformFund()),
+            'platform_income' => $credit(...$platformIncome),
+            'platform_expense' => $debit(...$platformExpense),
+            'fee_income' => $credit(Account::RegistrationFeeIncome, Account::OtherFeeIncome),
+            'charge_income' => $credit(Account::PlatformServiceIncome, Account::AssetRentIncome, Account::OtherChargeIncome),
+            'verified_amount' => (int) DepositSubmission::query()->where('status', DepositSubmissionStatus::Verified)->sum('amount'),
+            'rejected_amount' => (int) DepositSubmission::query()->where('status', DepositSubmissionStatus::Rejected)->sum('amount'),
+            'pending_amount' => (int) (clone $pending)->sum('amount'),
+            'pending_count' => (int) (clone $pending)->count(),
         ];
     }
 }

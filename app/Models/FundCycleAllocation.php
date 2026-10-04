@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Ledger\Postings\MemberPostings;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -17,6 +18,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 ])]
 class FundCycleAllocation extends Model
 {
+    protected static function booted(): void
+    {
+        static::created(fn (self $allocation) => app(MemberPostings::class)->cycleAllocated($allocation, auth()->user()));
+    }
+
     protected function casts(): array
     {
         return [

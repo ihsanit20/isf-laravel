@@ -2,17 +2,16 @@
 
 namespace App\Http\Controllers;
 
-use App\Enums\DepositSubmissionStatus;
 use App\Enums\MemberStatus;
-use App\Models\ChargeAllocation;
-use App\Models\DepositSubmission;
+use App\Ledger\Money;
+use App\Ledger\Postings\MemberPostings;
 use App\Models\FundCycle;
 use App\Models\FundCycleAllocation;
 use App\Models\Member;
 use App\Models\User;
 use Carbon\Carbon;
-use Illuminate\Support\Collection;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -28,7 +27,7 @@ class MyAllocationController extends Controller
                 'member:id,full_name,managed_by_user_id',
                 'fundCycle:id,name,status',
             ])
-            ->whereHas('member', fn($query) => $query->where('managed_by_user_id', $user->id))
+            ->whereHas('member', fn ($query) => $query->where('managed_by_user_id', $user->id))
             ->latest('allocated_at')
             ->latest('id')
             ->get();
@@ -65,7 +64,7 @@ class MyAllocationController extends Controller
         $remainingPool = $this->remainingPoolForUser($user);
 
         $memberTabs = $members
-            ->map(fn(Member $member): array => $this->transformMemberTab(
+            ->map(fn (Member $member): array => $this->transformMemberTab(
                 member: $member,
                 allocations: $allocations,
                 openFundCycles: $openFundCycles,
@@ -91,8 +90,8 @@ class MyAllocationController extends Controller
             ->values();
 
         $allocatedRows = $memberAllocations
-            ->map(fn(FundCycleAllocation $allocation): array => [
-                'row_key' => 'allocated-' . $allocation->id,
+            ->map(fn (FundCycleAllocation $allocation): array => [
+                'row_key' => 'allocated-'.$allocation->id,
                 'id' => $allocation->id,
                 'status' => 'allocated',
                 'cycle_id' => $allocation->fund_cycle_id,
@@ -117,20 +116,20 @@ class MyAllocationController extends Controller
                 $memberTakenSlots = $cycleAllocations
                     ->where('member_id', $member->id)
                     ->pluck('slot_key')
-                    ->filter(fn($slot) => is_string($slot) && trim($slot) !== '')
-                    ->map(fn(string $slot) => trim($slot));
+                    ->filter(fn ($slot) => is_string($slot) && trim($slot) !== '')
+                    ->map(fn (string $slot) => trim($slot));
 
                 $slots = collect($fundCycle->slots ?? [])
-                    ->filter(fn($slot) => is_string($slot) && trim($slot) !== '')
-                    ->map(fn(string $slot) => trim($slot));
+                    ->filter(fn ($slot) => is_string($slot) && trim($slot) !== '')
+                    ->map(fn (string $slot) => trim($slot));
 
                 $availableSlots = $slots
-                    ->reject(fn(string $slot) => $memberTakenSlots->contains($slot))
+                    ->reject(fn (string $slot) => $memberTakenSlots->contains($slot))
                     ->values();
 
                 return $availableSlots
-                    ->map(fn(string $slot): array => [
-                        'row_key' => 'unallocated-' . $member->id . '-' . $fundCycle->id . '-' . str($slot)->slug('-'),
+                    ->map(fn (string $slot): array => [
+                        'row_key' => 'unallocated-'.$member->id.'-'.$fundCycle->id.'-'.str($slot)->slug('-'),
                         'id' => null,
                         'status' => 'unallocated',
                         'cycle_id' => $fundCycle->id,
@@ -151,7 +150,7 @@ class MyAllocationController extends Controller
             ->sortBy([
                 ['status', 'desc'],
                 ['cycle_name', 'asc'],
-                fn(array $a, array $b): int => $this->slotSortValue($b['slot_key']) <=> $this->slotSortValue($a['slot_key']),
+                fn (array $a, array $b): int => $this->slotSortValue($b['slot_key']) <=> $this->slotSortValue($a['slot_key']),
             ])
             ->values();
 
@@ -197,20 +196,6 @@ class MyAllocationController extends Controller
 
     private function remainingPoolForUser(User $user): int
     {
-        $verifiedDepositAmount = (int) DepositSubmission::query()
-            ->where('user_id', $user->id)
-            ->where('status', DepositSubmissionStatus::Verified)
-            ->sum('amount');
-
-        $chargeAllocatedAmount = (int) ChargeAllocation::query()
-            ->whereNull('reversed_at')
-            ->whereHas('charge.member', fn($query) => $query->where('managed_by_user_id', $user->id))
-            ->sum('amount');
-
-        $cycleAllocatedAmount = (int) FundCycleAllocation::query()
-            ->whereHas('member', fn($query) => $query->where('managed_by_user_id', $user->id))
-            ->sum('amount');
-
-        return max(0, $verifiedDepositAmount - $chargeAllocatedAmount - $cycleAllocatedAmount);
+        return (int) Money::toTaka(app(MemberPostings::class)->availableBalance($user->id));
     }
 }

@@ -2,6 +2,8 @@
 
 namespace App\Enums;
 
+use App\Ledger\Account;
+
 enum GeneralExpenseCategory: string
 {
     case OfficeSupplies = 'office_supplies';
@@ -9,6 +11,8 @@ enum GeneralExpenseCategory: string
     case Printing = 'printing';
 
     case BankCharge = 'bank_charge';
+
+    case SmsCharge = 'sms_charge';
 
     case ItExpense = 'it_expense';
 
@@ -28,12 +32,24 @@ enum GeneralExpenseCategory: string
             self::OfficeSupplies => 'Office Supplies',
             self::Printing => 'Printing',
             self::BankCharge => 'Bank Charge',
+            self::SmsCharge => 'SMS Charge',
             self::ItExpense => 'IT Expense',
             self::Transport => 'Transport',
             self::Refreshment => 'Refreshment',
             self::Utility => 'Utility',
             self::ServiceFee => 'Service Fee',
             self::Other => 'Other',
+        };
+    }
+
+    public function ledgerAccount(): Account
+    {
+        return match ($this) {
+            self::BankCharge => Account::BankChargeExpense,
+            self::SmsCharge => Account::SmsChargeExpense,
+            self::ItExpense => Account::ItExpense,
+            self::OfficeSupplies, self::Printing, self::Transport, self::Refreshment, self::Utility => Account::OfficeExpense,
+            self::ServiceFee, self::Other => Account::PlatformOtherExpense,
         };
     }
 
@@ -45,7 +61,7 @@ enum GeneralExpenseCategory: string
     public static function options(): array
     {
         return array_map(
-            fn(self $category): array => [
+            fn (self $category): array => [
                 'value' => $category->value,
                 'label' => $category->label(),
             ],

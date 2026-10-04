@@ -30,6 +30,7 @@ type EditableEventExpense = {
     id: number;
     expense_date: string;
     category: string;
+    paid_from?: string;
     amount: number;
     description: string | null;
     receipt_path: string | null;
@@ -48,19 +49,19 @@ const isOpen = defineModel<boolean>('isOpen', { default: false });
 
 const today = new Date().toISOString().slice(0, 10);
 
-const isEditing = computed(
-    () => props.mode === 'edit' && !!props.eventExpense,
-);
+const isEditing = computed(() => props.mode === 'edit' && !!props.eventExpense);
 
 const form = useForm<{
     expense_date: string;
     category: string;
+    paid_from: string;
     amount: string;
     description: string;
     receipt: File | null;
 }>({
     expense_date: today,
     category: props.expenseCategories[0]?.value ?? 'other',
+    paid_from: 'cash',
     amount: '',
     description: '',
     receipt: null,
@@ -72,6 +73,7 @@ const resetFormState = () => {
             ? {
                   expense_date: props.eventExpense.expense_date,
                   category: props.eventExpense.category,
+                  paid_from: props.eventExpense.paid_from ?? 'cash',
                   amount: String(props.eventExpense.amount),
                   description: props.eventExpense.description ?? '',
                   receipt: null,
@@ -79,6 +81,7 @@ const resetFormState = () => {
             : {
                   expense_date: today,
                   category: props.expenseCategories[0]?.value ?? 'other',
+                  paid_from: 'cash',
                   amount: '',
                   description: '',
                   receipt: null,
@@ -158,9 +161,9 @@ watch(
                     {{ isEditing ? 'Edit Event Cost' : 'Add Event Cost' }}
                 </DialogTitle>
                 <DialogDescription>
-                    Operational petty expense from the event float (cash
-                    already withdrawn from the bank). Does not change Deposits
-                    → Current Balance.
+                    Operational petty expense from the event float (cash already
+                    withdrawn from the bank). Does not change Deposits → Current
+                    Balance.
                 </DialogDescription>
             </DialogHeader>
 
@@ -197,6 +200,30 @@ watch(
                         </Select>
                         <InputError :message="form.errors.category" />
                     </div>
+                </div>
+
+                <div class="grid gap-2">
+                    <Label for="event-expense-paid-from">Paid from</Label>
+                    <Select v-model="form.paid_from">
+                        <SelectTrigger
+                            id="event-expense-paid-from"
+                            class="w-full"
+                        >
+                            <SelectValue placeholder="Select source" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="cash">
+                                Event cash / float (withdrawn money)
+                            </SelectItem>
+                            <SelectItem value="bkash">
+                                bKash wallet (e.g. gateway fee)
+                            </SelectItem>
+                            <SelectItem value="bank">
+                                Bank directly (cycle account)
+                            </SelectItem>
+                        </SelectContent>
+                    </Select>
+                    <InputError :message="form.errors.paid_from" />
                 </div>
 
                 <div class="grid gap-2">

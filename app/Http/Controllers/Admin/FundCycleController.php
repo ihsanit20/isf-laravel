@@ -8,14 +8,20 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreFundCycleAllocationRequest;
 use App\Http\Requests\Admin\StoreFundCycleRequest;
 use App\Http\Requests\Admin\UpdateFundCycleRequest;
+use App\Ledger\Account;
+use App\Ledger\Ledger;
+use App\Ledger\Money;
+use App\Ledger\Postings\CyclePostings;
+use App\Ledger\Postings\MemberPostings;
 use App\Models\ChargeAllocation;
 use App\Models\DepositSubmission;
 use App\Models\FundCycle;
 use App\Models\FundCycleAllocation;
+use App\Models\FundCycleEvent;
+use App\Models\FundCycleTransaction;
 use App\Models\Member;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -39,7 +45,7 @@ class FundCycleController extends Controller
                 ->latest('start_date')
                 ->latest('id')
                 ->get()
-                ->map(fn(FundCycle $fundCycle): array => [
+                ->map(fn (FundCycle $fundCycle): array => [
                     'id' => $fundCycle->id,
                     'name' => $fundCycle->name,
                     'status' => $fundCycle->status,
@@ -63,7 +69,7 @@ class FundCycleController extends Controller
                 ->where('status', MemberStatus::Approved)
                 ->orderBy('full_name')
                 ->get(['id', 'full_name', 'units'])
-                ->map(fn(Member $member): array => [
+                ->map(fn (Member $member): array => [
                     'id' => $member->id,
                     'full_name' => $member->full_name,
                     'units' => $member->units,
@@ -73,7 +79,7 @@ class FundCycleController extends Controller
                 'total_verified_deposits' => $totalVerifiedDeposits,
                 'total_charge_allocations' => $totalChargeAllocations,
                 'total_cycle_allocations' => $totalCycleAllocations,
-                'remaining_pool' => max(0, $totalVerifiedDeposits - $totalChargeAllocations - $totalCycleAllocations),
+                'remaining_pool' => (int) Money::toTaka(app(Ledger::class)->creditBalance(Account::MemberBalance)),
             ],
         ]);
     }
@@ -87,8 +93,8 @@ class FundCycleController extends Controller
         $usersWithMembers = $this->usersWithApprovedMembers();
         $slots = collect($fundCycle->slots ?? []);
 
-        $totalMembers = $usersWithMembers->sum(fn($user) => $user->managedMembers->count());
-        $totalUnits = $usersWithMembers->sum(fn($user) => $user->managedMembers->sum('units'));
+        $totalMembers = $usersWithMembers->sum(fn ($user) => $user->managedMembers->count());
+        $totalUnits = $usersWithMembers->sum(fn ($user) => $user->managedMembers->sum('units'));
         $totalUsers = $usersWithMembers->count();
         $totalSlots = $slots->count();
         $allocatedAmount = (int) ($fundCycle->allocations_sum_amount ?? 0);
@@ -124,8 +130,29 @@ class FundCycleController extends Controller
                 'allocations_count' => $allocationsCount,
                 'remaining_allocations' => $remainingAllocations,
                 'remaining_amount' => $remainingAmount,
+                'settled_at' => $fundCycle->settled_at?->format('d M Y, h:i A'),
             ],
             'statuses' => FundCycle::statuses(),
+            'ledger' => $this->cycleLedger($fundCycle),
+            'transactions' => $fundCycle->transactions()
+                ->with('createdBy:id,name')
+                ->orderByDesc('transaction_date')
+                ->orderByDesc('id')
+                ->get()
+                ->map(fn (FundCycleTransaction $transaction): array => [
+                    'id' => $transaction->id,
+                    'direction' => $transaction->direction,
+                    'category' => $transaction->category,
+                    'category_label' => FundCycleTransaction::categoryLabel($transaction->category),
+                    'amount' => (float) $transaction->amount,
+                    'transaction_date' => $transaction->transaction_date?->format('Y-m-d'),
+                    'description' => $transaction->description,
+                    'created_by_name' => $transaction->createdBy?->name,
+                ])
+                ->values(),
+            'transactionCategories' => collect(FundCycleTransaction::CATEGORIES)
+                ->map(fn (string $category): array => ['value' => $category, 'label' => FundCycleTransaction::categoryLabel($category)])
+                ->values(),
         ]);
     }
 
@@ -141,8 +168,8 @@ class FundCycleController extends Controller
 
         $slots = collect($fundCycle->slots ?? []);
 
-        $totalMembers = $usersWithMembers->sum(fn($user) => $user->managedMembers->count());
-        $totalUnits = $usersWithMembers->sum(fn($user) => $user->managedMembers->sum('units'));
+        $totalMembers = $usersWithMembers->sum(fn ($user) => $user->managedMembers->count());
+        $totalUnits = $usersWithMembers->sum(fn ($user) => $user->managedMembers->sum('units'));
 
         $totalUsers = $usersWithMembers->count();
         $totalSlots = $slots->count();
@@ -154,13 +181,13 @@ class FundCycleController extends Controller
         $remainingAmount = $expectedAmount - $allocatedAmount;
 
         $existingAllocations = $fundCycle->allocations
-            ->groupBy(fn($allocation) => ($allocation->member?->managed_by_user_id ?? 0) . '-' . $allocation->slot_key);
+            ->groupBy(fn ($allocation) => ($allocation->member?->managed_by_user_id ?? 0).'-'.$allocation->slot_key);
 
         $missingAllocations = [];
         foreach ($usersWithMembers as $user) {
             foreach ($slots as $slot) {
-                $key = $user->id . '-' . $slot;
-                if (!$existingAllocations->has($key)) {
+                $key = $user->id.'-'.$slot;
+                if (! $existingAllocations->has($key)) {
                     $memberNames = $user->managedMembers->pluck('full_name')->join(', ');
                     $missingAllocations[] = [
                         'user_id' => $user->id,
@@ -202,7 +229,7 @@ class FundCycleController extends Controller
                 'allocations' => $fundCycle->allocations
                     ->sortByDesc('allocated_at')
                     ->values()
-                    ->map(fn(FundCycleAllocation $allocation): array => [
+                    ->map(fn (FundCycleAllocation $allocation): array => [
                         'id' => $allocation->id,
                         'member_id' => $allocation->member_id,
                         'member_name' => $allocation->member?->full_name,
@@ -214,7 +241,7 @@ class FundCycleController extends Controller
                         'notes' => $allocation->notes,
                     ]),
             ],
-            'users' => $usersWithMembers->map(fn(User $user): array => [
+            'users' => $usersWithMembers->map(fn (User $user): array => [
                 'id' => $user->id,
                 'name' => $user->name,
                 'email' => $user->email,
@@ -225,7 +252,7 @@ class FundCycleController extends Controller
                 ->where('status', MemberStatus::Approved)
                 ->orderBy('full_name')
                 ->get(['id', 'full_name', 'units'])
-                ->map(fn(Member $member): array => [
+                ->map(fn (Member $member): array => [
                     'id' => $member->id,
                     'full_name' => $member->full_name,
                     'units' => $member->units,
@@ -251,12 +278,49 @@ class FundCycleController extends Controller
         ]);
     }
 
+    /**
+     * @return array<string, mixed>
+     */
+    private function cycleLedger(FundCycle $fundCycle): array
+    {
+        $summary = app(CyclePostings::class)->summary($fundCycle);
+
+        return [
+            'capital' => Money::toTaka($summary['capital']),
+            'cash' => Money::toTaka($summary['cash']),
+            'deployed' => Money::toTaka($summary['deployed']),
+            'investments_result' => Money::toTaka($summary['investments_result']),
+            'cycle_income' => Money::toTaka($summary['cycle_income']),
+            'cycle_expense' => Money::toTaka($summary['cycle_expense']),
+            'result' => Money::toTaka($summary['result']),
+            'is_settled' => $summary['is_settled'],
+            'blockers' => $summary['blockers'],
+            'investments' => collect($summary['investments'])
+                ->map(fn (array $investment): array => [
+                    ...$investment,
+                    'result' => Money::toTaka($investment['result']),
+                    'url' => $investment['type'] === 'event'
+                        ? optional(FundCycleEvent::query()->where('cycle_investment_id', $investment['id'])->first(), fn ($event) => '/admin/events/'.$event->id)
+                        : '/admin/businesses/'.$investment['id'],
+                ])
+                ->values(),
+            'members' => collect($summary['members'])
+                ->map(fn (array $member): array => [
+                    ...$member,
+                    'capital' => Money::toTaka($member['capital']),
+                    'share' => Money::toTaka($member['share']),
+                    'payout' => Money::toTaka($member['payout']),
+                ])
+                ->values(),
+        ];
+    }
+
     private function usersWithApprovedMembers()
     {
         return User::query()
-            ->whereHas('managedMembers', fn($query) => $query->where('status', MemberStatus::Approved))
+            ->whereHas('managedMembers', fn ($query) => $query->where('status', MemberStatus::Approved))
             ->with([
-                'managedMembers' => fn($query) => $query
+                'managedMembers' => fn ($query) => $query
                     ->where('status', MemberStatus::Approved)
                     ->orderBy('full_name'),
             ])
@@ -285,16 +349,15 @@ class FundCycleController extends Controller
     {
         $member = Member::query()->findOrFail((int) $request->integer('member_id'));
 
-        DB::transaction(function () use ($request, $fundCycle, $member): void {
-            $fundCycle->allocations()->create([
-                'member_id' => $member->id,
-                'slot_key' => $request->string('slot_key')->trim()->toString(),
-                'amount' => $fundCycle->allocationAmountFor($member->units),
-                'notes' => $request->validated('notes'),
-                'allocated_at' => now(),
-                'created_by_user_id' => $request->user()?->id,
-            ]);
-        });
+        app(MemberPostings::class)->allocateToCycle([
+            'fund_cycle_id' => $fundCycle->id,
+            'member_id' => $member->id,
+            'slot_key' => $request->string('slot_key')->trim()->toString(),
+            'amount' => $fundCycle->allocationAmountFor($member->units),
+            'notes' => $request->validated('notes'),
+            'allocated_at' => now(),
+            'created_by_user_id' => $request->user()?->id,
+        ], (int) $member->managed_by_user_id);
 
         return to_route('admin.fund-cycles.index');
     }

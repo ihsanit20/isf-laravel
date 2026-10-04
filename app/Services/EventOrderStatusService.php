@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Enums\EventOrderStatus;
 use App\Models\EventOrder;
 use App\Models\EventOrderStatusHistory;
+use App\Models\EventPackage;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -80,6 +81,15 @@ class EventOrderStatusService
             if ($status === EventOrderStatus::Confirmed && ! $order->confirmed_at) {
                 $attributes['confirmed_at'] = $now;
                 EventOrder::ensureTrackingToken($order);
+            }
+
+            if ($status === EventOrderStatus::Cancelled && $order->status !== EventOrderStatus::Cancelled) {
+                foreach ($order->items()->get() as $item) {
+                    EventPackage::query()
+                        ->whereKey($item->event_package_id)
+                        ->where('sold_qty', '>=', $item->quantity)
+                        ->decrement('sold_qty', $item->quantity);
+                }
             }
 
             $order->update($attributes);

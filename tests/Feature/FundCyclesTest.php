@@ -11,8 +11,8 @@ use App\Models\FundCycleAllocation;
 use App\Models\Member;
 use App\Models\User;
 use Inertia\Testing\AssertableInertia as Assert;
+
 use function Pest\Laravel\actingAs;
-use function Pest\Laravel\get;
 use function Pest\Laravel\post;
 use function Pest\Laravel\put;
 
@@ -43,7 +43,7 @@ test('admins can visit the fund cycle admin page', function () {
     actingAs($admin)
         ->get(route('admin.fund-cycles.index'))
         ->assertOk()
-        ->assertInertia(fn(Assert $page) => $page
+        ->assertInertia(fn (Assert $page) => $page
             ->component('admin/FundCycles')
             ->has('fundCycles', 1)
             ->where('statuses.0', FundCycle::STATUS_DRAFT)
@@ -184,7 +184,7 @@ test('admins can allocate verified deposit pool into a fund cycle for an approve
     ]);
 
     DepositSubmission::query()->create([
-        'user_id' => User::factory()->create()->id,
+        'user_id' => $member->managed_by_user_id,
         'amount' => 5000,
         'payment_method' => DepositSubmission::PAYMENT_METHOD_BANK_TRANSFER,
         'reference_no' => 'FC-ALLOC-01',
@@ -288,8 +288,8 @@ test('the same member can be allocated in different slots of the same fund cycle
     ]);
 
     DepositSubmission::query()->create([
-        'user_id' => User::factory()->create()->id,
-        'amount' => 6000,
+        'user_id' => $member->managed_by_user_id,
+        'amount' => 10000,
         'payment_method' => DepositSubmission::PAYMENT_METHOD_BANK_TRANSFER,
         'reference_no' => 'FC-MULTI-SLOT',
         'deposit_date' => now()->toDateString(),

@@ -6,6 +6,8 @@ use App\Enums\DepositSubmissionStatus;
 use App\Enums\MemberStatus;
 use App\Http\Requests\Deposits\StoreDepositAllocationRequest;
 use App\Http\Requests\Deposits\StoreDepositSubmissionRequest;
+use App\Ledger\Money;
+use App\Ledger\Postings\MemberPostings;
 use App\Models\Charge;
 use App\Models\ChargeAllocation;
 use App\Models\ChargeCategory;
@@ -22,6 +24,8 @@ use Inertia\Response;
 
 class DepositController extends Controller
 {
+    public function __construct(private readonly MemberPostings $memberPostings) {}
+
     public function index(Request $request): Response
     {
         /** @var User $user */
@@ -39,7 +43,7 @@ class DepositController extends Controller
             ->get();
 
         $totalFundCycleAllocatedAmount = (int) FundCycleAllocation::query()
-            ->whereHas('member', fn($query) => $query->where('managed_by_user_id', $user->id))
+            ->whereHas('member', fn ($query) => $query->where('managed_by_user_id', $user->id))
             ->sum('amount');
 
         $summary = $this->buildDepositSummary(
@@ -47,15 +51,16 @@ class DepositController extends Controller
             $chargeAllocations,
             $totalFundCycleAllocatedAmount,
             $this->pendingChargesQuery($user)->exists(),
+            $this->memberPostings->availableBalance($user->id),
         );
 
         return Inertia::render('Deposits', [
             'summary' => $summary,
             'deposits' => $deposits
-                ->map(fn(DepositSubmission $depositSubmission): array => $this->transformDeposit($depositSubmission))
+                ->map(fn (DepositSubmission $depositSubmission): array => $this->transformDeposit($depositSubmission))
                 ->values(),
             'chargeAllocations' => $chargeAllocations
-                ->map(fn(ChargeAllocation $allocation): array => $this->transformChargeAllocation($allocation))
+                ->map(fn (ChargeAllocation $allocation): array => $this->transformChargeAllocation($allocation))
                 ->values(),
         ]);
     }
@@ -89,47 +94,30 @@ class DepositController extends Controller
         $user = $request->user();
 
         DB::transaction(function () use ($request, $user): void {
-            $verifiedDeposits = DepositSubmission::query()
-                ->where('user_id', $user->id)
-                ->where('status', DepositSubmissionStatus::Verified)
-                ->lockForUpdate()
-                ->get();
-
-            $existingChargeAllocations = $this->managedChargeAllocationsQuery($user)
-                ->whereNull('reversed_at')
-                ->lockForUpdate()
-                ->get();
-
-            if ($verifiedDeposits->isEmpty()) {
-                throw ValidationException::withMessages([
-                    'charge_ids' => 'No verified deposits are available for charge settlement.',
-                ]);
-            }
-
-            $chargeIds = collect($request->validated('charge_ids', []))->map(fn($id) => (int) $id)->all();
+            $chargeIds = collect($request->validated('charge_ids', []))->map(fn ($id) => (int) $id)->all();
 
             $charges = Charge::query()
                 ->with(['category', 'member'])
                 ->whereIn('status', [Charge::STATUS_PENDING, Charge::STATUS_CANCELLED])
                 ->whereIn('id', $chargeIds)
-                ->whereHas('member', fn($query) => $query
+                ->whereHas('member', fn ($query) => $query
                     ->where('managed_by_user_id', $user->id)
                     ->where('status', MemberStatus::Approved))
                 ->lockForUpdate()
                 ->get();
 
-            $totalAllocatedAmount = (int) $charges->sum('amount');
-
-            $totalAllocatableAmount = $this->allocatableAmountFromTotals(
-                (int) $verifiedDeposits->sum('amount'),
-                (int) $existingChargeAllocations->sum('amount'),
-            );
-
-            if ($totalAllocatedAmount > $totalAllocatableAmount) {
+            if ($charges->isEmpty()) {
                 throw ValidationException::withMessages([
-                    'charge_ids' => 'Charge allocation cannot exceed the total allocatable verified deposit amount.',
+                    'charge_ids' => 'Select at least one pending charge to settle.',
                 ]);
             }
+
+            $this->memberPostings->lockAndAssertAvailable(
+                $user->id,
+                Money::toPaisa($charges->sum('amount')),
+                'charge_ids',
+                'Charge allocation cannot exceed your available balance.',
+            );
 
             foreach ($charges as $charge) {
                 ChargeAllocation::query()->create([
@@ -158,19 +146,20 @@ class DepositController extends Controller
         Collection $chargeAllocations,
         int $totalFundCycleAllocatedAmount,
         bool $hasPendingCharges,
+        int $availableBalance,
     ): array {
         $totalDepositAmount = (int) $deposits->sum('amount');
         $totalVerifiedAmount = (int) $deposits
-            ->filter(fn(DepositSubmission $depositSubmission): bool => $depositSubmission->status === DepositSubmissionStatus::Verified)
+            ->filter(fn (DepositSubmission $depositSubmission): bool => $depositSubmission->status === DepositSubmissionStatus::Verified)
             ->sum('amount');
         $totalRejectedDepositCount = $deposits
-            ->filter(fn(DepositSubmission $depositSubmission): bool => $depositSubmission->status === DepositSubmissionStatus::Rejected)
+            ->filter(fn (DepositSubmission $depositSubmission): bool => $depositSubmission->status === DepositSubmissionStatus::Rejected)
             ->count();
         $totalChargeAllocatedAmount = (int) $chargeAllocations
-            ->filter(fn(ChargeAllocation $allocation): bool => $allocation->reversed_at === null)
+            ->filter(fn (ChargeAllocation $allocation): bool => $allocation->reversed_at === null)
             ->sum('amount');
         $totalAllocatedAmount = $totalChargeAllocatedAmount + $totalFundCycleAllocatedAmount;
-        $totalAllocatableAmount = $this->allocatableAmountFromTotals($totalVerifiedAmount, $totalAllocatedAmount);
+        $totalAllocatableAmount = (int) Money::toTaka($availableBalance);
 
         return [
             'total_deposit_amount' => $totalDepositAmount,
@@ -183,11 +172,6 @@ class DepositController extends Controller
             'total_deposit_count' => $deposits->count(),
             'can_allocate' => $totalAllocatableAmount > 0 && $hasPendingCharges,
         ];
-    }
-
-    private function allocatableAmountFromTotals(int $totalVerifiedAmount, int $totalChargeAllocatedAmount): int
-    {
-        return max(0, $totalVerifiedAmount - $totalChargeAllocatedAmount);
     }
 
     private function transformDeposit(DepositSubmission $depositSubmission): array
@@ -223,7 +207,7 @@ class DepositController extends Controller
     {
         return ChargeAllocation::query()->whereHas(
             'charge.member',
-            fn($query) => $query->where('managed_by_user_id', $user->id),
+            fn ($query) => $query->where('managed_by_user_id', $user->id),
         );
     }
 
@@ -231,7 +215,7 @@ class DepositController extends Controller
     {
         return Charge::query()
             ->where('status', Charge::STATUS_PENDING)
-            ->whereHas('member', fn($query) => $query
+            ->whereHas('member', fn ($query) => $query
                 ->where('managed_by_user_id', $user->id)
                 ->where('status', MemberStatus::Approved));
     }

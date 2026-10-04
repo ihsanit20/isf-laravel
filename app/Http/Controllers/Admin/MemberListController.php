@@ -5,12 +5,15 @@ namespace App\Http\Controllers\Admin;
 use App\Enums\MemberStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\ReviewMemberRequest;
+use App\Ledger\Account;
+use App\Ledger\Ledger;
 use App\Models\Charge;
 use App\Models\ChargeCategory;
 use App\Models\Member;
 use App\Services\SmsService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -24,7 +27,7 @@ class MemberListController extends Controller
                 ->latest('applied_at')
                 ->latest('id')
                 ->get()
-                ->map(fn(Member $member): array => [
+                ->map(fn (Member $member): array => [
                     'id' => $member->id,
                     'full_name' => $member->full_name,
                     'phone' => $member->phone,
@@ -49,6 +52,13 @@ class MemberListController extends Controller
     {
         $status = MemberStatus::from($request->string('status')->toString());
         $wasApproved = $member->status === MemberStatus::Approved;
+
+        if ($status === MemberStatus::Exited
+            && app(Ledger::class)->creditBalance(Account::CycleCapital, ['member_id' => $member->id]) !== 0) {
+            throw ValidationException::withMessages([
+                'status' => 'This member still has capital in an unsettled fund cycle. Settle the cycle before exiting the member.',
+            ]);
+        }
 
         $data = [
             'status' => $status,

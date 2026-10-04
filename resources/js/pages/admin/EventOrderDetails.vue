@@ -4,6 +4,7 @@ import { ArrowLeft, Banknote, Printer, RefreshCw } from 'lucide-vue-next';
 import { ref } from 'vue';
 import EventOrderRecordPaymentDialog from '@/components/admin/EventOrderRecordPaymentDialog.vue';
 import EventOrderStatusUpdateDialog from '@/components/admin/EventOrderStatusUpdateDialog.vue';
+import LedgerEntryDialog from '@/components/admin/LedgerEntryDialog.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -84,6 +85,16 @@ type OrderDetails = {
     pickup_point: PickupPoint | null;
     items: OrderLine[];
     payments: Payment[];
+    refunds: {
+        id: number;
+        amount: string;
+        method: string;
+        reference_no: string | null;
+        note: string | null;
+        refunded_at: string | null;
+    }[];
+    refundable_amount: number;
+    can_refund: boolean;
     status_histories: StatusHistory[];
 };
 
@@ -114,6 +125,7 @@ const customerReceiptPrintUrl = `${baseUrl}/print/receipt`;
 
 const isStatusDialogOpen = ref(false);
 const isPaymentDialogOpen = ref(false);
+const isRefundDialogOpen = ref(false);
 
 const rejectingPaymentId = ref<number | null>(null);
 
@@ -179,6 +191,18 @@ const submitReject = (paymentId: number) => {
                         <Banknote class="size-4" />
                         Record payment
                     </Button>
+                    <Button
+                        v-if="
+                            props.order.can_refund &&
+                            props.order.refundable_amount > 0
+                        "
+                        variant="outline"
+                        size="sm"
+                        @click="isRefundDialogOpen = true"
+                    >
+                        <Banknote class="size-4" />
+                        Refund
+                    </Button>
                     <Button variant="outline" size="sm" as-child>
                         <a
                             :href="customerReceiptPrintUrl"
@@ -203,7 +227,7 @@ const submitReject = (paymentId: number) => {
             <div
                 class="rounded-xl border border-emerald-300/60 bg-emerald-50 p-5 dark:bg-emerald-950/20"
             >
-                <p class="text-xs font-semibold uppercase text-emerald-700">
+                <p class="text-xs font-semibold text-emerald-700 uppercase">
                     Total
                 </p>
                 <p class="mt-2 text-2xl font-bold text-emerald-800">
@@ -213,11 +237,11 @@ const submitReject = (paymentId: number) => {
             <div
                 class="rounded-xl border border-blue-300/60 bg-blue-50 p-5 dark:bg-blue-950/20"
             >
-                <p class="text-xs font-semibold uppercase text-blue-700">
+                <p class="text-xs font-semibold text-blue-700 uppercase">
                     {{
                         props.order.is_full_payment
-                            ? "Full payment"
-                            : "Advance required"
+                            ? 'Full payment'
+                            : 'Advance required'
                     }}
                 </p>
                 <p class="mt-2 text-2xl font-bold text-blue-800">
@@ -227,7 +251,7 @@ const submitReject = (paymentId: number) => {
             <div
                 class="rounded-xl border border-indigo-300/60 bg-indigo-50 p-5 dark:bg-indigo-950/20"
             >
-                <p class="text-xs font-semibold uppercase text-indigo-700">
+                <p class="text-xs font-semibold text-indigo-700 uppercase">
                     Verified paid
                 </p>
                 <p class="mt-2 text-2xl font-bold text-indigo-800">
@@ -237,7 +261,7 @@ const submitReject = (paymentId: number) => {
             <div
                 class="rounded-xl border border-amber-300/60 bg-amber-50 p-5 dark:bg-amber-950/20"
             >
-                <p class="text-xs font-semibold uppercase text-amber-700">
+                <p class="text-xs font-semibold text-amber-700 uppercase">
                     Due
                 </p>
                 <p class="mt-2 text-2xl font-bold text-amber-800">
@@ -247,7 +271,9 @@ const submitReject = (paymentId: number) => {
         </section>
 
         <section class="grid gap-4 md:grid-cols-2">
-            <div class="rounded-xl border border-sidebar-border/70 bg-background p-5">
+            <div
+                class="rounded-xl border border-sidebar-border/70 bg-background p-5"
+            >
                 <h2 class="text-base font-semibold">Order Info</h2>
                 <div class="mt-3 space-y-2 text-sm">
                     <div class="flex justify-between gap-3">
@@ -275,13 +301,17 @@ const submitReject = (paymentId: number) => {
                 </div>
             </div>
 
-            <div class="rounded-xl border border-sidebar-border/70 bg-background p-5">
+            <div
+                class="rounded-xl border border-sidebar-border/70 bg-background p-5"
+            >
                 <h2 class="text-base font-semibold">Pickup Point</h2>
                 <div class="mt-3 space-y-2 text-sm">
                     <template v-if="props.order.pickup_point">
                         <div class="flex justify-between gap-3">
                             <span class="text-muted-foreground">Name</span>
-                            <span>{{ props.order.pickup_point.name || '-' }}</span>
+                            <span>{{
+                                props.order.pickup_point.name || '-'
+                            }}</span>
                         </div>
                         <div class="flex justify-between gap-3">
                             <span class="text-muted-foreground">Contact</span>
@@ -291,7 +321,9 @@ const submitReject = (paymentId: number) => {
                         </div>
                         <div class="flex justify-between gap-3">
                             <span class="text-muted-foreground">Phone</span>
-                            <span>{{ props.order.pickup_point.phone || '-' }}</span>
+                            <span>{{
+                                props.order.pickup_point.phone || '-'
+                            }}</span>
                         </div>
                     </template>
                     <p v-else class="text-muted-foreground">Not set</p>
@@ -306,7 +338,9 @@ const submitReject = (paymentId: number) => {
                 <h2 class="text-base font-semibold">Order Items</h2>
             </div>
             <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-sidebar-border/70 text-sm">
+                <table
+                    class="min-w-full divide-y divide-sidebar-border/70 text-sm"
+                >
                     <thead class="bg-muted/40 text-left">
                         <tr>
                             <th class="px-4 py-3 font-medium">Package</th>
@@ -328,7 +362,9 @@ const submitReject = (paymentId: number) => {
         </section>
 
         <section class="grid gap-4 md:grid-cols-2">
-            <div class="rounded-xl border border-sidebar-border/70 bg-background">
+            <div
+                class="rounded-xl border border-sidebar-border/70 bg-background"
+            >
                 <div class="border-b border-sidebar-border/70 px-4 py-3">
                     <h2 class="text-base font-semibold">Payments</h2>
                 </div>
@@ -401,7 +437,9 @@ const submitReject = (paymentId: number) => {
                 </div>
             </div>
 
-            <div class="rounded-xl border border-sidebar-border/70 bg-background">
+            <div
+                class="rounded-xl border border-sidebar-border/70 bg-background"
+            >
                 <div class="border-b border-sidebar-border/70 px-4 py-3">
                     <h2 class="text-base font-semibold">Status History</h2>
                 </div>
@@ -416,7 +454,10 @@ const submitReject = (paymentId: number) => {
                             {{ history.changed_at || '-' }} ·
                             {{ history.changed_by || 'System' }}
                         </div>
-                        <p v-if="history.note" class="mt-2 text-muted-foreground">
+                        <p
+                            v-if="history.note"
+                            class="mt-2 text-muted-foreground"
+                        >
                             {{ history.note }}
                         </p>
                     </div>
@@ -430,6 +471,59 @@ const submitReject = (paymentId: number) => {
             :order="props.order"
             :status-options="props.statusOptions"
         />
+        <section
+            v-if="props.order.refunds.length > 0"
+            class="rounded-xl border border-sidebar-border/70 bg-background"
+        >
+            <div class="border-b border-sidebar-border/70 px-4 py-3">
+                <h2 class="text-base font-semibold">Refunds</h2>
+            </div>
+            <div class="space-y-2 p-4 text-sm">
+                <div
+                    v-for="refund in props.order.refunds"
+                    :key="refund.id"
+                    class="flex flex-wrap justify-between gap-2 rounded-md border border-sidebar-border/70 p-3"
+                >
+                    <span>
+                        {{ refund.refunded_at }} · {{ refund.method }}
+                        <span v-if="refund.reference_no">
+                            · {{ refund.reference_no }}
+                        </span>
+                    </span>
+                    <span class="font-medium tabular-nums">
+                        {{ refund.amount }} BDT
+                    </span>
+                    <p v-if="refund.note" class="w-full text-muted-foreground">
+                        {{ refund.note }}
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <LedgerEntryDialog
+            v-model:isOpen="isRefundDialogOpen"
+            title="Refund customer"
+            :description="`Up to ${props.order.refundable_amount} BDT can be refunded. Posted as a sales refund of this event.`"
+            :action="`${baseUrl}/refunds`"
+            submit-label="Record refund"
+            :fields="[
+                { name: 'amount', label: 'Amount (BDT)', type: 'number' },
+                {
+                    name: 'method',
+                    label: 'Paid back via',
+                    type: 'select',
+                    options: [
+                        { value: 'bkash', label: 'bKash' },
+                        { value: 'cash', label: 'Cash (event float)' },
+                        { value: 'bank', label: 'Bank (cycle account)' },
+                    ],
+                },
+                { name: 'refunded_at', label: 'Date', type: 'date' },
+                { name: 'reference_no', label: 'Reference', type: 'text' },
+                { name: 'note', label: 'Note', type: 'textarea' },
+            ]"
+        />
+
         <EventOrderRecordPaymentDialog
             v-model:is-open="isPaymentDialogOpen"
             :event-id="props.event.id"

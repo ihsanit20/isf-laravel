@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\DepositSubmissionStatus;
+use App\Ledger\Postings\MemberPostings;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -23,6 +24,15 @@ use Illuminate\Support\Facades\Storage;
 ])]
 class DepositSubmission extends Model
 {
+    protected static function booted(): void
+    {
+        static::saved(function (self $deposit): void {
+            if ($deposit->status === DepositSubmissionStatus::Verified) {
+                app(MemberPostings::class)->depositVerified($deposit, auth()->user());
+            }
+        });
+    }
+
     public const PAYMENT_METHOD_BANK_TRANSFER = 'bank_transfer';
 
     public const PAYMENT_METHOD_CASH_DEPOSIT = 'cash_deposit';

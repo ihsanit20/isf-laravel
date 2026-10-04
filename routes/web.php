@@ -1,20 +1,28 @@
 <?php
 
+use App\Http\Controllers\Admin\AccountsController;
+use App\Http\Controllers\Admin\BusinessInvestmentController;
 use App\Http\Controllers\Admin\ChargeCategoryController;
 use App\Http\Controllers\Admin\ChargeListController;
 use App\Http\Controllers\Admin\DepositListController;
 use App\Http\Controllers\Admin\EventBankDepositController;
 use App\Http\Controllers\Admin\EventBankWithdrawalController;
 use App\Http\Controllers\Admin\EventExpenseController;
+use App\Http\Controllers\Admin\EventIncomeController;
 use App\Http\Controllers\Admin\EventOrderController;
 use App\Http\Controllers\Admin\EventOrderPrintController;
 use App\Http\Controllers\Admin\EventPackageController;
 use App\Http\Controllers\Admin\EventPickupPointController;
+use App\Http\Controllers\Admin\EventRefundController;
 use App\Http\Controllers\Admin\FundCycleController;
 use App\Http\Controllers\Admin\FundCycleEventController;
+use App\Http\Controllers\Admin\FundCycleLedgerController;
 use App\Http\Controllers\Admin\GeneralExpenseController;
 use App\Http\Controllers\Admin\GeneralIncomeController;
+use App\Http\Controllers\Admin\InvestmentChargeController;
+use App\Http\Controllers\Admin\JournalController;
 use App\Http\Controllers\Admin\MemberListController;
+use App\Http\Controllers\Admin\PayoutListController;
 use App\Http\Controllers\Admin\UserListController;
 use App\Http\Controllers\BkashCallbackController;
 use App\Http\Controllers\DashboardController;
@@ -24,7 +32,9 @@ use App\Http\Controllers\MemberFundCycleController;
 use App\Http\Controllers\MyAllocationController;
 use App\Http\Controllers\MyChargeController;
 use App\Http\Controllers\MyFundCycleController;
+use App\Http\Controllers\PayoutController;
 use App\Http\Controllers\PublicPaymentReceiptController;
+use App\Http\Controllers\StatementController;
 use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Features;
 
@@ -63,6 +73,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('my-charges', [MyChargeController::class, 'index'])->name('charges.index');
     Route::get('fund-cycles', [MyFundCycleController::class, 'index'])->name('fund-cycles.index');
     Route::get('fund-cycles/{fundCycle}', [MyFundCycleController::class, 'show'])->name('fund-cycles.show');
+    Route::get('my-payouts', [PayoutController::class, 'index'])->name('payouts.index');
+    Route::post('my-payouts', [PayoutController::class, 'store'])->name('payouts.store');
+    Route::get('my-statement', [StatementController::class, 'index'])->name('statement.index');
 });
 
 Route::middleware(['auth', 'verified', 'admin'])->group(function () {
@@ -121,6 +134,27 @@ Route::middleware(['auth', 'verified', 'admin'])->group(function () {
     Route::patch('admin/members/{member}/review', [MemberListController::class, 'review'])->name('admin.members.review');
     Route::get('admin/charges', [ChargeListController::class, 'index'])->name('admin.charges.index');
     Route::patch('admin/charges/{charge}/cancel', [ChargeListController::class, 'cancel'])->name('admin.charges.cancel');
+    Route::post('admin/events/{fundCycleEvent}/incomes', [EventIncomeController::class, 'store'])->name('admin.events.incomes.store');
+    Route::put('admin/events/{fundCycleEvent}/incomes/{eventIncome}', [EventIncomeController::class, 'update'])->name('admin.events.incomes.update');
+    Route::delete('admin/events/{fundCycleEvent}/incomes/{eventIncome}', [EventIncomeController::class, 'destroy'])->name('admin.events.incomes.destroy');
+    Route::post('admin/events/{fundCycleEvent}/orders/{eventOrder}/refunds', [EventRefundController::class, 'store'])->name('admin.events.orders.refunds.store');
+    Route::post('admin/investments/{cycleInvestment}/charges', [InvestmentChargeController::class, 'store'])->name('admin.investments.charges.store');
+    Route::delete('admin/investments/{cycleInvestment}/charges/{charge}', [InvestmentChargeController::class, 'destroy'])->name('admin.investments.charges.destroy');
+    Route::get('admin/businesses', [BusinessInvestmentController::class, 'index'])->name('admin.businesses.index');
+    Route::post('admin/businesses', [BusinessInvestmentController::class, 'store'])->name('admin.businesses.store');
+    Route::get('admin/businesses/{cycleInvestment}', [BusinessInvestmentController::class, 'show'])->name('admin.businesses.show');
+    Route::put('admin/businesses/{cycleInvestment}', [BusinessInvestmentController::class, 'update'])->name('admin.businesses.update');
+    Route::post('admin/businesses/{cycleInvestment}/transactions', [BusinessInvestmentController::class, 'storeTransaction'])->name('admin.businesses.transactions.store');
+    Route::delete('admin/businesses/{cycleInvestment}/transactions/{transaction}', [BusinessInvestmentController::class, 'destroyTransaction'])->name('admin.businesses.transactions.destroy');
+    Route::patch('admin/businesses/{cycleInvestment}/close', [BusinessInvestmentController::class, 'close'])->name('admin.businesses.close');
+    Route::post('admin/fund-cycles/{fundCycle}/transactions', [FundCycleLedgerController::class, 'storeTransaction'])->name('admin.fund-cycles.transactions.store');
+    Route::delete('admin/fund-cycles/{fundCycle}/transactions/{transaction}', [FundCycleLedgerController::class, 'destroyTransaction'])->name('admin.fund-cycles.transactions.destroy');
+    Route::post('admin/fund-cycles/{fundCycle}/settle', [FundCycleLedgerController::class, 'settle'])->name('admin.fund-cycles.settle');
+    Route::get('admin/payouts', [PayoutListController::class, 'index'])->name('admin.payouts.index');
+    Route::patch('admin/payouts/{payoutRequest}', [PayoutListController::class, 'review'])->name('admin.payouts.review');
+    Route::get('admin/accounts', [AccountsController::class, 'index'])->name('admin.accounts.index');
+    Route::get('admin/accounts/journal', [JournalController::class, 'index'])->name('admin.accounts.journal');
+    Route::get('admin/accounts/journal/export', [JournalController::class, 'export'])->name('admin.accounts.journal.export');
     Route::get('admin/deposits', [DepositListController::class, 'index'])->name('admin.deposits.index');
     Route::patch('admin/deposits/{depositSubmission}/review', [DepositListController::class, 'review'])->name('admin.deposits.review');
 });

@@ -15,6 +15,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'lock_date',
     'maturity_date',
     'settlement_date',
+    'settled_at',
+    'settled_by_user_id',
     'slots',
     'notes',
     'created_by_user_id',
@@ -58,6 +60,7 @@ class FundCycle extends Model
             'lock_date' => 'date',
             'maturity_date' => 'date',
             'settlement_date' => 'date',
+            'settled_at' => 'datetime',
             'slots' => 'array',
         ];
     }
@@ -80,5 +83,20 @@ class FundCycle extends Model
     public function events(): HasMany
     {
         return $this->hasMany(FundCycleEvent::class);
+    }
+
+    public function investments(): HasMany
+    {
+        return $this->hasMany(CycleInvestment::class);
+    }
+
+    public function transactions(): HasMany
+    {
+        return $this->hasMany(FundCycleTransaction::class);
+    }
+
+    public function isSettled(): bool
+    {
+        return $this->settled_at !== null;
     }
 }

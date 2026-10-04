@@ -4,8 +4,9 @@ namespace App\Http\Requests\Deposits;
 
 use App\Enums\DepositSubmissionStatus;
 use App\Enums\MemberStatus;
+use App\Ledger\Money;
+use App\Ledger\Postings\MemberPostings;
 use App\Models\Charge;
-use App\Models\ChargeAllocation;
 use App\Models\DepositSubmission;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Collection;
@@ -42,7 +43,7 @@ class StoreDepositAllocationRequest extends FormRequest
                 return;
             }
 
-            $chargeIds = collect($this->input('charge_ids', []))->map(fn($id) => (int) $id)->filter();
+            $chargeIds = collect($this->input('charge_ids', []))->map(fn ($id) => (int) $id)->filter();
 
             if ($chargeIds->isEmpty()) {
                 $validator->errors()->add('charge_ids', 'Select at least one pending charge to settle.');
@@ -66,14 +67,9 @@ class StoreDepositAllocationRequest extends FormRequest
                 $totalAllocatedAmount += $charge->amount;
             }
 
-            $existingChargeAllocatedAmount = ChargeAllocation::query()
-                ->whereNull('reversed_at')
-                ->whereHas('charge.member', fn($query) => $query->where('managed_by_user_id', $user?->id))
-                ->sum('amount');
+            $available = app(MemberPostings::class)->availableBalance((int) $user?->id);
 
-            $totalAllocatableAmount = max(0, (int) $verifiedDeposits->sum('amount') - (int) $existingChargeAllocatedAmount);
-
-            if ($totalAllocatedAmount > $totalAllocatableAmount) {
+            if (Money::toPaisa($totalAllocatedAmount) > $available) {
                 $validator->errors()->add('charge_ids', 'Charge allocation cannot exceed the total allocatable verified deposit amount.');
             }
         });
@@ -84,7 +80,7 @@ class StoreDepositAllocationRequest extends FormRequest
         return Charge::query()
             ->whereIn('status', [Charge::STATUS_PENDING, Charge::STATUS_CANCELLED])
             ->whereIn('id', array_map('intval', $chargeIds))
-            ->whereHas('member', fn($query) => $query
+            ->whereHas('member', fn ($query) => $query
                 ->where('managed_by_user_id', $this->user()?->id)
                 ->where('status', MemberStatus::Approved))
             ->get()

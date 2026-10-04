@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\FundCycleEventStatus;
+use App\Ledger\Postings\InvestmentPostings;
 use App\Models\EventBankDeposit;
 use App\Models\EventOrder;
 use App\Models\EventPayment;
@@ -154,18 +155,19 @@ test('event details shows bank deposit reconciliation hint', function () {
         'advance_amount' => 500,
     ]);
 
-    EventPayment::query()->create([
+    app(InvestmentPostings::class)->customerPaymentVerified(EventPayment::query()->create([
         'event_order_id' => $order->id,
         'amount' => 500,
         'payment_method' => 'bkash',
         'payment_status' => 'verified',
-    ]);
+    ]));
 
-    $event->bankDeposits()->create([
+    app(InvestmentPostings::class)->eventBankDeposit($event->bankDeposits()->create([
         'deposit_date' => '2026-06-10',
         'amount' => 200,
+        'source' => 'bkash',
         'created_by_user_id' => $admin->id,
-    ]);
+    ]));
 
     actingAs($admin)
         ->get(route('admin.events.show', $event))

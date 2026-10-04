@@ -25,6 +25,9 @@ import EventExpenseFormDialog from '@/components/admin/EventExpenseFormDialog.vu
 import EventPackageFormDialog from '@/components/admin/EventPackageFormDialog.vue';
 import EventPickupPointFormDialog from '@/components/admin/EventPickupPointFormDialog.vue';
 import FundCycleEventFormDialog from '@/components/admin/FundCycleEventFormDialog.vue';
+import InvestmentLedgerPanel from '@/components/admin/InvestmentLedgerPanel.vue';
+import type { InvestmentLedger } from '@/components/admin/InvestmentLedgerPanel.vue';
+import LedgerEntryDialog from '@/components/admin/LedgerEntryDialog.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 
@@ -106,6 +109,7 @@ type EventBankDeposit = {
     id: number;
     deposit_date: string;
     amount: number;
+    source: 'cash' | 'bkash';
     description: string | null;
     reference_no: string | null;
     created_by_name: string | null;
@@ -121,6 +125,19 @@ type BankDepositReconciliation = {
     verified_customer_payments: number;
     deposited_to_bank: number;
     not_yet_deposited: number;
+    cash_in_hand: number;
+    bkash_wallet: number;
+};
+
+type EventIncome = {
+    id: number;
+    income_date: string;
+    category: string;
+    category_label: string;
+    received_via: 'cash' | 'bkash' | 'bank';
+    amount: number;
+    description: string | null;
+    created_by_name: string | null;
 };
 
 type WithdrawalSummary = {
@@ -225,6 +242,7 @@ type EventDetails = {
     packages: EventPackage[];
     pickup_points: EventPickupPoint[];
     expenses: EventExpense[];
+    incomes: EventIncome[];
     expense_summary: EventExpenseSummary;
     bank_withdrawals: EventBankWithdrawal[];
     withdrawal_summary: WithdrawalSummary;
@@ -255,6 +273,8 @@ type Props = {
     packageStatuses: PackageStatusOption[];
     packageUnitTypes: PackageStatusOption[];
     expenseCategories: ExpenseCategoryOption[];
+    incomeCategories: ExpenseCategoryOption[];
+    ledger: InvestmentLedger;
 };
 
 defineOptions({
@@ -285,6 +305,8 @@ const editingWithdrawal = ref<EventBankWithdrawal | null>(null);
 const isBankDepositDialogOpen = ref(false);
 const editingBankDeposit = ref<EventBankDeposit | null>(null);
 const isDescriptionExpanded = ref(false);
+const isIncomeDialogOpen = ref(false);
+const editingIncome = ref<EventIncome | null>(null);
 
 type DetailTab =
     | 'details'
@@ -293,7 +315,8 @@ type DetailTab =
     | 'payments'
     | 'deposits'
     | 'withdrawals'
-    | 'costs';
+    | 'costs'
+    | 'accounts';
 
 const page = usePage();
 const validTabs: DetailTab[] = [
@@ -304,6 +327,7 @@ const validTabs: DetailTab[] = [
     'deposits',
     'withdrawals',
     'costs',
+    'accounts',
 ];
 const activeTab = ref<DetailTab>('details');
 
@@ -361,6 +385,10 @@ const detailTabs = computed(() => [
         key: 'withdrawals' as const,
         label: 'Bank Withdrawal',
         count: props.event.withdrawal_summary.entry_count,
+    },
+    {
+        key: 'accounts' as const,
+        label: 'Accounts',
     },
     {
         key: 'costs' as const,
@@ -668,9 +696,15 @@ const deleteExpense = (expense: EventExpense) => {
 };
 
 const finalizeEvent = () => {
+    if (props.ledger.close_blockers.length > 0) {
+        setActiveTab('accounts');
+
+        return;
+    }
+
     if (
         !confirm(
-            'এই ইভেন্টটি ফাইনালাইজ করবেন? ফাইনালাইজ করার পর কোনো তথ্য (কস্ট, উইথড্র, ডিপোজিট, এডিট, অর্ডার) আর পরিবর্তন করা যাবে না।',
+            'এই ইভেন্টটি ফাইনালাইজ করবেন? ফলাফল fund cycle-এ যাবে এবং এরপর কোনো তথ্য (কস্ট, উইথড্র, ডিপোজিট, আয়, চার্জ, অর্ডার) আর পরিবর্তন করা যাবে না।',
         )
     ) {
         return;
@@ -680,6 +714,46 @@ const finalizeEvent = () => {
         preserveScroll: true,
     });
 };
+
+const incomeFields = computed(() => [
+    {
+        name: 'category',
+        label: 'Category',
+        type: 'select' as const,
+        options: props.incomeCategories,
+    },
+    {
+        name: 'received_via',
+        label: 'Received via',
+        type: 'select' as const,
+        options: [
+            { value: 'cash', label: 'Cash (event float)' },
+            { value: 'bkash', label: 'bKash wallet' },
+            { value: 'bank', label: 'Bank (cycle account)' },
+        ],
+    },
+    { name: 'amount', label: 'Amount (BDT)', type: 'number' as const },
+    { name: 'income_date', label: 'Date', type: 'date' as const },
+    { name: 'description', label: 'Description', type: 'textarea' as const },
+]);
+
+const openIncomeDialog = (income: EventIncome | null = null) => {
+    editingIncome.value = income;
+    isIncomeDialogOpen.value = true;
+};
+
+const deleteIncome = (income: EventIncome) => {
+    if (!confirm(`"${income.category_label}" আয়ের এন্ট্রি মুছে ফেলবেন?`)) {
+        return;
+    }
+
+    router.delete(`/admin/events/${props.event.id}/incomes/${income.id}`, {
+        preserveScroll: true,
+    });
+};
+
+const accountsMoney = (amount: number): string =>
+    `${amount.toLocaleString(undefined, { maximumFractionDigits: 2 })} BDT`;
 </script>
 
 <template>
@@ -1719,13 +1793,32 @@ const finalizeEvent = () => {
                                     .deposited_to_bank,
                             )
                         }}
-                        · Not yet logged as bank deposit:
+                        · Not yet in bank:
                         {{
                             money(
                                 props.event.bank_deposit_reconciliation
                                     .not_yet_deposited,
                             )
                         }}
+                        (cash
+                        {{
+                            money(
+                                props.event.bank_deposit_reconciliation
+                                    .cash_in_hand,
+                            )
+                        }}
+                        · bKash
+                        {{
+                            money(
+                                props.event.bank_deposit_reconciliation
+                                    .bkash_wallet,
+                            )
+                        }})
+                    </p>
+                    <p class="mt-1 text-xs text-muted-foreground">
+                        Record a bank deposit with source "bKash" for bKash
+                        settlements, and the bKash fee as an event cost paid
+                        from bKash.
                     </p>
                 </div>
 
@@ -1931,14 +2024,14 @@ const finalizeEvent = () => {
                                     .allocated_amount,
                             )
                         }}
-                        · Withdrawn from bank (all events in cycle):
+                        · Currently deployed (cash, bKash, business):
                         {{
                             money(
                                 props.event.cycle_withdrawal_budget
                                     .withdrawn_amount,
                             )
                         }}
-                        · Remaining:
+                        · Cycle money in bank:
                         <span
                             :class="{
                                 'text-destructive':
@@ -2253,7 +2346,104 @@ const finalizeEvent = () => {
                     </table>
                 </div>
             </div>
+
+            <div v-else-if="activeTab === 'accounts'" class="space-y-6 p-6">
+                <div class="rounded-xl border border-sidebar-border/70">
+                    <div
+                        class="flex items-center justify-between gap-2 border-b border-sidebar-border/70 px-4 py-2"
+                    >
+                        <div>
+                            <p class="text-sm font-medium">
+                                Other income (outside order sales)
+                            </p>
+                            <p class="text-xs text-muted-foreground">
+                                e.g. used boxes sold at a lower price.
+                            </p>
+                        </div>
+                        <Button
+                            v-if="!props.event.is_finalized"
+                            size="sm"
+                            variant="outline"
+                            @click="openIncomeDialog()"
+                        >
+                            <Plus class="size-4" />
+                            Add income
+                        </Button>
+                    </div>
+                    <table class="min-w-full text-sm">
+                        <tbody class="divide-y divide-sidebar-border/70">
+                            <tr
+                                v-for="income in props.event.incomes"
+                                :key="income.id"
+                            >
+                                <td class="px-4 py-2">
+                                    {{ income.income_date }}
+                                </td>
+                                <td class="px-4 py-2">
+                                    {{ income.category_label }}
+                                </td>
+                                <td class="px-4 py-2 text-muted-foreground">
+                                    {{ income.received_via }}
+                                </td>
+                                <td class="px-4 py-2 text-muted-foreground">
+                                    {{ income.description || '-' }}
+                                </td>
+                                <td class="px-4 py-2 text-right tabular-nums">
+                                    {{ accountsMoney(income.amount) }}
+                                </td>
+                                <td class="w-24 px-2 py-2 text-right">
+                                    <template v-if="!props.event.is_finalized">
+                                        <Button
+                                            size="icon"
+                                            variant="ghost"
+                                            @click="openIncomeDialog(income)"
+                                        >
+                                            <Pencil class="size-4" />
+                                        </Button>
+                                        <Button
+                                            size="icon"
+                                            variant="ghost"
+                                            @click="deleteIncome(income)"
+                                        >
+                                            <Trash2 class="size-4" />
+                                        </Button>
+                                    </template>
+                                </td>
+                            </tr>
+                            <tr v-if="props.event.incomes.length === 0">
+                                <td
+                                    colspan="6"
+                                    class="px-4 py-3 text-muted-foreground"
+                                >
+                                    No other income.
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <InvestmentLedgerPanel
+                    :ledger="props.ledger"
+                    close-label="Finalize event"
+                    @close="finalizeEvent"
+                />
+            </div>
         </section>
+
+        <LedgerEntryDialog
+            v-model:isOpen="isIncomeDialogOpen"
+            :title="editingIncome ? 'Edit other income' : 'Add other income'"
+            description="Income of this event outside order payments."
+            :action="
+                editingIncome
+                    ? `/admin/events/${props.event.id}/incomes/${editingIncome.id}`
+                    : `/admin/events/${props.event.id}/incomes`
+            "
+            :method="editingIncome ? 'put' : 'post'"
+            :fields="incomeFields"
+            :initial="editingIncome ?? {}"
+            :submit-label="editingIncome ? 'Save' : 'Add income'"
+        />
 
         <FundCycleEventFormDialog
             v-model:isOpen="isEditDialogOpen"

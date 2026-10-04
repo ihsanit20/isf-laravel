@@ -2,10 +2,9 @@
 
 namespace App\Http\Requests\Admin;
 
-use App\Enums\DepositSubmissionStatus;
 use App\Enums\MemberStatus;
-use App\Models\ChargeAllocation;
-use App\Models\DepositSubmission;
+use App\Ledger\Money;
+use App\Ledger\Postings\MemberPostings;
 use App\Models\FundCycle;
 use App\Models\FundCycleAllocation;
 use App\Models\Member;
@@ -45,7 +44,7 @@ class StoreFundCycleAllocationRequest extends FormRequest
             $slotKey = $this->string('slot_key')->toString();
 
             $availableSlots = collect($fundCycle->slots ?? [])
-                ->map(fn($slot) => is_string($slot) ? trim($slot) : '')
+                ->map(fn ($slot) => is_string($slot) ? trim($slot) : '')
                 ->filter()
                 ->values();
 
@@ -55,24 +54,23 @@ class StoreFundCycleAllocationRequest extends FormRequest
                 return;
             }
 
+            if ($fundCycle->status !== FundCycle::STATUS_OPEN) {
+                $validator->errors()->add('slot_key', 'This fund cycle is no longer open for allocation.');
+
+                return;
+            }
+
+            if ($fundCycle->lock_date !== null && now()->startOfDay()->greaterThanOrEqualTo($fundCycle->lock_date)) {
+                $validator->errors()->add('slot_key', 'This fund cycle is locked and no longer accepts allocations.');
+
+                return;
+            }
+
             $amount = $fundCycle->allocationAmountFor($member->units);
+            $remainingPool = app(MemberPostings::class)->availableBalance((int) $member->managed_by_user_id);
 
-            $verifiedDepositAmount = (int) DepositSubmission::query()
-                ->where('status', DepositSubmissionStatus::Verified)
-                ->sum('amount');
-
-            $chargeAllocatedAmount = (int) ChargeAllocation::query()
-                ->whereNull('reversed_at')
-                ->sum('amount');
-
-            $cycleAllocatedAmount = (int) FundCycleAllocation::query()
-                ->where('fund_cycle_id', '!=', $fundCycle->id)
-                ->sum('amount');
-
-            $remainingPool = max(0, $verifiedDepositAmount - $chargeAllocatedAmount - $cycleAllocatedAmount);
-
-            if ($amount > $remainingPool) {
-                $validator->errors()->add('member_id', 'Allocation cannot exceed the remaining verified deposit pool.');
+            if (Money::toPaisa($amount) > $remainingPool) {
+                $validator->errors()->add('member_id', 'Allocation cannot exceed the available balance of this member\'s account holder.');
             }
 
             $existingMemberAllocation = FundCycleAllocation::query()

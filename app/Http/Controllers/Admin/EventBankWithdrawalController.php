@@ -5,25 +5,30 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreEventBankWithdrawalRequest;
 use App\Http\Requests\Admin\UpdateEventBankWithdrawalRequest;
+use App\Ledger\Postings\InvestmentPostings;
 use App\Models\EventBankWithdrawal;
 use App\Models\FundCycleEvent;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\DB;
 
 class EventBankWithdrawalController extends Controller
 {
+    public function __construct(private readonly InvestmentPostings $postings) {}
+
     public function store(StoreEventBankWithdrawalRequest $request, FundCycleEvent $fundCycleEvent): RedirectResponse
     {
         $fundCycleEvent->ensureNotFinalized();
 
-        $fundCycleEvent->bankWithdrawals()->create([
-            ...$request->safe()->only(['withdrawal_date', 'amount', 'description', 'reference_no']),
-            'created_by_user_id' => $request->user()?->id,
-        ]);
+        DB::transaction(function () use ($request, $fundCycleEvent): void {
+            $withdrawal = $fundCycleEvent->bankWithdrawals()->create([
+                ...$request->safe()->only(['withdrawal_date', 'amount', 'description', 'reference_no']),
+                'created_by_user_id' => $request->user()?->id,
+            ]);
 
-        return to_route('admin.events.show', [
-            'fundCycleEvent' => $fundCycleEvent,
-            'tab' => 'withdrawals',
-        ]);
+            $this->postings->eventWithdrawal($withdrawal, $request->user());
+        });
+
+        return $this->backToTab($fundCycleEvent);
     }
 
     public function update(
@@ -34,14 +39,15 @@ class EventBankWithdrawalController extends Controller
         $this->ensureWithdrawalBelongsToEvent($fundCycleEvent, $eventBankWithdrawal);
         $fundCycleEvent->ensureNotFinalized();
 
-        $eventBankWithdrawal->update(
-            $request->safe()->only(['withdrawal_date', 'amount', 'description', 'reference_no']),
-        );
+        DB::transaction(function () use ($request, $eventBankWithdrawal): void {
+            $eventBankWithdrawal->update(
+                $request->safe()->only(['withdrawal_date', 'amount', 'description', 'reference_no']),
+            );
 
-        return to_route('admin.events.show', [
-            'fundCycleEvent' => $fundCycleEvent,
-            'tab' => 'withdrawals',
-        ]);
+            $this->postings->eventWithdrawal($eventBankWithdrawal, $request->user());
+        });
+
+        return $this->backToTab($fundCycleEvent);
     }
 
     public function destroy(FundCycleEvent $fundCycleEvent, EventBankWithdrawal $eventBankWithdrawal): RedirectResponse
@@ -49,8 +55,16 @@ class EventBankWithdrawalController extends Controller
         $this->ensureWithdrawalBelongsToEvent($fundCycleEvent, $eventBankWithdrawal);
         $fundCycleEvent->ensureNotFinalized();
 
-        $eventBankWithdrawal->delete();
+        DB::transaction(function () use ($eventBankWithdrawal): void {
+            $this->postings->removed($eventBankWithdrawal, request()->user());
+            $eventBankWithdrawal->delete();
+        });
 
+        return $this->backToTab($fundCycleEvent);
+    }
+
+    private function backToTab(FundCycleEvent $fundCycleEvent): RedirectResponse
+    {
         return to_route('admin.events.show', [
             'fundCycleEvent' => $fundCycleEvent,
             'tab' => 'withdrawals',

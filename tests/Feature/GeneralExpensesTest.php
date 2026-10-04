@@ -1,13 +1,30 @@
 <?php
 
+use App\Enums\DepositSubmissionStatus;
 use App\Enums\GeneralExpenseCategory;
+use App\Enums\GeneralIncomeCategory;
+use App\Ledger\Account;
+use App\Ledger\Ledger;
+use App\Ledger\Postings\PlatformPostings;
+use App\Models\DepositSubmission;
 use App\Models\GeneralExpense;
+use App\Models\GeneralIncome;
 use App\Models\User;
-use Inertia\Testing\AssertableInertia as Assert;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Inertia\Testing\AssertableInertia as Assert;
+
 use function Pest\Laravel\actingAs;
 use function Pest\Laravel\post;
+
+function fundPlatform(int $amount): void
+{
+    app(PlatformPostings::class)->incomeRecorded(GeneralIncome::query()->create([
+        'income_date' => '2026-04-01',
+        'category' => GeneralIncomeCategory::Sponsorship,
+        'amount' => $amount,
+    ]));
+}
 
 test('admins can visit the general expenses admin page', function () {
     $admin = User::factory()->create([
@@ -17,7 +34,7 @@ test('admins can visit the general expenses admin page', function () {
     actingAs($admin)
         ->get(route('admin.general-expenses.index'))
         ->assertOk()
-        ->assertInertia(fn(Assert $page) => $page
+        ->assertInertia(fn (Assert $page) => $page
             ->component('admin/GeneralExpenses')
             ->has('expenseCategories', count(GeneralExpenseCategory::cases()))
             ->has('generalExpenses', 0));
@@ -40,6 +57,7 @@ test('admins can create a general expense', function () {
     $admin = User::factory()->create([
         'role' => 'admin',
     ]);
+    fundPlatform(5000);
 
     actingAs($admin);
 
@@ -68,6 +86,7 @@ test('admins can update a general expense', function () {
     $admin = User::factory()->create([
         'role' => 'admin',
     ]);
+    fundPlatform(5000);
     $expense = GeneralExpense::query()->create([
         'expense_date' => '2026-04-12',
         'category' => GeneralExpenseCategory::Printing,
@@ -94,4 +113,48 @@ test('admins can update a general expense', function () {
         ->and($expense->receipt_path)->not->toBeNull();
 
     expect(Storage::disk('public')->exists($expense->receipt_path))->toBeTrue();
+});
+
+test('platform expenses may run the platform fund negative but not the bank', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    fundPlatform(1000);
+
+    actingAs($admin);
+
+    post(route('admin.general-expenses.store'), [
+        'expense_date' => '2026-04-13',
+        'category' => GeneralExpenseCategory::SmsCharge->value,
+        'amount' => 400,
+    ])->assertSessionHasNoErrors();
+
+    expect(app(Ledger::class)->balance(Account::SmsChargeExpense))->toBe(40000)
+        ->and(app(Ledger::class)->platformFund())->toBe(60000);
+
+    post(route('admin.general-expenses.store'), [
+        'expense_date' => '2026-04-14',
+        'category' => GeneralExpenseCategory::BankCharge->value,
+        'amount' => 700,
+    ])->assertSessionHasErrors(['amount']);
+
+    expect(GeneralExpense::query()->count())->toBe(1);
+
+    $member = User::factory()->create();
+    DepositSubmission::query()->create([
+        'user_id' => $member->id,
+        'amount' => 5000,
+        'payment_method' => DepositSubmission::PAYMENT_METHOD_BANK_TRANSFER,
+        'deposit_date' => '2026-04-14',
+        'proof_path' => 'proofs/x.png',
+        'status' => DepositSubmissionStatus::Verified,
+        'verified_at' => now(),
+    ]);
+
+    post(route('admin.general-expenses.store'), [
+        'expense_date' => '2026-04-15',
+        'category' => GeneralExpenseCategory::BankCharge->value,
+        'amount' => 700,
+    ])->assertSessionHasNoErrors();
+
+    expect(app(Ledger::class)->platformFund())->toBe(-10000)
+        ->and(app(Ledger::class)->creditBalance(Account::MemberBalance, ['user_id' => $member->id]))->toBe(500000);
 });

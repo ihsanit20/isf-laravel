@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'fund_cycle_event_id',
     'deposit_date',
     'amount',
+    'source',
     'description',
     'reference_no',
     'created_by_user_id',
