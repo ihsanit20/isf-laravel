@@ -97,7 +97,8 @@ const openReject = (payout: PayoutItem) => {
             <Table>
                 <TableHeader>
                     <TableRow>
-                        <TableHead class="pl-4">User</TableHead>
+                        <TableHead class="w-12 pl-4">SL</TableHead>
+                        <TableHead>User</TableHead>
                         <TableHead>Receive via</TableHead>
                         <TableHead class="text-right">Amount</TableHead>
                         <TableHead class="text-right">Balance now</TableHead>
@@ -106,8 +107,15 @@ const openReject = (payout: PayoutItem) => {
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    <TableRow v-for="payout in props.payouts" :key="payout.id">
-                        <TableCell class="pl-4">
+                    <TableRow
+                        v-for="(payout, index) in props.payouts"
+                        :key="payout.id"
+                    >
+                        <TableCell
+                            class="pl-4 text-muted-foreground tabular-nums"
+                            >{{ index + 1 }}</TableCell
+                        >
+                        <TableCell>
                             <p class="font-medium">{{ payout.user.name }}</p>
                             <p class="text-xs text-muted-foreground">
                                 {{ payout.user.phone || payout.user.email }} ·
@@ -168,7 +176,7 @@ const openReject = (payout: PayoutItem) => {
                             </div>
                         </TableCell>
                     </TableRow>
-                    <TableEmpty v-if="props.payouts.length === 0" :colspan="6">
+                    <TableEmpty v-if="props.payouts.length === 0" :colspan="7">
                         No payout requests.
                     </TableEmpty>
                 </TableBody>

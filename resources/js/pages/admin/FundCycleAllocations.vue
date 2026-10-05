@@ -308,6 +308,7 @@ const clearFilters = () => {
                     <thead class="bg-muted/50 text-left">
                         <tr>
                             <th class="px-4 py-3 font-medium">Slot</th>
+                            <th class="w-12 px-4 py-3 font-medium">SL</th>
                             <th class="px-4 py-3 font-medium">User / Member</th>
                             <th class="px-4 py-3 font-medium">Amount</th>
                             <th class="px-4 py-3 font-medium">Allocated At</th>
@@ -331,6 +332,11 @@ const clearFilters = () => {
                                     class="px-4 py-3 align-top text-muted-foreground"
                                 >
                                     {{ slotGroup.slotKey }}
+                                </td>
+                                <td
+                                    class="px-4 py-3 text-muted-foreground tabular-nums"
+                                >
+                                    {{ index + 1 }}
                                 </td>
                                 <td class="px-4 py-3 text-muted-foreground">
                                     <div>
@@ -368,6 +374,7 @@ const clearFilters = () => {
                     <thead class="bg-muted/50 text-left">
                         <tr>
                             <th class="px-4 py-3 font-medium">Slot</th>
+                            <th class="w-12 px-4 py-3 font-medium">SL</th>
                             <th class="px-4 py-3 font-medium">User</th>
                             <th class="px-4 py-3 font-medium">Members</th>
                         </tr>
@@ -389,6 +396,11 @@ const clearFilters = () => {
                                     class="px-4 py-3 align-top text-muted-foreground"
                                 >
                                     {{ slotGroup.slotKey }}
+                                </td>
+                                <td
+                                    class="px-4 py-3 text-muted-foreground tabular-nums"
+                                >
+                                    {{ index + 1 }}
                                 </td>
                                 <td class="px-4 py-3 text-destructive">
                                     {{ missing.user_name }}

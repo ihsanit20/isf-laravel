@@ -96,7 +96,8 @@ const openEditDialog = (user: AdminUser) => {
             <Table>
                 <TableHeader>
                     <TableRow>
-                        <TableHead class="pl-4">Name</TableHead>
+                        <TableHead class="w-12 pl-4">SL</TableHead>
+                        <TableHead>Name</TableHead>
                         <TableHead>Phone</TableHead>
                         <TableHead class="text-right">
                             Verified deposits
@@ -108,8 +109,12 @@ const openEditDialog = (user: AdminUser) => {
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    <TableRow v-for="user in users" :key="user.id">
-                        <TableCell class="pl-4">
+                    <TableRow v-for="(user, index) in users" :key="user.id">
+                        <TableCell
+                            class="pl-4 text-muted-foreground tabular-nums"
+                            >{{ index + 1 }}</TableCell
+                        >
+                        <TableCell>
                             <p class="font-medium">{{ user.name }}</p>
                             <p class="text-xs text-muted-foreground">
                                 {{ user.email }}
@@ -160,7 +165,7 @@ const openEditDialog = (user: AdminUser) => {
                             </span>
                         </TableCell>
                     </TableRow>
-                    <TableEmpty v-if="users.length === 0" :colspan="7">
+                    <TableEmpty v-if="users.length === 0" :colspan="8">
                         No users found.
                     </TableEmpty>
                 </TableBody>

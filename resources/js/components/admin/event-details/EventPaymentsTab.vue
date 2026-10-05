@@ -60,7 +60,8 @@ const props = defineProps<{
             <Table>
                 <TableHeader>
                     <TableRow>
-                        <TableHead class="pl-4">Date</TableHead>
+                        <TableHead class="w-12 pl-4">SL</TableHead>
+                        <TableHead>Date</TableHead>
                         <TableHead class="text-right">Amount</TableHead>
                         <TableHead>Order</TableHead>
                         <TableHead>Customer</TableHead>
@@ -72,10 +73,14 @@ const props = defineProps<{
                 </TableHeader>
                 <TableBody>
                     <TableRow
-                        v-for="payment in props.event.payments"
+                        v-for="(payment, index) in props.event.payments"
                         :key="payment.id"
                     >
-                        <TableCell class="pl-4">
+                        <TableCell
+                            class="pl-4 text-muted-foreground tabular-nums"
+                            >{{ index + 1 }}</TableCell
+                        >
+                        <TableCell>
                             {{ payment.paid_at || payment.verified_at || '—' }}
                         </TableCell>
                         <TableCell class="text-right font-medium tabular-nums">

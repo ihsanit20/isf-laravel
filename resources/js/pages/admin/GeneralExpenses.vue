@@ -100,7 +100,8 @@ const openEditDialog = (expense: GeneralExpenseItem) => {
             <Table>
                 <TableHeader>
                     <TableRow>
-                        <TableHead class="pl-4">Date</TableHead>
+                        <TableHead class="w-12 pl-4">SL</TableHead>
+                        <TableHead>Date</TableHead>
                         <TableHead>Category</TableHead>
                         <TableHead class="text-right">Amount</TableHead>
                         <TableHead>Description</TableHead>
@@ -110,10 +111,14 @@ const openEditDialog = (expense: GeneralExpenseItem) => {
                 </TableHeader>
                 <TableBody>
                     <TableRow
-                        v-for="expense in generalExpenses"
+                        v-for="(expense, index) in generalExpenses"
                         :key="expense.id"
                     >
-                        <TableCell class="pl-4 font-medium">
+                        <TableCell
+                            class="pl-4 text-muted-foreground tabular-nums"
+                            >{{ index + 1 }}</TableCell
+                        >
+                        <TableCell class="font-medium">
                             {{ expense.expense_date }}
                         </TableCell>
                         <TableCell>{{ expense.category_label }}</TableCell>
@@ -151,7 +156,7 @@ const openEditDialog = (expense: GeneralExpenseItem) => {
                     </TableRow>
                     <TableEmpty
                         v-if="generalExpenses.length === 0"
-                        :colspan="6"
+                        :colspan="7"
                     >
                         No expenses recorded yet.
                     </TableEmpty>

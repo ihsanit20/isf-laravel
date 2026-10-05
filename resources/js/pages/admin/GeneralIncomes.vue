@@ -100,7 +100,8 @@ const openEditDialog = (income: GeneralIncomeItem) => {
             <Table>
                 <TableHeader>
                     <TableRow>
-                        <TableHead class="pl-4">Date</TableHead>
+                        <TableHead class="w-12 pl-4">SL</TableHead>
+                        <TableHead>Date</TableHead>
                         <TableHead>Category</TableHead>
                         <TableHead class="text-right">Amount</TableHead>
                         <TableHead>Description</TableHead>
@@ -109,8 +110,15 @@ const openEditDialog = (income: GeneralIncomeItem) => {
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    <TableRow v-for="income in generalIncomes" :key="income.id">
-                        <TableCell class="pl-4 font-medium">
+                    <TableRow
+                        v-for="(income, index) in generalIncomes"
+                        :key="income.id"
+                    >
+                        <TableCell
+                            class="pl-4 text-muted-foreground tabular-nums"
+                            >{{ index + 1 }}</TableCell
+                        >
+                        <TableCell class="font-medium">
                             {{ income.income_date }}
                         </TableCell>
                         <TableCell>{{ income.category_label }}</TableCell>
@@ -146,7 +154,7 @@ const openEditDialog = (income: GeneralIncomeItem) => {
                             </Button>
                         </TableCell>
                     </TableRow>
-                    <TableEmpty v-if="generalIncomes.length === 0" :colspan="6">
+                    <TableEmpty v-if="generalIncomes.length === 0" :colspan="7">
                         No incomes recorded yet.
                     </TableEmpty>
                 </TableBody>

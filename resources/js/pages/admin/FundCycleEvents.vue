@@ -127,7 +127,8 @@ const formatDateTime = (value: string): string => {
             <Table>
                 <TableHeader>
                     <TableRow>
-                        <TableHead class="pl-4">Event</TableHead>
+                        <TableHead class="w-12 pl-4">SL</TableHead>
+                        <TableHead>Event</TableHead>
                         <TableHead>Status</TableHead>
                         <TableHead>Order window</TableHead>
                         <TableHead>Delivery</TableHead>
@@ -135,8 +136,15 @@ const formatDateTime = (value: string): string => {
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    <TableRow v-for="event in props.events" :key="event.id">
-                        <TableCell class="pl-4 whitespace-normal">
+                    <TableRow
+                        v-for="(event, index) in props.events"
+                        :key="event.id"
+                    >
+                        <TableCell
+                            class="pl-4 text-muted-foreground tabular-nums"
+                            >{{ index + 1 }}</TableCell
+                        >
+                        <TableCell class="whitespace-normal">
                             <div class="flex items-center gap-3">
                                 <img
                                     v-if="event.banner_image_url"
@@ -207,7 +215,7 @@ const formatDateTime = (value: string): string => {
                             </div>
                         </TableCell>
                     </TableRow>
-                    <TableEmpty v-if="props.events.length === 0" :colspan="5">
+                    <TableEmpty v-if="props.events.length === 0" :colspan="6">
                         No events in this cycle yet.
                     </TableEmpty>
                 </TableBody>

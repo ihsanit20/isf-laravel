@@ -679,7 +679,7 @@ const labelClass = 'mb-1 block text-xs font-medium text-muted-foreground';
 
         <section class="space-y-3">
             <article
-                v-for="entry in props.entries.data"
+                v-for="(entry, index) in props.entries.data"
                 :key="entry.id"
                 class="overflow-hidden rounded-xl border bg-card shadow-xs"
                 :class="
@@ -691,6 +691,9 @@ const labelClass = 'mb-1 block text-xs font-medium text-muted-foreground';
                 <header
                     class="flex flex-wrap items-center gap-2 border-b px-4 py-2 text-sm"
                 >
+                    <span class="text-xs text-muted-foreground tabular-nums">
+                        SL {{ (props.entries.from ?? 1) + index }}
+                    </span>
                     <button
                         type="button"
                         class="font-mono text-xs text-muted-foreground hover:text-foreground hover:underline"

@@ -301,6 +301,7 @@ const submitReject = (paymentId: number) => {
                 <table class="min-w-full divide-y divide-border text-sm">
                     <thead class="bg-muted/50 text-left">
                         <tr>
+                            <th class="w-12 px-4 py-3 font-medium">SL</th>
                             <th class="px-4 py-3 font-medium">Package</th>
                             <th class="px-4 py-3 font-medium">Quantity</th>
                             <th class="px-4 py-3 font-medium">Price</th>
@@ -308,7 +309,15 @@ const submitReject = (paymentId: number) => {
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-border">
-                        <tr v-for="item in props.order.items" :key="item.id">
+                        <tr
+                            v-for="(item, index) in props.order.items"
+                            :key="item.id"
+                        >
+                            <td
+                                class="w-12 px-4 py-3 text-muted-foreground tabular-nums"
+                            >
+                                {{ index + 1 }}
+                            </td>
                             <td class="px-4 py-3">{{ item.package_name }}</td>
                             <td class="px-4 py-3">{{ item.quantity_label }}</td>
                             <td class="px-4 py-3">{{ item.package_price }}</td>

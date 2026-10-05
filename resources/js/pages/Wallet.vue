@@ -172,7 +172,8 @@ const kindLabel = (kind: string | null): string =>
                     <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead class="pl-4">Date</TableHead>
+                                <TableHead class="w-12 pl-4">SL</TableHead>
+                                <TableHead>Date</TableHead>
                                 <TableHead>Type</TableHead>
                                 <TableHead>Description</TableHead>
                                 <TableHead class="text-right">In</TableHead>
@@ -184,10 +185,14 @@ const kindLabel = (kind: string | null): string =>
                         </TableHeader>
                         <TableBody>
                             <TableRow
-                                v-for="line in props.lines"
+                                v-for="(line, index) in props.lines"
                                 :key="line.id"
                             >
-                                <TableCell class="pl-4">
+                                <TableCell
+                                    class="pl-4 text-muted-foreground tabular-nums"
+                                    >{{ index + 1 }}</TableCell
+                                >
+                                <TableCell>
                                     {{ line.date }}
                                 </TableCell>
                                 <TableCell>
@@ -230,7 +235,7 @@ const kindLabel = (kind: string | null): string =>
                             </TableRow>
                             <TableEmpty
                                 v-if="props.lines.length === 0"
-                                :colspan="6"
+                                :colspan="7"
                             >
                                 No transactions yet. Your first verified deposit
                                 will show up here.

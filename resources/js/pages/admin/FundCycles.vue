@@ -77,7 +77,8 @@ const isCreateDialogOpen = ref(false);
             <Table>
                 <TableHeader>
                     <TableRow>
-                        <TableHead class="pl-4">Cycle</TableHead>
+                        <TableHead class="w-12 pl-4">SL</TableHead>
+                        <TableHead>Cycle</TableHead>
                         <TableHead>Status</TableHead>
                         <TableHead class="text-right">Unit amount</TableHead>
                         <TableHead>Timeline</TableHead>
@@ -87,10 +88,14 @@ const isCreateDialogOpen = ref(false);
                 </TableHeader>
                 <TableBody>
                     <TableRow
-                        v-for="fundCycle in fundCycles"
+                        v-for="(fundCycle, index) in fundCycles"
                         :key="fundCycle.id"
                     >
-                        <TableCell class="max-w-xs pl-4 whitespace-normal">
+                        <TableCell
+                            class="pl-4 text-muted-foreground tabular-nums"
+                            >{{ index + 1 }}</TableCell
+                        >
+                        <TableCell class="max-w-xs whitespace-normal">
                             <Link
                                 :href="`/admin/fund-cycles/${fundCycle.id}`"
                                 class="font-medium hover:underline"
@@ -167,7 +172,7 @@ const isCreateDialogOpen = ref(false);
                             </div>
                         </TableCell>
                     </TableRow>
-                    <TableEmpty v-if="fundCycles.length === 0" :colspan="6">
+                    <TableEmpty v-if="fundCycles.length === 0" :colspan="7">
                         No fund cycles yet.
                     </TableEmpty>
                 </TableBody>

@@ -237,7 +237,8 @@ const hasCycleLevelLines = computed(
                 <Table>
                     <TableHeader>
                         <TableRow>
-                            <TableHead class="pl-6">Event</TableHead>
+                            <TableHead class="w-12 pl-6">SL</TableHead>
+                            <TableHead>Event</TableHead>
                             <TableHead class="text-right">
                                 Total income
                             </TableHead>
@@ -250,8 +251,15 @@ const hasCycleLevelLines = computed(
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        <TableRow v-for="event in props.events" :key="event.id">
-                            <TableCell class="pl-6 whitespace-normal">
+                        <TableRow
+                            v-for="(event, index) in props.events"
+                            :key="event.id"
+                        >
+                            <TableCell
+                                class="pl-6 text-muted-foreground tabular-nums"
+                                >{{ index + 1 }}</TableCell
+                            >
+                            <TableCell class="whitespace-normal">
                                 <p class="font-medium">{{ event.title }}</p>
                                 <p
                                     v-if="event.type === 'business'"
@@ -277,14 +285,16 @@ const hasCycleLevelLines = computed(
                         </TableRow>
                         <TableEmpty
                             v-if="props.events.length === 0"
-                            :colspan="4"
+                            :colspan="5"
                         >
                             No event has been finalized yet.
                         </TableEmpty>
                     </TableBody>
                     <TableFooter v-if="props.events.length > 0">
                         <TableRow>
-                            <TableCell class="pl-6">Total</TableCell>
+                            <TableCell colspan="2" class="pl-6"
+                                >Total</TableCell
+                            >
                             <TableCell class="text-right tabular-nums">
                                 {{ formatMoney(eventTotals.income) }}
                             </TableCell>
@@ -369,7 +379,8 @@ const hasCycleLevelLines = computed(
                 <Table>
                     <TableHeader>
                         <TableRow>
-                            <TableHead class="pl-6">Member</TableHead>
+                            <TableHead class="w-12 pl-6">SL</TableHead>
+                            <TableHead>Member</TableHead>
                             <TableHead class="text-right">Invested</TableHead>
                             <TableHead class="text-right">
                                 Profit / Loss
@@ -381,10 +392,14 @@ const hasCycleLevelLines = computed(
                     </TableHeader>
                     <TableBody>
                         <TableRow
-                            v-for="member in props.myMembers"
+                            v-for="(member, index) in props.myMembers"
                             :key="member.member_id"
                         >
-                            <TableCell class="pl-6 font-medium">
+                            <TableCell
+                                class="pl-6 text-muted-foreground tabular-nums"
+                                >{{ index + 1 }}</TableCell
+                            >
+                            <TableCell class="font-medium">
                                 {{ member.name }}
                             </TableCell>
                             <TableCell class="text-right tabular-nums">
@@ -412,7 +427,9 @@ const hasCycleLevelLines = computed(
                     </TableBody>
                     <TableFooter v-if="props.myMembers.length > 1">
                         <TableRow>
-                            <TableCell class="pl-6">Total</TableCell>
+                            <TableCell colspan="2" class="pl-6"
+                                >Total</TableCell
+                            >
                             <TableCell class="text-right tabular-nums">
                                 {{ formatMoney(props.cycleResult.my_capital) }}
                             </TableCell>
@@ -445,7 +462,8 @@ const hasCycleLevelLines = computed(
                 <Table>
                     <TableHeader>
                         <TableRow>
-                            <TableHead class="pl-6">Member</TableHead>
+                            <TableHead class="w-12 pl-6">SL</TableHead>
+                            <TableHead>Member</TableHead>
                             <TableHead>Month</TableHead>
                             <TableHead class="text-right">Amount</TableHead>
                             <TableHead class="pr-6">Date</TableHead>
@@ -453,10 +471,14 @@ const hasCycleLevelLines = computed(
                     </TableHeader>
                     <TableBody>
                         <TableRow
-                            v-for="allocation in props.myAllocations"
+                            v-for="(allocation, index) in props.myAllocations"
                             :key="allocation.id"
                         >
-                            <TableCell class="pl-6">
+                            <TableCell
+                                class="pl-6 text-muted-foreground tabular-nums"
+                                >{{ index + 1 }}</TableCell
+                            >
+                            <TableCell>
                                 {{ allocation.member_name }}
                             </TableCell>
                             <TableCell>{{ allocation.slot_key }}</TableCell>

@@ -122,7 +122,8 @@ const deleteDeposit = (deposit: EventBankDeposit) => {
             <Table>
                 <TableHeader>
                     <TableRow>
-                        <TableHead class="pl-4">Date</TableHead>
+                        <TableHead class="w-12 pl-4">SL</TableHead>
+                        <TableHead>Date</TableHead>
                         <TableHead class="text-right">Amount</TableHead>
                         <TableHead>Source</TableHead>
                         <TableHead>Reference</TableHead>
@@ -133,10 +134,14 @@ const deleteDeposit = (deposit: EventBankDeposit) => {
                 </TableHeader>
                 <TableBody>
                     <TableRow
-                        v-for="deposit in props.event.bank_deposits"
+                        v-for="(deposit, index) in props.event.bank_deposits"
                         :key="deposit.id"
                     >
-                        <TableCell class="pl-4 font-medium">
+                        <TableCell
+                            class="pl-4 text-muted-foreground tabular-nums"
+                            >{{ index + 1 }}</TableCell
+                        >
+                        <TableCell class="font-medium">
                             {{ formatDate(deposit.deposit_date) }}
                         </TableCell>
                         <TableCell class="text-right tabular-nums">

@@ -77,7 +77,8 @@ const openEditDialog = (category: ChargeCategoryItem) => {
             <Table>
                 <TableHeader>
                     <TableRow>
-                        <TableHead class="pl-4">Title</TableHead>
+                        <TableHead class="w-12 pl-4">SL</TableHead>
+                        <TableHead>Title</TableHead>
                         <TableHead>Code</TableHead>
                         <TableHead class="text-right">Default amount</TableHead>
                         <TableHead>Status</TableHead>
@@ -87,10 +88,14 @@ const openEditDialog = (category: ChargeCategoryItem) => {
                 </TableHeader>
                 <TableBody>
                     <TableRow
-                        v-for="category in chargeCategories"
+                        v-for="(category, index) in chargeCategories"
                         :key="category.id"
                     >
-                        <TableCell class="pl-4 font-medium">
+                        <TableCell
+                            class="pl-4 text-muted-foreground tabular-nums"
+                            >{{ index + 1 }}</TableCell
+                        >
+                        <TableCell class="font-medium">
                             {{ category.title }}
                         </TableCell>
                         <TableCell>
@@ -128,7 +133,7 @@ const openEditDialog = (category: ChargeCategoryItem) => {
                     </TableRow>
                     <TableEmpty
                         v-if="chargeCategories.length === 0"
-                        :colspan="6"
+                        :colspan="7"
                     >
                         No charge categories yet.
                     </TableEmpty>

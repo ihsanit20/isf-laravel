@@ -147,7 +147,8 @@ const pendingAmount = computed(() =>
             <Table>
                 <TableHeader>
                     <TableRow>
-                        <TableHead class="pl-4">Date</TableHead>
+                        <TableHead class="w-12 pl-4">SL</TableHead>
+                        <TableHead>Date</TableHead>
                         <TableHead class="text-right">Amount</TableHead>
                         <TableHead>Method</TableHead>
                         <TableHead>Status</TableHead>
@@ -156,10 +157,14 @@ const pendingAmount = computed(() =>
                 </TableHeader>
                 <TableBody>
                     <TableRow
-                        v-for="deposit in props.deposits"
+                        v-for="(deposit, index) in props.deposits"
                         :key="deposit.id"
                     >
-                        <TableCell class="pl-4">
+                        <TableCell
+                            class="pl-4 text-muted-foreground tabular-nums"
+                            >{{ index + 1 }}</TableCell
+                        >
+                        <TableCell>
                             {{ deposit.deposit_date }}
                         </TableCell>
                         <TableCell class="text-right font-medium tabular-nums">
@@ -225,7 +230,8 @@ const pendingAmount = computed(() =>
                 <Table>
                     <TableHeader>
                         <TableRow>
-                            <TableHead class="pl-6">Member</TableHead>
+                            <TableHead class="w-12 pl-6">SL</TableHead>
+                            <TableHead>Member</TableHead>
                             <TableHead>Charge</TableHead>
                             <TableHead class="text-right">Amount</TableHead>
                             <TableHead class="pr-6">Paid</TableHead>
@@ -233,10 +239,16 @@ const pendingAmount = computed(() =>
                     </TableHeader>
                     <TableBody>
                         <TableRow
-                            v-for="allocation in props.chargeAllocations"
+                            v-for="(
+                                allocation, index
+                            ) in props.chargeAllocations"
                             :key="allocation.id"
                         >
-                            <TableCell class="pl-6">
+                            <TableCell
+                                class="pl-6 text-muted-foreground tabular-nums"
+                                >{{ index + 1 }}</TableCell
+                            >
+                            <TableCell>
                                 {{ allocation.member_name }}
                             </TableCell>
                             <TableCell>{{ allocation.charge_title }}</TableCell>

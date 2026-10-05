@@ -291,7 +291,8 @@ const decodePaginationLabel = (label: string): string => {
             <Table>
                 <TableHeader>
                     <TableRow>
-                        <TableHead class="pl-4">User</TableHead>
+                        <TableHead class="w-12 pl-4">SL</TableHead>
+                        <TableHead>User</TableHead>
                         <TableHead class="text-right">Amount</TableHead>
                         <TableHead>Method</TableHead>
                         <TableHead>Status</TableHead>
@@ -301,10 +302,14 @@ const decodePaginationLabel = (label: string): string => {
                 </TableHeader>
                 <TableBody>
                     <TableRow
-                        v-for="deposit in props.deposits.data"
+                        v-for="(deposit, index) in props.deposits.data"
                         :key="deposit.id"
                     >
-                        <TableCell class="pl-4">
+                        <TableCell
+                            class="pl-4 text-muted-foreground tabular-nums"
+                            >{{ (props.deposits.from ?? 1) + index }}</TableCell
+                        >
+                        <TableCell>
                             <p class="font-medium">
                                 {{ deposit.user.name || 'Unknown account' }}
                             </p>
@@ -379,7 +384,7 @@ const decodePaginationLabel = (label: string): string => {
                     </TableRow>
                     <TableEmpty
                         v-if="props.deposits.data.length === 0"
-                        :colspan="6"
+                        :colspan="7"
                     >
                         No deposits found.
                     </TableEmpty>

@@ -128,7 +128,8 @@ const deleteWithdrawal = (withdrawal: EventBankWithdrawal) => {
             <Table>
                 <TableHeader>
                     <TableRow>
-                        <TableHead class="pl-4">Date</TableHead>
+                        <TableHead class="w-12 pl-4">SL</TableHead>
+                        <TableHead>Date</TableHead>
                         <TableHead class="text-right">Amount</TableHead>
                         <TableHead>Reference</TableHead>
                         <TableHead>Description</TableHead>
@@ -138,10 +139,15 @@ const deleteWithdrawal = (withdrawal: EventBankWithdrawal) => {
                 </TableHeader>
                 <TableBody>
                     <TableRow
-                        v-for="withdrawal in props.event.bank_withdrawals"
+                        v-for="(withdrawal, index) in props.event
+                            .bank_withdrawals"
                         :key="withdrawal.id"
                     >
-                        <TableCell class="pl-4 font-medium">
+                        <TableCell
+                            class="pl-4 text-muted-foreground tabular-nums"
+                            >{{ index + 1 }}</TableCell
+                        >
+                        <TableCell class="font-medium">
                             {{ formatDate(withdrawal.withdrawal_date) }}
                         </TableCell>
                         <TableCell class="text-right tabular-nums">

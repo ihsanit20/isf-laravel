@@ -274,9 +274,10 @@ const payCharge = () => {
                             <Table>
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead class="pl-3"
-                                            >Charge</TableHead
+                                        <TableHead class="w-12 pl-3"
+                                            >SL</TableHead
                                         >
+                                        <TableHead>Charge</TableHead>
                                         <TableHead class="text-right">
                                             Amount
                                         </TableHead>
@@ -286,12 +287,16 @@ const payCharge = () => {
                                 </TableHeader>
                                 <TableBody>
                                     <TableRow
-                                        v-for="charge in member.charges"
+                                        v-for="(
+                                            charge, index
+                                        ) in member.charges"
                                         :key="charge.id"
                                     >
                                         <TableCell
-                                            class="pl-3 whitespace-normal"
+                                            class="pl-3 text-muted-foreground tabular-nums"
+                                            >{{ index + 1 }}</TableCell
                                         >
+                                        <TableCell class="whitespace-normal">
                                             <p class="font-medium">
                                                 {{ charge.title }}
                                             </p>
@@ -341,7 +346,7 @@ const payCharge = () => {
                                     </TableRow>
                                     <TableEmpty
                                         v-if="member.charges.length === 0"
-                                        :colspan="4"
+                                        :colspan="5"
                                     >
                                         No charges.
                                     </TableEmpty>

@@ -556,6 +556,7 @@ const paginationLabel = (label: string): string =>
                     <table class="min-w-full divide-y divide-border text-sm">
                         <thead class="bg-muted/50 text-left">
                             <tr>
+                                <th class="w-12 px-4 py-3 font-medium">SL</th>
                                 <th class="px-4 py-3 font-medium">Order ID</th>
                                 <th class="px-4 py-3 font-medium">Customer</th>
                                 <th class="px-4 py-3 font-medium">Phone</th>
@@ -576,9 +577,14 @@ const paginationLabel = (label: string): string =>
                         </thead>
                         <tbody class="divide-y divide-border">
                             <tr
-                                v-for="order in props.orders.data"
+                                v-for="(order, index) in props.orders.data"
                                 :key="order.id"
                             >
+                                <td
+                                    class="px-4 py-3 text-muted-foreground tabular-nums"
+                                >
+                                    {{ (props.orders.from ?? 1) + index }}
+                                </td>
                                 <td class="px-4 py-3 font-medium">
                                     {{ order.order_number }}
                                 </td>
@@ -697,7 +703,7 @@ const paginationLabel = (label: string): string =>
                             </tr>
                             <tr v-if="props.orders.data.length === 0">
                                 <td
-                                    colspan="12"
+                                    colspan="13"
                                     class="px-4 py-8 text-center text-muted-foreground"
                                 >
                                     {{ emptyMessage }}

@@ -185,7 +185,8 @@ const deleteExpense = (expense: EventExpense) => {
                     <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead class="pl-4">Date</TableHead>
+                                <TableHead class="w-12 pl-4">SL</TableHead>
+                                <TableHead>Date</TableHead>
                                 <TableHead>Category</TableHead>
                                 <TableHead class="text-right">Amount</TableHead>
                                 <TableHead>Description</TableHead>
@@ -195,10 +196,14 @@ const deleteExpense = (expense: EventExpense) => {
                         </TableHeader>
                         <TableBody>
                             <TableRow
-                                v-for="expense in props.event.expenses"
+                                v-for="(expense, index) in props.event.expenses"
                                 :key="expense.id"
                             >
-                                <TableCell class="pl-4 font-medium">
+                                <TableCell
+                                    class="pl-4 text-muted-foreground tabular-nums"
+                                    >{{ index + 1 }}</TableCell
+                                >
+                                <TableCell class="font-medium">
                                     {{ formatDate(expense.expense_date) }}
                                 </TableCell>
                                 <TableCell>

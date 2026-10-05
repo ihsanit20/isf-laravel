@@ -65,7 +65,8 @@ defineProps<Props>();
             <Table>
                 <TableHeader>
                     <TableRow>
-                        <TableHead class="pl-4">Event</TableHead>
+                        <TableHead class="w-12 pl-4">SL</TableHead>
+                        <TableHead>Event</TableHead>
                         <TableHead>Cycle</TableHead>
                         <TableHead>Status</TableHead>
                         <TableHead>Order window</TableHead>
@@ -74,8 +75,12 @@ defineProps<Props>();
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    <TableRow v-for="event in events" :key="event.id">
-                        <TableCell class="max-w-sm pl-4 whitespace-normal">
+                    <TableRow v-for="(event, index) in events" :key="event.id">
+                        <TableCell
+                            class="pl-4 text-muted-foreground tabular-nums"
+                            >{{ index + 1 }}</TableCell
+                        >
+                        <TableCell class="max-w-sm whitespace-normal">
                             <Link
                                 :href="`/admin/events/${event.id}`"
                                 class="font-medium hover:underline"
@@ -121,7 +126,7 @@ defineProps<Props>();
                             </div>
                         </TableCell>
                     </TableRow>
-                    <TableEmpty v-if="events.length === 0" :colspan="6">
+                    <TableEmpty v-if="events.length === 0" :colspan="7">
                         No events yet. Create one from a fund cycle.
                     </TableEmpty>
                 </TableBody>

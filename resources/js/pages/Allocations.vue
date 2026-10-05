@@ -492,6 +492,11 @@ const submit = () => {
                                         Month
                                     </th>
                                     <th
+                                        class="w-12 border-l px-4 py-3 text-left font-medium text-muted-foreground"
+                                    >
+                                        SL
+                                    </th>
+                                    <th
                                         class="border-l px-4 py-3 text-left font-medium text-muted-foreground"
                                     >
                                         Fund cycle
@@ -526,6 +531,11 @@ const submit = () => {
                                             class="px-4 py-3 align-middle font-medium whitespace-nowrap"
                                         >
                                             {{ group.slot_key || 'No month' }}
+                                        </td>
+                                        <td
+                                            class="border-l px-4 py-3 align-middle text-muted-foreground tabular-nums"
+                                        >
+                                            {{ rowIndex + 1 }}
                                         </td>
                                         <td
                                             class="border-l px-4 py-3 align-middle"
@@ -617,7 +627,7 @@ const submit = () => {
                                 </template>
                                 <tr v-if="pivotRows.length === 0">
                                     <td
-                                        :colspan="2 + members.length"
+                                        :colspan="3 + members.length"
                                         class="px-4 py-8 text-center text-muted-foreground"
                                     >
                                         No rows match the filters.
@@ -643,7 +653,12 @@ const submit = () => {
                             <thead class="bg-muted/50">
                                 <tr class="border-b">
                                     <th
-                                        class="px-4 py-3 text-left font-medium text-muted-foreground"
+                                        class="w-12 px-4 py-3 text-left font-medium text-muted-foreground"
+                                    >
+                                        SL
+                                    </th>
+                                    <th
+                                        class="border-l px-4 py-3 text-left font-medium text-muted-foreground"
                                     >
                                         Fund cycle
                                     </th>
@@ -663,11 +678,16 @@ const submit = () => {
                             </thead>
                             <tbody>
                                 <tr
-                                    v-for="row in resultRows"
+                                    v-for="(row, index) in resultRows"
                                     :key="row.cycle_id"
                                     class="border-b last:border-0"
                                 >
-                                    <td class="px-4 py-3 align-middle">
+                                    <td
+                                        class="px-4 py-3 align-middle text-muted-foreground tabular-nums"
+                                    >
+                                        {{ index + 1 }}
+                                    </td>
+                                    <td class="border-l px-4 py-3 align-middle">
                                         <Link
                                             :href="`/fund-cycles/${row.cycle_id}`"
                                             class="font-medium hover:underline"

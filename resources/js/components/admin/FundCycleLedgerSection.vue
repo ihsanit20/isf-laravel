@@ -141,9 +141,14 @@ const settle = () => {
             <table class="min-w-full text-sm">
                 <tbody class="divide-y divide-border">
                     <tr
-                        v-for="investment in ledger.investments"
+                        v-for="(investment, index) in ledger.investments"
                         :key="investment.id"
                     >
+                        <td
+                            class="w-12 px-4 py-2 text-muted-foreground tabular-nums"
+                        >
+                            {{ index + 1 }}
+                        </td>
                         <td class="px-4 py-2 text-xs text-muted-foreground">
                             {{ titleCase(investment.type) }}
                         </td>
@@ -168,7 +173,7 @@ const settle = () => {
                         </td>
                     </tr>
                     <tr>
-                        <td colspan="3" class="px-4 py-2 text-muted-foreground">
+                        <td colspan="4" class="px-4 py-2 text-muted-foreground">
                             Cycle-level income − expense
                         </td>
                         <td class="px-4 py-2 text-right tabular-nums">
@@ -180,7 +185,7 @@ const settle = () => {
                         </td>
                     </tr>
                     <tr class="bg-muted/50 font-medium">
-                        <td colspan="3" class="px-4 py-2">Total</td>
+                        <td colspan="4" class="px-4 py-2">Total</td>
                         <td
                             class="px-4 py-2 text-right tabular-nums"
                             :class="amountToneClass(ledger.result)"
@@ -218,9 +223,14 @@ const settle = () => {
             <table class="min-w-full text-sm">
                 <tbody class="divide-y divide-border">
                     <tr
-                        v-for="transaction in transactions"
+                        v-for="(transaction, index) in transactions"
                         :key="transaction.id"
                     >
+                        <td
+                            class="w-12 px-4 py-2 text-muted-foreground tabular-nums"
+                        >
+                            {{ index + 1 }}
+                        </td>
                         <td class="px-4 py-2">
                             {{ transaction.transaction_date }}
                         </td>
@@ -257,7 +267,7 @@ const settle = () => {
                         </td>
                     </tr>
                     <tr v-if="transactions.length === 0">
-                        <td colspan="6" class="px-4 py-3 text-muted-foreground">
+                        <td colspan="7" class="px-4 py-3 text-muted-foreground">
                             No cycle-level entries.
                         </td>
                     </tr>
@@ -280,6 +290,7 @@ const settle = () => {
             <table class="min-w-full text-sm">
                 <thead class="bg-muted/50 text-left">
                     <tr>
+                        <th class="w-12 px-4 py-2 font-medium">SL</th>
                         <th class="px-4 py-2 font-medium">Member</th>
                         <th class="px-4 py-2 text-right font-medium">
                             Capital
@@ -292,9 +303,14 @@ const settle = () => {
                 </thead>
                 <tbody class="divide-y divide-border">
                     <tr
-                        v-for="member in ledger.members"
+                        v-for="(member, index) in ledger.members"
                         :key="member.member_id"
                     >
+                        <td
+                            class="w-12 px-4 py-2 text-muted-foreground tabular-nums"
+                        >
+                            {{ index + 1 }}
+                        </td>
                         <td class="px-4 py-2">{{ member.name }}</td>
                         <td class="px-4 py-2 text-right tabular-nums">
                             {{ formatMoney(member.capital) }}
@@ -312,7 +328,7 @@ const settle = () => {
                         </td>
                     </tr>
                     <tr v-if="ledger.members.length === 0">
-                        <td colspan="4" class="px-4 py-3 text-muted-foreground">
+                        <td colspan="5" class="px-4 py-3 text-muted-foreground">
                             No member capital in this cycle.
                         </td>
                     </tr>

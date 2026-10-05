@@ -98,7 +98,8 @@ const deleteIncome = (income: EventIncome) => {
                 <Table>
                     <TableHeader>
                         <TableRow>
-                            <TableHead class="pl-4">Date</TableHead>
+                            <TableHead class="w-12 pl-4">SL</TableHead>
+                            <TableHead>Date</TableHead>
                             <TableHead>Category</TableHead>
                             <TableHead>Received via</TableHead>
                             <TableHead>Description</TableHead>
@@ -108,10 +109,14 @@ const deleteIncome = (income: EventIncome) => {
                     </TableHeader>
                     <TableBody>
                         <TableRow
-                            v-for="income in props.event.incomes"
+                            v-for="(income, index) in props.event.incomes"
                             :key="income.id"
                         >
-                            <TableCell class="pl-4">
+                            <TableCell
+                                class="pl-4 text-muted-foreground tabular-nums"
+                                >{{ index + 1 }}</TableCell
+                            >
+                            <TableCell>
                                 {{ income.income_date }}
                             </TableCell>
                             <TableCell>{{ income.category_label }}</TableCell>
@@ -152,7 +157,7 @@ const deleteIncome = (income: EventIncome) => {
                         </TableRow>
                         <TableEmpty
                             v-if="props.event.incomes.length === 0"
-                            :colspan="6"
+                            :colspan="7"
                         >
                             No other income.
                         </TableEmpty>

@@ -200,7 +200,8 @@ const closeInvestment = () => {
                 <Table>
                     <TableHeader>
                         <TableRow>
-                            <TableHead class="pl-6">Date</TableHead>
+                            <TableHead class="w-12 pl-6">SL</TableHead>
+                            <TableHead>Date</TableHead>
                             <TableHead>Type</TableHead>
                             <TableHead>Description</TableHead>
                             <TableHead class="text-right">Amount</TableHead>
@@ -209,10 +210,14 @@ const closeInvestment = () => {
                     </TableHeader>
                     <TableBody>
                         <TableRow
-                            v-for="transaction in props.transactions"
+                            v-for="(transaction, index) in props.transactions"
                             :key="transaction.id"
                         >
-                            <TableCell class="pl-6">
+                            <TableCell
+                                class="pl-6 text-muted-foreground tabular-nums"
+                                >{{ index + 1 }}</TableCell
+                            >
+                            <TableCell>
                                 {{ transaction.transaction_date }}
                             </TableCell>
                             <TableCell class="font-medium">
@@ -242,7 +247,7 @@ const closeInvestment = () => {
                         </TableRow>
                         <TableEmpty
                             v-if="props.transactions.length === 0"
-                            :colspan="5"
+                            :colspan="6"
                         >
                             No transactions yet. Start with "Capital invested".
                         </TableEmpty>

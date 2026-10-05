@@ -194,7 +194,15 @@ const removeCharge = (chargeId: number) => {
             </div>
             <table class="min-w-full text-sm">
                 <tbody class="divide-y divide-border">
-                    <tr v-for="charge in ledger.charges" :key="charge.id">
+                    <tr
+                        v-for="(charge, index) in ledger.charges"
+                        :key="charge.id"
+                    >
+                        <td
+                            class="w-12 px-4 py-2 text-muted-foreground tabular-nums"
+                        >
+                            {{ index + 1 }}
+                        </td>
                         <td class="px-4 py-2">{{ charge.charged_at }}</td>
                         <td class="px-4 py-2">{{ charge.type_label }}</td>
                         <td class="px-4 py-2 text-muted-foreground">
@@ -215,7 +223,7 @@ const removeCharge = (chargeId: number) => {
                         </td>
                     </tr>
                     <tr v-if="ledger.charges.length === 0">
-                        <td colspan="5" class="px-4 py-3 text-muted-foreground">
+                        <td colspan="6" class="px-4 py-3 text-muted-foreground">
                             No charges.
                         </td>
                     </tr>

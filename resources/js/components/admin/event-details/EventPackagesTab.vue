@@ -95,7 +95,8 @@ const deletePackage = (pkg: EventPackage) => {
                 <Table>
                     <TableHeader>
                         <TableRow>
-                            <TableHead class="pl-4">Name</TableHead>
+                            <TableHead class="w-12 pl-4">SL</TableHead>
+                            <TableHead>Name</TableHead>
                             <TableHead class="text-right">Unit</TableHead>
                             <TableHead class="text-right">Price</TableHead>
                             <TableHead class="text-right">Advance</TableHead>
@@ -108,10 +109,14 @@ const deletePackage = (pkg: EventPackage) => {
                     </TableHeader>
                     <TableBody>
                         <TableRow
-                            v-for="pkg in props.event.packages"
+                            v-for="(pkg, index) in props.event.packages"
                             :key="pkg.id"
                         >
-                            <TableCell class="max-w-xs pl-4 whitespace-normal">
+                            <TableCell
+                                class="pl-4 text-muted-foreground tabular-nums"
+                                >{{ index + 1 }}</TableCell
+                            >
+                            <TableCell class="max-w-xs whitespace-normal">
                                 <p class="font-medium">{{ pkg.name }}</p>
                                 <p
                                     v-if="pkg.description"
@@ -210,7 +215,8 @@ const deletePackage = (pkg: EventPackage) => {
                 <Table>
                     <TableHeader>
                         <TableRow>
-                            <TableHead class="pl-4">Package</TableHead>
+                            <TableHead class="w-12 pl-4">SL</TableHead>
+                            <TableHead>Package</TableHead>
                             <TableHead>Ordered</TableHead>
                             <TableHead>Stock</TableHead>
                             <TableHead class="text-right">Confirmed</TableHead>
@@ -225,11 +231,15 @@ const deletePackage = (pkg: EventPackage) => {
                     </TableHeader>
                     <TableBody>
                         <TableRow
-                            v-for="pkg in props.orderSummary.packages"
+                            v-for="(pkg, index) in props.orderSummary.packages"
                             :key="pkg.id"
                             :class="pkg.is_low_stock ? 'bg-amber-500/5' : ''"
                         >
-                            <TableCell class="pl-4 font-medium">
+                            <TableCell
+                                class="pl-4 text-muted-foreground tabular-nums"
+                                >{{ index + 1 }}</TableCell
+                            >
+                            <TableCell class="font-medium">
                                 {{ pkg.name }}
                             </TableCell>
                             <TableCell class="text-xs text-muted-foreground">

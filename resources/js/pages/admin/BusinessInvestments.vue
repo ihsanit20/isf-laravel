@@ -66,7 +66,8 @@ const isCreateDialogOpen = ref(false);
             <Table>
                 <TableHeader>
                     <TableRow>
-                        <TableHead class="pl-4">Business</TableHead>
+                        <TableHead class="w-12 pl-4">SL</TableHead>
+                        <TableHead>Business</TableHead>
                         <TableHead>Fund cycle</TableHead>
                         <TableHead>Status</TableHead>
                         <TableHead class="text-right"
@@ -77,10 +78,14 @@ const isCreateDialogOpen = ref(false);
                 </TableHeader>
                 <TableBody>
                     <TableRow
-                        v-for="investment in props.investments"
+                        v-for="(investment, index) in props.investments"
                         :key="investment.id"
                     >
-                        <TableCell class="pl-4">
+                        <TableCell
+                            class="pl-4 text-muted-foreground tabular-nums"
+                            >{{ index + 1 }}</TableCell
+                        >
+                        <TableCell>
                             <Link
                                 :href="`/admin/businesses/${investment.id}`"
                                 class="font-medium hover:underline"
@@ -109,7 +114,7 @@ const isCreateDialogOpen = ref(false);
                     </TableRow>
                     <TableEmpty
                         v-if="props.investments.length === 0"
-                        :colspan="5"
+                        :colspan="6"
                     >
                         No business investments yet.
                     </TableEmpty>

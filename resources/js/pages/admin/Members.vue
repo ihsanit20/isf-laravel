@@ -134,7 +134,8 @@ const openRejectDialog = (member: AdminMember) => {
             <Table>
                 <TableHeader>
                     <TableRow>
-                        <TableHead class="pl-4">Member</TableHead>
+                        <TableHead class="w-12 pl-4">SL</TableHead>
+                        <TableHead>Member</TableHead>
                         <TableHead>Managed by</TableHead>
                         <TableHead class="text-right">Units</TableHead>
                         <TableHead>Status</TableHead>
@@ -144,8 +145,15 @@ const openRejectDialog = (member: AdminMember) => {
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    <TableRow v-for="member in visibleMembers" :key="member.id">
-                        <TableCell class="pl-4">
+                    <TableRow
+                        v-for="(member, index) in visibleMembers"
+                        :key="member.id"
+                    >
+                        <TableCell
+                            class="pl-4 text-muted-foreground tabular-nums"
+                            >{{ index + 1 }}</TableCell
+                        >
+                        <TableCell>
                             <p class="font-medium">{{ member.full_name }}</p>
                             <p class="text-xs text-muted-foreground">
                                 {{ titleCase(member.relationship_to_user) }}
@@ -203,7 +211,7 @@ const openRejectDialog = (member: AdminMember) => {
                             </div>
                         </TableCell>
                     </TableRow>
-                    <TableEmpty v-if="visibleMembers.length === 0" :colspan="7">
+                    <TableEmpty v-if="visibleMembers.length === 0" :colspan="8">
                         No members here.
                     </TableEmpty>
                 </TableBody>

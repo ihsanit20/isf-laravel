@@ -180,6 +180,7 @@ const owners = [
             <table class="mt-4 min-w-full divide-y divide-border text-sm">
                 <thead class="bg-muted/50 text-left">
                     <tr>
+                        <th class="w-12 px-4 py-3 font-medium">SL</th>
                         <th class="px-4 py-3 font-medium">Cycle</th>
                         <th class="px-4 py-3 text-right font-medium">
                             Capital
@@ -194,7 +195,12 @@ const owners = [
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-border">
-                    <tr v-for="cycle in props.cycles" :key="cycle.id">
+                    <tr v-for="(cycle, index) in props.cycles" :key="cycle.id">
+                        <td
+                            class="w-12 px-4 py-3 text-muted-foreground tabular-nums"
+                        >
+                            {{ index + 1 }}
+                        </td>
                         <td class="px-4 py-3">
                             <Link
                                 :href="`/admin/fund-cycles/${cycle.id}`"
@@ -239,6 +245,7 @@ const owners = [
             <table class="mt-4 min-w-full divide-y divide-border text-sm">
                 <thead class="bg-muted/50 text-left">
                     <tr>
+                        <th class="w-12 px-4 py-3 font-medium">SL</th>
                         <th class="px-4 py-3 font-medium">Account</th>
                         <th class="px-4 py-3 font-medium">Type</th>
                         <th class="px-4 py-3 text-right font-medium">Debit</th>
@@ -246,7 +253,15 @@ const owners = [
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-border">
-                    <tr v-for="row in props.trialBalance" :key="row.code">
+                    <tr
+                        v-for="(row, index) in props.trialBalance"
+                        :key="row.code"
+                    >
+                        <td
+                            class="w-12 px-4 py-2 text-muted-foreground tabular-nums"
+                        >
+                            {{ index + 1 }}
+                        </td>
                         <td class="px-4 py-2">
                             <Link
                                 :href="`/admin/accounts/journal?account=${row.code}`"
@@ -267,7 +282,7 @@ const owners = [
                         </td>
                     </tr>
                     <tr class="bg-muted/50 font-semibold">
-                        <td colspan="2" class="px-4 py-2">Total</td>
+                        <td colspan="3" class="px-4 py-2">Total</td>
                         <td class="px-4 py-2 text-right tabular-nums">
                             {{ formatMoney(props.trialTotals.debit) }}
                         </td>

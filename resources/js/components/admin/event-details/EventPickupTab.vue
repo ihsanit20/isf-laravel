@@ -91,7 +91,8 @@ const deletePoint = (point: EventPickupPoint) => {
                 <Table>
                     <TableHeader>
                         <TableRow>
-                            <TableHead class="pl-4">Name</TableHead>
+                            <TableHead class="w-12 pl-4">SL</TableHead>
+                            <TableHead>Name</TableHead>
                             <TableHead>Area</TableHead>
                             <TableHead>Contact</TableHead>
                             <TableHead>Phone</TableHead>
@@ -101,10 +102,14 @@ const deletePoint = (point: EventPickupPoint) => {
                     </TableHeader>
                     <TableBody>
                         <TableRow
-                            v-for="point in props.event.pickup_points"
+                            v-for="(point, index) in props.event.pickup_points"
                             :key="point.id"
                         >
-                            <TableCell class="pl-4 font-medium">
+                            <TableCell
+                                class="pl-4 text-muted-foreground tabular-nums"
+                                >{{ index + 1 }}</TableCell
+                            >
+                            <TableCell class="font-medium">
                                 {{ point.name }}
                             </TableCell>
                             <TableCell class="text-muted-foreground">
@@ -184,7 +189,8 @@ const deletePoint = (point: EventPickupPoint) => {
                 <Table>
                     <TableHeader>
                         <TableRow>
-                            <TableHead class="pl-4">Pickup point</TableHead>
+                            <TableHead class="w-12 pl-4">SL</TableHead>
+                            <TableHead>Pickup point</TableHead>
                             <TableHead>Packages</TableHead>
                             <TableHead class="text-right">Confirmed</TableHead>
                             <TableHead
@@ -200,10 +206,15 @@ const deletePoint = (point: EventPickupPoint) => {
                     </TableHeader>
                     <TableBody>
                         <TableRow
-                            v-for="point in props.orderSummary.pickup_points"
+                            v-for="(point, index) in props.orderSummary
+                                .pickup_points"
                             :key="point.id"
                         >
-                            <TableCell class="pl-4 font-medium">
+                            <TableCell
+                                class="pl-4 text-muted-foreground tabular-nums"
+                                >{{ index + 1 }}</TableCell
+                            >
+                            <TableCell class="font-medium">
                                 {{ point.name }}
                             </TableCell>
                             <TableCell class="whitespace-normal">

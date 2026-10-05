@@ -127,7 +127,8 @@ const openCancelDialog = (charge: AdminCharge) => {
             <Table>
                 <TableHeader>
                     <TableRow>
-                        <TableHead class="pl-4">Member</TableHead>
+                        <TableHead class="w-12 pl-4">SL</TableHead>
+                        <TableHead>Member</TableHead>
                         <TableHead>Charge</TableHead>
                         <TableHead class="text-right">Amount</TableHead>
                         <TableHead class="text-right">Paid</TableHead>
@@ -137,8 +138,15 @@ const openCancelDialog = (charge: AdminCharge) => {
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    <TableRow v-for="charge in visibleCharges" :key="charge.id">
-                        <TableCell class="pl-4">
+                    <TableRow
+                        v-for="(charge, index) in visibleCharges"
+                        :key="charge.id"
+                    >
+                        <TableCell
+                            class="pl-4 text-muted-foreground tabular-nums"
+                            >{{ index + 1 }}</TableCell
+                        >
+                        <TableCell>
                             <p class="font-medium">
                                 {{
                                     charge.member.full_name || 'Unknown member'
@@ -184,7 +192,7 @@ const openCancelDialog = (charge: AdminCharge) => {
                             </Button>
                         </TableCell>
                     </TableRow>
-                    <TableEmpty v-if="visibleCharges.length === 0" :colspan="7">
+                    <TableEmpty v-if="visibleCharges.length === 0" :colspan="8">
                         No charges here.
                     </TableEmpty>
                 </TableBody>
