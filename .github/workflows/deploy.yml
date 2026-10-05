@@ -11,7 +11,7 @@ name: Deploy ISF
 
 concurrency:
   group: deploy-isf-production
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 permissions:
   contents: write
@@ -49,6 +49,9 @@ jobs:
         with:
           node-version: 24.14.1
           cache: npm
+
+      - name: Setup npm
+        run: npm install -g npm@11.11.0
 
       - name: Install frontend dependencies
         run: npm ci
@@ -156,4 +159,9 @@ jobs:
             PHP83_MASTER_PID="$(pgrep -f "php-fpm: master process \(/www/server/php/83/etc/php-fpm.conf\)" | head -n 1 || true)"
             if [ -n "$PHP83_MASTER_PID" ]; then
               kill -USR2 "$PHP83_MASTER_PID" || true
+            fi
+
+            PHP82_MASTER_PID="$(pgrep -f "php-fpm: master process \(/www/server/php/82/etc/php-fpm.conf\)" | head -n 1 || true)"
+            if [ -n "$PHP82_MASTER_PID" ]; then
+              kill -USR2 "$PHP82_MASTER_PID" || true
             fi
