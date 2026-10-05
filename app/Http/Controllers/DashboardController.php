@@ -117,8 +117,7 @@ class DashboardController extends Controller
 
         return Member::query()
             ->where('managed_by_user_id', $user->id)
-            ->latest('applied_at')
-            ->latest('id')
+            ->orderBy('id')
             ->get(['id', 'full_name', 'status', 'units', 'activated_at'])
             ->map(fn (Member $member): array => [
                 'id' => $member->id,

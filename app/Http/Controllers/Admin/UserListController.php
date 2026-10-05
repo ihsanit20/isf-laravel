@@ -32,7 +32,7 @@ class UserListController extends Controller
         return Inertia::render('admin/Users', [
             'assignableRoles' => User::assignableRolesFor($actor->role),
             'users' => User::query()
-                ->orderBy('name')
+                ->orderBy('id')
                 ->get(['id', 'name', 'email', 'phone', 'role'])
                 ->map(fn (User $user): array => [
                     'id' => $user->id,

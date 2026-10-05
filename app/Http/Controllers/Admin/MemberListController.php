@@ -24,8 +24,8 @@ class MemberListController extends Controller
         return Inertia::render('admin/Members', [
             'members' => Member::query()
                 ->with(['manager:id,name,email', 'approver:id,name'])
-                ->latest('applied_at')
-                ->latest('id')
+                ->orderBy('managed_by_user_id')
+                ->orderBy('id')
                 ->get()
                 ->map(fn (Member $member): array => [
                     'id' => $member->id,

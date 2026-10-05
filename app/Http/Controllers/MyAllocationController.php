@@ -41,8 +41,7 @@ class MyAllocationController extends Controller
                 'units',
                 'activated_at',
             ])
-            ->latest('applied_at')
-            ->latest('id')
+            ->orderBy('id')
             ->get();
 
         $openFundCycles = FundCycle::query()

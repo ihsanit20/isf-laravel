@@ -56,7 +56,8 @@ class FundCycleController extends Controller
             'statuses' => FundCycle::editableStatuses(),
             'eligibleMembers' => Member::query()
                 ->where('status', MemberStatus::Approved)
-                ->orderBy('full_name')
+                ->orderBy('managed_by_user_id')
+                ->orderBy('id')
                 ->get(['id', 'full_name', 'units'])
                 ->map(fn (Member $member): array => [
                     'id' => $member->id,
@@ -234,7 +235,8 @@ class FundCycleController extends Controller
             'missingAllocations' => $missingAllocations,
             'eligibleMembers' => Member::query()
                 ->where('status', MemberStatus::Approved)
-                ->orderBy('full_name')
+                ->orderBy('managed_by_user_id')
+                ->orderBy('id')
                 ->get(['id', 'full_name', 'units'])
                 ->map(fn (Member $member): array => [
                     'id' => $member->id,
@@ -314,9 +316,9 @@ class FundCycleController extends Controller
             ->with([
                 'managedMembers' => fn ($query) => $query
                     ->where('status', MemberStatus::Approved)
-                    ->orderBy('full_name'),
+                    ->orderBy('id'),
             ])
-            ->orderBy('name')
+            ->orderBy('id')
             ->get(['id', 'name', 'email', 'phone']);
     }
 

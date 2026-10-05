@@ -482,13 +482,13 @@ class JournalController extends Controller
                     ...$option($investment->id, $investment->title.' ('.$investment->type.')'),
                     'cycle' => (string) $investment->fund_cycle_id,
                 ])->values(),
-            'users' => User::query()->whereIn('id', $lineUserIds)->orderBy('name')->get(['id', 'name'])
+            'users' => User::query()->whereIn('id', $lineUserIds)->orderBy('id')->get(['id', 'name'])
                 ->map(fn (User $user): array => $option($user->id, $user->name))->values(),
-            'members' => Member::query()->whereIn('id', $lineMemberIds)->orderBy('full_name')->get(['id', 'full_name'])
+            'members' => Member::query()->whereIn('id', $lineMemberIds)->orderBy('managed_by_user_id')->orderBy('id')->get(['id', 'full_name'])
                 ->map(fn (Member $member): array => $option($member->id, $member->full_name))->values(),
             'posted_by' => User::query()
                 ->whereIn('id', JournalEntry::query()->whereNotNull('posted_by_user_id')->distinct()->select('posted_by_user_id'))
-                ->orderBy('name')
+                ->orderBy('id')
                 ->get(['id', 'name'])
                 ->map(fn (User $user): array => $option($user->id, $user->name))
                 ->prepend($option('system', 'System'))

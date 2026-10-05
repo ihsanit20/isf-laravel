@@ -33,8 +33,7 @@ class MemberController extends Controller
             ],
             'members' => $user->managedMembers()
                 ->with(['charges.category', 'charges.allocations'])
-                ->latest('applied_at')
-                ->latest('id')
+                ->orderBy('id')
                 ->get()
                 ->map(fn (Member $member): array => $this->transformMember($member, $capitalByMember->get($member->id, 0)))
                 ->values(),
