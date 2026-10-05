@@ -4,6 +4,7 @@ use App\Http\Controllers\Admin\AccountsController;
 use App\Http\Controllers\Admin\BusinessInvestmentController;
 use App\Http\Controllers\Admin\ChargeCategoryController;
 use App\Http\Controllers\Admin\ChargeListController;
+use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Admin\DepositListController;
 use App\Http\Controllers\Admin\EventBankDepositController;
 use App\Http\Controllers\Admin\EventBankWithdrawalController;
@@ -79,6 +80,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 });
 
 Route::middleware(['auth', 'verified', 'admin'])->group(function () {
+    Route::get('admin', AdminDashboardController::class)->name('admin.dashboard');
     Route::inertia('admin/settings', 'admin/Settings')->name('admin.settings');
     Route::get('admin/users', [UserListController::class, 'index'])->name('admin.users.index');
     Route::post('admin/users', [UserListController::class, 'store'])->name('admin.users.store');

@@ -29,6 +29,7 @@ import AppLogo from '@/components/AppLogo.vue';
 import NavFooter from '@/components/NavFooter.vue';
 import NavMain from '@/components/NavMain.vue';
 import NavUser from '@/components/NavUser.vue';
+import PanelSwitcher from '@/components/PanelSwitcher.vue';
 import {
     Sidebar,
     SidebarContent,
@@ -38,12 +39,15 @@ import {
     SidebarMenuButton,
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
+import { useCurrentUrl } from '@/composables/useCurrentUrl';
 import { dashboard } from '@/routes';
+import { dashboard as adminDashboard } from '@/routes/admin';
 import type { NavGroup, NavItem, UserRole } from '@/types';
 
 const adminRoles: UserRole[] = ['admin', 'super_admin'];
 
 const page = usePage();
+const { currentUrl } = useCurrentUrl();
 
 const memberNavItems: NavItem[] = [
     { title: 'Overview', href: dashboard(), icon: LayoutGrid },
@@ -60,6 +64,12 @@ const memberNavItems: NavItem[] = [
 ];
 
 const adminNavGroups: NavGroup[] = [
+    {
+        label: 'Admin',
+        items: [
+            { title: 'Overview', href: adminDashboard(), icon: LayoutGrid },
+        ],
+    },
     {
         label: 'Reviews',
         items: [
@@ -133,6 +143,17 @@ const adminNavGroups: NavGroup[] = [
 
 const isAdmin = computed(() => adminRoles.includes(page.props.auth.user.role));
 
+const isAdminPanel = computed(
+    () =>
+        isAdmin.value &&
+        (currentUrl.value === '/admin' ||
+            currentUrl.value.startsWith('/admin/')),
+);
+
+const homeHref = computed(() =>
+    isAdminPanel.value ? adminDashboard() : dashboard(),
+);
+
 const footerNavItems: NavItem[] = [
     {
         title: 'About Us',
@@ -153,17 +174,17 @@ const footerNavItems: NavItem[] = [
             <SidebarMenu>
                 <SidebarMenuItem>
                     <SidebarMenuButton size="lg" as-child>
-                        <Link :href="dashboard()">
+                        <Link :href="homeHref">
                             <AppLogo />
                         </Link>
                     </SidebarMenuButton>
                 </SidebarMenuItem>
             </SidebarMenu>
+            <PanelSwitcher v-if="isAdmin" :is-admin-panel="isAdminPanel" />
         </SidebarHeader>
 
         <SidebarContent>
-            <NavMain label="My Fund" :items="memberNavItems" />
-            <template v-if="isAdmin">
+            <template v-if="isAdminPanel">
                 <NavMain
                     v-for="group in adminNavGroups"
                     :key="group.label"
@@ -171,10 +192,11 @@ const footerNavItems: NavItem[] = [
                     :items="group.items"
                 />
             </template>
+            <NavMain v-else label="My Fund" :items="memberNavItems" />
         </SidebarContent>
 
         <SidebarFooter>
-            <NavFooter :items="footerNavItems" />
+            <NavFooter v-if="!isAdminPanel" :items="footerNavItems" />
             <NavUser />
         </SidebarFooter>
     </Sidebar>

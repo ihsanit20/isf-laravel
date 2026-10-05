@@ -69,10 +69,10 @@ test('authenticated members can visit the dashboard with personal data', functio
         ->where('personal.summary.verified_deposits', 6000)
         ->where('personal.summary.available_balance', 4000)
         ->where('personal.actions.my_cycle_allocation_count', 1)
-        ->where('adminOverview', null));
+        ->missing('adminOverview'));
 });
 
-test('admins see both personal and admin dashboard data', function () {
+test('admins see personal data on the dashboard and admin data on the admin dashboard', function () {
     $admin = User::factory()->create([
         'role' => 'admin',
     ]);
@@ -157,9 +157,21 @@ test('admins see both personal and admin dashboard data', function () {
             ->where('personal.summary.total_members', 1)
             ->where('personal.actions.my_charge_count', 1)
             ->where('personal.actions.pending_charge_count', 1)
-            ->where('adminOverview.pool_summary.total_verified_deposits', 5000)
-            ->where('adminOverview.queues.pending_deposits', 1)
-            ->where('adminOverview.queues.approved_not_activated_members', 2)
-            ->where('adminOverview.queues.pending_charges', 1)
-            ->where('adminOverview.cycle_statuses.0.status', FundCycle::STATUS_DRAFT));
+            ->missing('adminOverview'));
+
+    get(route('admin.dashboard'))
+        ->assertOk()
+        ->assertInertia(fn(Assert $page) => $page
+            ->component('admin/Dashboard')
+            ->where('overview.pool_summary.total_verified_deposits', 5000)
+            ->where('overview.queues.pending_deposits', 1)
+            ->where('overview.queues.approved_not_activated_members', 2)
+            ->where('overview.queues.pending_charges', 1)
+            ->where('overview.cycle_statuses.0.status', FundCycle::STATUS_DRAFT));
+});
+
+test('members cannot visit the admin dashboard', function () {
+    actingAs(User::factory()->create());
+
+    get(route('admin.dashboard'))->assertForbidden();
 });
