@@ -16,6 +16,7 @@ use App\Models\FundCycleEvent;
 use App\Models\FundCycleTransaction;
 use App\Models\Member;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -150,7 +151,9 @@ class FundCycleController extends Controller
 
         $usersWithMembers = $this->usersWithApprovedMembers();
 
-        $slots = collect($fundCycle->slots ?? []);
+        $slots = collect($fundCycle->slots ?? [])
+            ->sortByDesc(fn (string $slot): int => $this->slotSortValue($slot))
+            ->values();
 
         $totalMembers = $usersWithMembers->sum(fn ($user) => $user->managedMembers->count());
         $totalUnits = $usersWithMembers->sum(fn ($user) => $user->managedMembers->sum('units'));
@@ -165,19 +168,20 @@ class FundCycleController extends Controller
         $remainingAmount = $expectedAmount - $allocatedAmount;
 
         $existingAllocations = $fundCycle->allocations
-            ->groupBy(fn ($allocation) => ($allocation->member?->managed_by_user_id ?? 0).'-'.$allocation->slot_key);
+            ->keyBy(fn ($allocation) => $allocation->member_id.'-'.$allocation->slot_key);
 
         $missingAllocations = [];
-        foreach ($usersWithMembers as $user) {
-            foreach ($slots as $slot) {
-                $key = $user->id.'-'.$slot;
-                if (! $existingAllocations->has($key)) {
-                    $memberNames = $user->managedMembers->pluck('full_name')->join(', ');
+        foreach ($slots as $slot) {
+            foreach ($usersWithMembers as $user) {
+                $missingMembers = $user->managedMembers
+                    ->reject(fn (Member $member) => $existingAllocations->has($member->id.'-'.$slot));
+
+                if ($missingMembers->isNotEmpty()) {
                     $missingAllocations[] = [
                         'user_id' => $user->id,
                         'user_name' => $user->name,
                         'user_phone' => $user->phone,
-                        'member_names' => $memberNames,
+                        'member_names' => $missingMembers->pluck('full_name')->join(', '),
                         'slot_key' => $slot,
                     ];
                 }
@@ -212,7 +216,10 @@ class FundCycleController extends Controller
                 'remaining_allocations' => $remainingAllocations,
                 'remaining_amount' => $remainingAmount,
                 'allocations' => $fundCycle->allocations
-                    ->sortByDesc('allocated_at')
+                    ->sortBy([
+                        fn ($a, $b) => $this->slotSortValue($b->slot_key) <=> $this->slotSortValue($a->slot_key),
+                        fn ($a, $b) => $b->allocated_at <=> $a->allocated_at,
+                    ])
                     ->values()
                     ->map(fn (FundCycleAllocation $allocation): array => [
                         'id' => $allocation->id,
@@ -300,6 +307,19 @@ class FundCycleController extends Controller
                 ])
                 ->values(),
         ];
+    }
+
+    private function slotSortValue(?string $slot): int
+    {
+        if ($slot === null || trim($slot) === '') {
+            return PHP_INT_MIN;
+        }
+
+        try {
+            return Carbon::createFromFormat('!F Y', trim($slot))->timestamp;
+        } catch (\Throwable) {
+            return PHP_INT_MIN;
+        }
     }
 
     private function allocatedAmount(FundCycle $fundCycle): float

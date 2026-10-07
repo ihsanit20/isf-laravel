@@ -100,6 +100,35 @@ const selectedSlot = ref<string>('');
 const showMissingOnly = ref(false);
 const isAllocateDialogOpen = ref(false);
 
+const MONTHS = [
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
+];
+
+const slotSortValue = (slotKey: string): number => {
+    const [month, year] = slotKey.trim().split(' ');
+    const monthIndex = MONTHS.indexOf(month);
+
+    if (monthIndex === -1 || !year) {
+        return -Infinity;
+    }
+
+    return Number(year) * 12 + monthIndex;
+};
+
+const sortBySlotDesc = <T extends { slotKey: string }>(groups: T[]): T[] =>
+    groups.sort((a, b) => slotSortValue(b.slotKey) - slotSortValue(a.slotKey));
+
 const filteredAllocations = computed(() => {
     let filtered = props.fundCycle.allocations;
 
@@ -147,10 +176,12 @@ const slotGroups = computed(() => {
         groups.set(slotKey, items);
     }
 
-    return Array.from(groups.entries()).map(([slotKey, allocations]) => ({
-        slotKey,
-        allocations,
-    }));
+    return sortBySlotDesc(
+        Array.from(groups.entries()).map(([slotKey, allocations]) => ({
+            slotKey,
+            allocations,
+        })),
+    );
 });
 
 const missingSlotGroups = computed(() => {
@@ -164,10 +195,12 @@ const missingSlotGroups = computed(() => {
         groups.set(slotKey, items);
     }
 
-    return Array.from(groups.entries()).map(([slotKey, allocations]) => ({
-        slotKey,
-        allocations,
-    }));
+    return sortBySlotDesc(
+        Array.from(groups.entries()).map(([slotKey, allocations]) => ({
+            slotKey,
+            allocations,
+        })),
+    );
 });
 
 const clearFilters = () => {
