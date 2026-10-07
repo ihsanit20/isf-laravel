@@ -7,6 +7,20 @@ the codebase.** The graph is faster, cheaper (fewer tokens), and gives
 you structural context (callers, dependents, test coverage) that file
 scanning cannot.
 
+### Monorepo note
+
+This repo (alias `isf-laravel`) lives inside the `ISF` monorepo root
+alongside a sibling repo, `isf-events-nuxt`. Both are registered in
+the global code-review-graph registry.
+
+- If Claude Code was launched **inside this folder**, `repo_root`
+  auto-detects correctly — no need to pass it.
+- If Claude Code was launched **from the `ISF` root** (monorepo
+  session), always pass `repo_root="D:/www/ihsan-projects/ISF/isf-laravel"`
+  explicitly on every graph tool call.
+- To search across both `isf-laravel` and `isf-events-nuxt` at once,
+  use `cross_repo_search_tool` (no `repo_root` needed).
+
 ### When to use graph tools FIRST
 
 - **Exploring code**: `semantic_search_nodes_tool` or `query_graph_tool` instead of Grep
