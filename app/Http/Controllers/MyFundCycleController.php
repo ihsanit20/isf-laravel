@@ -85,6 +85,7 @@ class MyFundCycleController extends Controller
                 'lock_date' => $fundCycle->lock_date?->format('d M Y'),
                 'maturity_date' => $fundCycle->maturity_date?->format('d M Y'),
                 'settlement_date' => $fundCycle->settlement_date?->format('d M Y'),
+                'notes' => $fundCycle->notes,
                 'allocations_count' => (int) $fundCycle->allocations_count,
                 'total_allocated_amount' => Money::toTaka($totalAllocatedAmount),
                 'my_allocated_amount' => Money::toTaka($myAllocatedAmount),

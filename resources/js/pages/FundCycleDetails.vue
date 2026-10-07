@@ -35,6 +35,7 @@ type FundCycleItem = {
     lock_date: string | null;
     maturity_date: string | null;
     settlement_date: string | null;
+    notes: string | null;
     allocations_count: number;
     total_allocated_amount: number;
     my_allocated_amount: number;
@@ -186,11 +187,18 @@ const hasCycleLevelLines = computed(
             </li>
         </ol>
 
-        <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <p
+            v-if="props.fundCycle.notes"
+            class="text-sm text-muted-foreground"
+        >
+            {{ props.fundCycle.notes }}
+        </p>
+
+        <div class="grid gap-4 grid-cols-2 xl:grid-cols-4">
             <StatCard
                 label="Cycle total"
                 :value="formatMoney(props.fundCycle.total_allocated_amount)"
-                hint="Capital from all members"
+                hint="From all members"
             />
             <StatCard
                 :label="isSettled ? 'Cycle result' : 'Cycle result so far'"
@@ -205,7 +213,7 @@ const hasCycleLevelLines = computed(
             <StatCard
                 label="My investment"
                 :value="formatMoney(props.cycleResult.my_capital)"
-                hint="All my members together"
+                hint="From all my members"
             />
             <StatCard
                 :label="isSettled ? 'Returned to me' : 'My share so far'"
