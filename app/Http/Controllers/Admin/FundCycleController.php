@@ -17,6 +17,7 @@ use App\Models\FundCycleTransaction;
 use App\Models\Member;
 use App\Models\User;
 use Carbon\Carbon;
+use Carbon\CarbonInterface;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -74,7 +75,7 @@ class FundCycleController extends Controller
         $fundCycle->load(['creator:id,name'])
             ->loadCount('allocations');
 
-        $usersWithMembers = $this->usersWithApprovedMembers();
+        $usersWithMembers = $this->usersWithApprovedMembers($fundCycle);
         $slots = collect($fundCycle->slots ?? []);
 
         $totalMembers = $usersWithMembers->sum(fn ($user) => $user->managedMembers->count());
@@ -149,7 +150,7 @@ class FundCycleController extends Controller
             'allocations.member.manager:id,name,email',
         ]);
 
-        $usersWithMembers = $this->usersWithApprovedMembers();
+        $usersWithMembers = $this->usersWithApprovedMembers($fundCycle);
 
         $slots = collect($fundCycle->slots ?? [])
             ->sortByDesc(fn (string $slot): int => $this->slotSortValue($slot))
@@ -329,17 +330,31 @@ class FundCycleController extends Controller
             ->sum());
     }
 
-    private function usersWithApprovedMembers()
+    private function usersWithApprovedMembers(FundCycle $fundCycle)
     {
+        $cutoff = $this->memberCutoff($fundCycle);
+
+        $eligibleMembers = fn ($query) => $query
+            ->where('status', MemberStatus::Approved)
+            ->when($cutoff, fn ($query) => $query->where('created_at', '<', $cutoff));
+
         return User::query()
-            ->whereHas('managedMembers', fn ($query) => $query->where('status', MemberStatus::Approved))
+            ->whereHas('managedMembers', $eligibleMembers)
             ->with([
-                'managedMembers' => fn ($query) => $query
-                    ->where('status', MemberStatus::Approved)
-                    ->orderBy('id'),
+                'managedMembers' => fn ($query) => $eligibleMembers($query)->orderBy('id'),
             ])
             ->orderBy('id')
             ->get(['id', 'name', 'email', 'phone']);
+    }
+
+    /**
+     * Members created after allocations close (lock date or settlement) can never allocate to this cycle.
+     */
+    private function memberCutoff(FundCycle $fundCycle): ?CarbonInterface
+    {
+        return collect([$fundCycle->lock_date, $fundCycle->settled_at])
+            ->filter()
+            ->min();
     }
 
     public function store(StoreFundCycleRequest $request): RedirectResponse
