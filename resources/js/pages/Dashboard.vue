@@ -44,12 +44,13 @@ type PersonalDashboard = {
         my_cycle_allocation_count: number;
         open_cycle_count: number;
     };
-    next_cycle: {
+    running_cycles: {
+        id: number;
         name: string;
         lock_date: string | null;
         unit_amount: number;
         status_label: string;
-    } | null;
+    }[];
     balance: {
         deposits: number;
         fees: number;
@@ -78,15 +79,10 @@ const flowSteps = computed<MoneyFlowStep[]>(() => {
     const balance = props.personal.balance;
 
     return [
-        { label: 'Deposited', amount: balance.deposits, hint: 'Verified' },
+        { label: 'Deposited', amount: balance.deposits },
         { label: 'Charges', amount: balance.fees, sign: '−' },
         { label: 'Invested', amount: balance.cycle_allocations, sign: '−' },
-        {
-            label: 'Returned',
-            amount: balance.cycle_returns,
-            sign: '+',
-            hint: 'From settled cycles',
-        },
+        { label: 'Returned', amount: balance.cycle_returns, sign: '+' },
         { label: 'Withdrawn', amount: balance.payouts, sign: '−' },
         {
             label: 'Available',
@@ -105,7 +101,7 @@ type NextStep = {
 };
 
 const nextSteps = computed<NextStep[]>(() => {
-    const { summary, actions, next_cycle, balance } = props.personal;
+    const { summary, actions, running_cycles, balance } = props.personal;
     const steps: NextStep[] = [];
 
     if (summary.total_members === 0) {
@@ -148,16 +144,18 @@ const nextSteps = computed<NextStep[]>(() => {
         });
     }
 
-    if (next_cycle && summary.active_members > 0) {
-        steps.push({
-            key: 'cycle',
-            title: `${next_cycle.name} is open`,
-            description: next_cycle.lock_date
-                ? `Invest before ${next_cycle.lock_date}.`
-                : 'Taking investments now.',
-            href: '/my-allocations',
-            action: 'Invest',
-        });
+    if (summary.active_members > 0) {
+        for (const cycle of running_cycles) {
+            steps.push({
+                key: `cycle-${cycle.id}`,
+                title: `${cycle.name} is open`,
+                description: cycle.lock_date
+                    ? `Invest before ${cycle.lock_date}.`
+                    : 'Taking investments now.',
+                href: `/my-allocations?cycle=${cycle.id}`,
+                action: 'Invest',
+            });
+        }
     }
 
     return steps;
@@ -178,7 +176,15 @@ const nextSteps = computed<NextStep[]>(() => {
         <div class="grid gap-4 xl:grid-cols-[1.2fr_1fr]">
             <Card class="gap-4">
                 <CardHeader>
-                    <CardTitle>Next steps</CardTitle>
+                    <div class="flex items-center justify-between">
+                        <CardTitle>Active Fund Cycle</CardTitle>
+                        <Button as-child size="sm" variant="ghost">
+                            <Link href="/my-allocations">
+                                All investments
+                                <ArrowRight class="size-4" />
+                            </Link>
+                        </Button>
+                    </div>
                 </CardHeader>
                 <CardContent>
                     <div

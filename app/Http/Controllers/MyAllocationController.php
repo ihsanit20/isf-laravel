@@ -82,6 +82,7 @@ class MyAllocationController extends Controller
             'memberTabs' => $memberTabs,
             'cycleResults' => $this->cycleResults($user, $cyclePostings),
             'selectedMemberId' => $request->integer('member') ?: null,
+            'selectedCycleId' => $request->integer('cycle') ?: null,
         ]);
     }
 

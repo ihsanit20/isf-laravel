@@ -6,7 +6,6 @@ import { cn } from '@/lib/utils';
 export type MoneyFlowStep = {
     label: string;
     amount: number;
-    hint?: string;
     sign?: '+' | '−';
     highlight?: boolean;
 };
@@ -17,7 +16,9 @@ defineProps<{
 </script>
 
 <template>
-    <div class="flex flex-col gap-2 lg:flex-row lg:items-stretch">
+    <div
+        class="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:flex lg:flex-row lg:items-stretch"
+    >
         <template v-for="(step, index) in steps" :key="step.label">
             <div
                 :class="
@@ -42,12 +43,6 @@ defineProps<{
                     "
                 >
                     {{ formatMoney(step.amount) }}
-                </p>
-                <p
-                    v-if="step.hint"
-                    class="mt-0.5 text-xs text-muted-foreground"
-                >
-                    {{ step.hint }}
                 </p>
             </div>
             <ChevronRight

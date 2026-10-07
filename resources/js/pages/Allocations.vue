@@ -89,6 +89,7 @@ type Props = {
     memberTabs: MemberTab[];
     cycleResults: CycleResult[];
     selectedMemberId: number | null;
+    selectedCycleId: number | null;
 };
 
 defineOptions({
@@ -102,7 +103,16 @@ const props = defineProps<Props>();
 const members = computed(() => props.memberTabs.map((tab) => tab.member));
 
 const ALL_CYCLES = 'all';
-const cycleFilter = ref(ALL_CYCLES);
+
+const initialCycleFilter = (): string => {
+    const cycleRow = props.memberTabs
+        .flatMap((tab) => tab.rows)
+        .find((row) => row.cycle_id === props.selectedCycleId);
+
+    return cycleRow?.cycle_name ?? ALL_CYCLES;
+};
+
+const cycleFilter = ref(initialCycleFilter());
 const slotFilter = ref('');
 
 const MONTH_NAMES = [

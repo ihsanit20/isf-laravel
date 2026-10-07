@@ -68,11 +68,14 @@ class DashboardController extends Controller
             ->where('status', FundCycle::STATUS_OPEN)
             ->count();
 
-        $nextOpenCycle = FundCycle::query()
+        $runningCycles = FundCycle::query()
             ->where('status', FundCycle::STATUS_OPEN)
+            ->where(fn ($query) => $query
+                ->whereNull('lock_date')
+                ->orWhereDate('lock_date', '>', now()->toDateString()))
             ->orderBy('lock_date')
             ->orderBy('start_date')
-            ->first();
+            ->get();
 
         return [
             'summary' => [
@@ -90,12 +93,16 @@ class DashboardController extends Controller
                 'my_cycle_allocation_count' => $myCycleAllocationCount,
                 'open_cycle_count' => $openCycleCount,
             ],
-            'next_cycle' => $nextOpenCycle ? [
-                'name' => $nextOpenCycle->name,
-                'lock_date' => $nextOpenCycle->lock_date?->format('d M Y'),
-                'unit_amount' => $nextOpenCycle->unit_amount,
-                'status_label' => FundCycle::statusLabel($nextOpenCycle->status),
-            ] : null,
+            'running_cycles' => $runningCycles
+                ->map(fn (FundCycle $cycle): array => [
+                    'id' => $cycle->id,
+                    'name' => $cycle->name,
+                    'lock_date' => $cycle->lock_date?->format('d M Y'),
+                    'unit_amount' => $cycle->unit_amount,
+                    'status_label' => FundCycle::statusLabel($cycle->status),
+                ])
+                ->values()
+                ->all(),
             'balance' => [
                 'deposits' => Money::toTaka($balance['deposits']),
                 'fees' => Money::toTaka($balance['fees']),
