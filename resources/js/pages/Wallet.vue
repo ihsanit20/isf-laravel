@@ -156,7 +156,7 @@ const kindLabel = (kind: string | null): string =>
         <Tabs default-value="statement">
             <TabsList>
                 <TabsTrigger value="statement">Statement</TabsTrigger>
-                <TabsTrigger value="withdrawals">
+                <TabsTrigger value="withdrawals" v-if="false">
                     Withdrawals
                     <span
                         v-if="props.payouts.length > 0"
