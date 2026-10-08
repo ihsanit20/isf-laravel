@@ -1,1 +1,0 @@
-import{K as e,T as t,U as n,k as r,xt as i,yt as a}from"./dist-CubLf_Mt.js";import{t as o}from"./utils-DOmYD3E8.js";var s=r({__name:`CardContent`,props:{class:{type:[Boolean,null,String,Object,Array]}},setup(r){let s=r;return(r,c)=>(n(),t(`div`,{"data-slot":`card-content`,class:i(a(o)(`px-6`,s.class))},[e(r.$slots,`default`)],2))}});export{s as t};
