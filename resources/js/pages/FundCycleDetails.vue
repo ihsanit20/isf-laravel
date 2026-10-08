@@ -2,6 +2,7 @@
 import { Head, Link } from '@inertiajs/vue3';
 import { ArrowLeft, Check } from 'lucide-vue-next';
 import { computed } from 'vue';
+import EventIncomeChart from '@/components/shared/EventIncomeChart.vue';
 import PageHeader from '@/components/shared/PageHeader.vue';
 import StatCard from '@/components/shared/StatCard.vue';
 import { Button } from '@/components/ui/button';
@@ -45,6 +46,8 @@ type EventItem = {
     id: number;
     type?: 'event' | 'business';
     title: string;
+    total_paid_amount: number;
+    other_income_amount: number;
     total_income_amount: number;
     total_expense_amount: number;
     net_profit_amount: number;
@@ -116,6 +119,11 @@ const stages = computed(() => {
 });
 
 const eventTotals = computed(() => ({
+    paid: props.events.reduce((sum, event) => sum + event.total_paid_amount, 0),
+    otherIncome: props.events.reduce(
+        (sum, event) => sum + event.other_income_amount,
+        0,
+    ),
     income: props.events.reduce(
         (sum, event) => sum + event.total_income_amount,
         0,
@@ -187,14 +195,11 @@ const hasCycleLevelLines = computed(
             </li>
         </ol>
 
-        <p
-            v-if="props.fundCycle.notes"
-            class="text-sm text-muted-foreground"
-        >
+        <p v-if="props.fundCycle.notes" class="text-sm text-muted-foreground">
             {{ props.fundCycle.notes }}
         </p>
 
-        <div class="grid gap-4 grid-cols-2 xl:grid-cols-4">
+        <div class="grid grid-cols-2 gap-4 xl:grid-cols-4">
             <StatCard
                 label="Cycle total"
                 :value="formatMoney(props.fundCycle.total_allocated_amount)"
@@ -233,6 +238,18 @@ const hasCycleLevelLines = computed(
             />
         </div>
 
+        <Card v-if="props.events.length > 0" class="gap-4">
+            <CardHeader>
+                <CardTitle>Event-wise income &amp; expense</CardTitle>
+                <CardDescription>
+                    Hover a group to see the exact amounts.
+                </CardDescription>
+            </CardHeader>
+            <CardContent>
+                <EventIncomeChart :events="props.events" />
+            </CardContent>
+        </Card>
+
         <Card class="gap-4">
             <CardHeader>
                 <CardTitle>Finalized events</CardTitle>
@@ -247,6 +264,12 @@ const hasCycleLevelLines = computed(
                         <TableRow>
                             <TableHead class="w-12 pl-6">SL</TableHead>
                             <TableHead>Event</TableHead>
+                            <TableHead class="text-right">
+                                Paid order
+                            </TableHead>
+                            <TableHead class="text-right">
+                                Other income
+                            </TableHead>
                             <TableHead class="text-right">
                                 Total income
                             </TableHead>
@@ -276,7 +299,19 @@ const hasCycleLevelLines = computed(
                                     Business
                                 </p>
                             </TableCell>
-                            <TableCell class="text-right tabular-nums">
+                            <TableCell
+                                class="text-right text-muted-foreground tabular-nums"
+                            >
+                                {{ formatMoney(event.total_paid_amount) }}
+                            </TableCell>
+                            <TableCell
+                                class="text-right text-muted-foreground tabular-nums"
+                            >
+                                {{ formatMoney(event.other_income_amount) }}
+                            </TableCell>
+                            <TableCell
+                                class="text-right font-medium tabular-nums"
+                            >
                                 {{ formatMoney(event.total_income_amount) }}
                             </TableCell>
                             <TableCell class="text-right tabular-nums">
@@ -293,7 +328,7 @@ const hasCycleLevelLines = computed(
                         </TableRow>
                         <TableEmpty
                             v-if="props.events.length === 0"
-                            :colspan="5"
+                            :colspan="7"
                         >
                             No event has been finalized yet.
                         </TableEmpty>
@@ -303,6 +338,12 @@ const hasCycleLevelLines = computed(
                             <TableCell colspan="2" class="pl-6"
                                 >Total</TableCell
                             >
+                            <TableCell class="text-right tabular-nums">
+                                {{ formatMoney(eventTotals.paid) }}
+                            </TableCell>
+                            <TableCell class="text-right tabular-nums">
+                                {{ formatMoney(eventTotals.otherIncome) }}
+                            </TableCell>
                             <TableCell class="text-right tabular-nums">
                                 {{ formatMoney(eventTotals.income) }}
                             </TableCell>
