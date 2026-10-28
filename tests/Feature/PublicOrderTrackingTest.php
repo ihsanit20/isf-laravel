@@ -183,9 +183,9 @@ test('bkash due init supersedes an abandoned pending due payment', function () {
     ['order' => $order, 'pendingPayment' => $pendingPayment] = createOrderWithPaymentsForTracking();
 
     Http::fake([
-        '*/tokenized/checkout/token/grant' => Http::response(['id_token' => 'sandbox-token']),
-        '*/tokenized/checkout/create' => Http::response([
-            'paymentID' => 'TRDUE04',
+        '*/auth/grant-token' => Http::response(['id_token' => 'sandbox-token']),
+        '*/payment/create' => Http::response([
+            'paymentId' => 'TRDUE04',
             'bkashURL' => 'https://sandbox.bka.sh/pay/TRDUE04',
         ]),
     ]);
