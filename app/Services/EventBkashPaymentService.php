@@ -11,13 +11,13 @@ use App\Models\EventPayment;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
-use Msilabs\Bkash\BkashPayment;
+use Msilabs\Bkash\BkashResponse;
+use Msilabs\Bkash\Exceptions\BkashException;
+use Msilabs\Bkash\Facades\Bkash;
 use Symfony\Component\HttpFoundation\Response;
 
 class EventBkashPaymentService
 {
-    use BkashPayment;
-
     public function __construct(
         private readonly EventOrderConfirmationService $orderConfirmation,
         private readonly InvestmentPostings $investmentPostings,
@@ -94,7 +94,7 @@ class EventBkashPaymentService
 
     public function handleCallback(Request $request): Response
     {
-        $paymentId = $request->input('paymentID');
+        $paymentId = $request->input('paymentId', $request->input('paymentID'));
         $status = $request->input('status');
         $orderNumber = $request->string('order_number')->toString();
 
@@ -134,21 +134,27 @@ class EventBkashPaymentService
             return redirect($this->frontendRedirect('failed', $orderNumber, $order->customer_phone));
         }
 
-        try {
-            $response = $this->executePayment($paymentId);
-        } catch (\Throwable $e) {
-            $this->markPaymentFailed($payment, $e->getMessage());
+        $response = $this->executeOrRecover($paymentId);
+
+        if ($response === null) {
+            // bKash may have taken the money: keep it pending so a later
+            // callback or queryPayment can still verify it.
+            $this->notePendingPayment($payment, 'bKash execute result unknown; verify via queryPayment.');
 
             return redirect($this->frontendRedirect('failed', $orderNumber, $order->customer_phone));
         }
 
-        if (($response->transactionStatus ?? null) !== 'Completed') {
-            $this->markPaymentFailed($payment, 'Transaction status: '.($response->transactionStatus ?? 'unknown'));
+        if (! $response->isCompleted()) {
+            $this->markPaymentFailed(
+                $payment,
+                $response->errorMessage() ?? 'Transaction status: '.($response->transactionStatus ?? 'unknown'),
+            );
 
             return redirect($this->frontendRedirect('failed', $orderNumber, $order->customer_phone));
         }
 
-        $invoice = (string) ($response->merchantInvoiceNumber ?? '');
+        // Execute returns merchantInvoiceNumber, query returns merchantInvoice.
+        $invoice = (string) ($response->merchantInvoiceNumber ?? $response->merchantInvoice ?? '');
         if ($invoice !== $payment->merchant_invoice) {
             $this->markPaymentFailed($payment, 'Merchant invoice mismatch.');
 
@@ -162,7 +168,7 @@ class EventBkashPaymentService
             return redirect($this->frontendRedirect('failed', $orderNumber, $order->customer_phone));
         }
 
-        $trxId = (string) ($response->trxID ?? '');
+        $trxId = (string) ($response->trxId ?? '');
 
         if ($paymentType === EventPaymentType::Due) {
             $this->verifyDuePayment($payment, $trxId);
@@ -188,11 +194,16 @@ class EventBkashPaymentService
     {
         $merchantInvoice = $this->merchantInvoiceFor($order, $paymentType);
 
-        $response = $this->createPayment(
+        $response = Bkash::createPayment(
             $amount,
             $merchantInvoice,
             $this->callbackUrl(),
-        );
+            $order->customer_phone,
+        )->throw();
+
+        if (! $response->paymentId || ! $response->redirectUrl()) {
+            throw new BkashException('bKash create payment returned no payment ID or URL.');
+        }
 
         EventPayment::query()->create([
             'event_order_id' => $order->id,
@@ -200,13 +211,39 @@ class EventBkashPaymentService
             'payment_type' => $paymentType,
             'payment_method' => 'bkash',
             'payment_status' => 'pending',
-            'bkash_payment_id' => $response->paymentID,
+            'bkash_payment_id' => $response->paymentId,
             'merchant_invoice' => $merchantInvoice,
         ]);
 
         return [
-            'redirect_url' => $response->bkashURL,
+            'redirect_url' => $response->redirectUrl(),
         ];
+    }
+
+    /**
+     * Execute the payment, falling back to a status query when execute fails
+     * or errors out. Null means bKash's result is unknown.
+     */
+    private function executeOrRecover(string $paymentId): ?BkashResponse
+    {
+        try {
+            $response = Bkash::executePayment($paymentId);
+
+            if ($response->isCompleted()) {
+                return $response;
+            }
+        } catch (BkashException) {
+            $response = null;
+        }
+
+        try {
+            $query = Bkash::queryPayment($paymentId);
+        } catch (BkashException) {
+            // An execute error such as "already executed" may still mean paid.
+            return null;
+        }
+
+        return $query->isCompleted() ? $query : ($response ?? $query);
     }
 
     private function completeAdvanceCallback(
@@ -321,5 +358,13 @@ class EventBkashPaymentService
                 'note' => Str::limit($note, 500),
             ]);
         });
+    }
+
+    private function notePendingPayment(EventPayment $payment, string $note): void
+    {
+        EventPayment::query()
+            ->whereKey($payment->id)
+            ->where('payment_status', 'pending')
+            ->update(['note' => Str::limit($note, 500)]);
     }
 }

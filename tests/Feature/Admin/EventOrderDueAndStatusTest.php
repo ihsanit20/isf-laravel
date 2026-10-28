@@ -194,9 +194,9 @@ test('delivered order with due can initiate bkash due payment', function () {
         ->assertRedirect();
 
     Http::fake([
-        '*/tokenized/checkout/token/grant' => Http::response(['id_token' => 'sandbox-token']),
-        '*/tokenized/checkout/create' => Http::response([
-            'paymentID' => 'TRDUE03',
+        '*/auth/grant-token' => Http::response(['id_token' => 'sandbox-token']),
+        '*/payment/create' => Http::response([
+            'paymentId' => 'TRDUE03',
             'bkashURL' => 'https://sandbox.bka.sh/pay/TRDUE03',
         ]),
     ]);
@@ -261,9 +261,9 @@ test('bkash due init creates pending due payment for confirmed order', function 
     ['order' => $order] = createConfirmedOrderWithDue();
 
     Http::fake([
-        '*/tokenized/checkout/token/grant' => Http::response(['id_token' => 'sandbox-token']),
-        '*/tokenized/checkout/create' => Http::response([
-            'paymentID' => 'TRDUE01',
+        '*/auth/grant-token' => Http::response(['id_token' => 'sandbox-token']),
+        '*/payment/create' => Http::response([
+            'paymentId' => 'TRDUE01',
             'bkashURL' => 'https://sandbox.bka.sh/pay/TRDUE01',
         ]),
     ]);
@@ -299,12 +299,12 @@ test('bkash due callback verifies payment without reconfirming order', function 
     ]);
 
     Http::fake([
-        '*/tokenized/checkout/token/grant' => Http::response(['id_token' => 'sandbox-token']),
-        '*/tokenized/checkout/execute' => Http::response([
+        '*/auth/grant-token' => Http::response(['id_token' => 'sandbox-token']),
+        '*/payment/execute' => Http::response([
             'transactionStatus' => 'Completed',
             'merchantInvoiceNumber' => $invoice,
             'amount' => '800',
-            'trxID' => 'DUE123',
+            'trxId' => 'DUE123',
         ]),
     ]);
 

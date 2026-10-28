@@ -9,6 +9,8 @@ use App\Models\EventPayment;
 use App\Models\FundCycle;
 use App\Models\FundCycleEvent;
 use App\Models\User;
+use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\Request as HttpRequest;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Http;
 
@@ -88,9 +90,9 @@ test('bkash init returns redirect url and creates pending payment', function () 
     $order = createPendingEventOrder();
 
     Http::fake([
-        '*/tokenized/checkout/token/grant' => Http::response(['id_token' => 'sandbox-token']),
-        '*/tokenized/checkout/create' => Http::response([
-            'paymentID' => 'TR0001',
+        '*/auth/grant-token' => Http::response(['id_token' => 'sandbox-token']),
+        '*/payment/create' => Http::response([
+            'paymentId' => 'TR0001',
             'bkashURL' => 'https://sandbox.bka.sh/pay/TR0001',
         ]),
     ]);
@@ -109,6 +111,9 @@ test('bkash init returns redirect url and creates pending payment', function () 
         'payment_method' => 'bkash',
         'payment_type' => EventPaymentType::Advance->value,
     ]);
+
+    Http::assertSent(fn (HttpRequest $request) => str_ends_with($request->url(), '/payment/create')
+        && $request['payerReference'] === $order->customer_phone);
 });
 
 test('bkash init-due rejects pending orders', function () {
@@ -135,16 +140,16 @@ test('bkash callback confirms order on successful execute', function () {
     ]);
 
     Http::fake([
-        '*/tokenized/checkout/token/grant' => Http::response(['id_token' => 'sandbox-token']),
-        '*/tokenized/checkout/execute' => Http::response([
+        '*/auth/grant-token' => Http::response(['id_token' => 'sandbox-token']),
+        '*/payment/execute' => Http::response([
             'transactionStatus' => 'Completed',
             'merchantInvoiceNumber' => $invoice,
             'amount' => (string) $order->advance_amount,
-            'trxID' => '8A7X9YZ',
+            'trxId' => '8A7X9YZ',
         ]),
     ]);
 
-    $response = get('/bkash/callback?paymentID=TR0001&status=success');
+    $response = get('/bkash/callback?paymentId=TR0001&status=success');
 
     $response->assertRedirect();
     expect($response->headers->get('Location'))->toContain('status=success')
@@ -283,9 +288,9 @@ test('order numbers encode fund cycle id event id and per-event sequence', funct
     ];
 
     Http::fake([
-        '*/tokenized/checkout/token/grant' => Http::response(['id_token' => 't']),
-        '*/tokenized/checkout/create' => Http::response([
-            'paymentID' => 'PAY1',
+        '*/auth/grant-token' => Http::response(['id_token' => 't']),
+        '*/payment/create' => Http::response([
+            'paymentId' => 'PAY1',
             'bkashURL' => 'https://sandbox.bka.sh/pay',
         ]),
     ]);
@@ -299,4 +304,115 @@ test('order numbers encode fund cycle id event id and per-event sequence', funct
     ]));
     $second->assertCreated();
     expect($second->json('data.order_number'))->toBe("FC{$cycle->id}E{$event->id}-002");
+});
+
+function createPendingBkashAdvancePayment(EventOrder $order, string $paymentId): EventPayment
+{
+    return EventPayment::query()->create([
+        'event_order_id' => $order->id,
+        'amount' => $order->advance_amount,
+        'payment_method' => 'bkash',
+        'payment_status' => 'pending',
+        'bkash_payment_id' => $paymentId,
+        'merchant_invoice' => 'ISF-'.$order->id.'-adv-'.strtolower($paymentId),
+    ]);
+}
+
+test('bkash callback recovers via query payment when execute times out', function () {
+    $order = createPendingEventOrder();
+    $payment = createPendingBkashAdvancePayment($order, 'TRQ01');
+
+    Http::fake([
+        '*/auth/grant-token' => Http::response(['id_token' => 'sandbox-token']),
+        '*/payment/execute' => fn () => throw new ConnectionException('timed out'),
+        // Real v2 query shape: the invoice field is merchantInvoice.
+        '*/query/payment' => Http::response([
+            'paymentId' => 'TRQ01',
+            'verificationStatus' => 'Complete',
+            'trxId' => 'QRY123',
+            'amount' => (string) $order->advance_amount,
+            'currency' => 'BDT',
+            'intent' => 'sale',
+            'merchantInvoice' => $payment->merchant_invoice,
+            'transactionStatus' => 'Completed',
+        ]),
+    ]);
+
+    $response = get('/bkash/callback?paymentId=TRQ01&status=success');
+
+    expect($response->headers->get('Location'))->toContain('status=success')
+        ->and($order->refresh()->status)->toBe(EventOrderStatus::Confirmed);
+
+    assertDatabaseHas('event_payments', [
+        'id' => $payment->id,
+        'payment_status' => 'verified',
+        'transaction_reference' => 'QRY123',
+    ]);
+});
+
+test('bkash callback keeps payment pending when execute and query both fail to connect', function () {
+    $order = createPendingEventOrder();
+    $payment = createPendingBkashAdvancePayment($order, 'TRQ02');
+
+    Http::fake([
+        '*/auth/grant-token' => Http::response(['id_token' => 'sandbox-token']),
+        '*/payment/execute' => fn () => throw new ConnectionException('timed out'),
+        '*/query/payment' => fn () => throw new ConnectionException('timed out'),
+    ]);
+
+    $response = get('/bkash/callback?paymentId=TRQ02&status=success');
+
+    expect($response->headers->get('Location'))->toContain('status=failed')
+        ->and($order->refresh()->status)->toBe(EventOrderStatus::Pending);
+
+    $payment->refresh();
+    expect($payment->payment_status)->toBe('pending')
+        ->and($payment->note)->toContain('result unknown');
+});
+
+test('bkash callback marks payment failed with the bkash error message', function () {
+    $order = createPendingEventOrder();
+    $payment = createPendingBkashAdvancePayment($order, 'TRQ03');
+
+    Http::fake([
+        '*/auth/grant-token' => Http::response(['id_token' => 'sandbox-token']),
+        '*/payment/execute' => Http::response([
+            'externalCode' => '2023',
+            'errorMessageEn' => 'Insufficient Balance',
+        ]),
+        '*/query/payment' => Http::response([
+            'paymentId' => 'TRQ03',
+            'transactionStatus' => 'Initiated',
+        ]),
+    ]);
+
+    $response = get('/bkash/callback?paymentId=TRQ03&status=success');
+
+    expect($response->headers->get('Location'))->toContain('status=failed');
+
+    $payment->refresh();
+    expect($payment->payment_status)->toBe('failed')
+        ->and($payment->note)->toBe('Insufficient Balance');
+});
+
+test('bkash callback keeps payment pending when execute errors and query cannot connect', function () {
+    $order = createPendingEventOrder();
+    $payment = createPendingBkashAdvancePayment($order, 'TRQ04');
+
+    Http::fake([
+        '*/auth/grant-token' => Http::response(['id_token' => 'sandbox-token']),
+        '*/payment/execute' => Http::response([
+            'statusCode' => '2117',
+            'statusMessage' => 'Payment execution already been called before',
+        ]),
+        '*/query/payment' => fn () => throw new ConnectionException('timed out'),
+    ]);
+
+    $response = get('/bkash/callback?paymentId=TRQ04&status=success');
+
+    expect($response->headers->get('Location'))->toContain('status=failed');
+
+    $payment->refresh();
+    expect($payment->payment_status)->toBe('pending')
+        ->and($payment->note)->toContain('result unknown');
 });
