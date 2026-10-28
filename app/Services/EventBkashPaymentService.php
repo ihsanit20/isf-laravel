@@ -153,8 +153,7 @@ class EventBkashPaymentService
             return redirect($this->frontendRedirect('failed', $orderNumber, $order->customer_phone));
         }
 
-        // Execute returns merchantInvoiceNumber, query returns merchantInvoice.
-        $invoice = (string) ($response->merchantInvoiceNumber ?? $response->merchantInvoice ?? '');
+        $invoice = (string) ($response->invoiceNumber() ?? '');
         if ($invoice !== $payment->merchant_invoice) {
             $this->markPaymentFailed($payment, 'Merchant invoice mismatch.');
 
