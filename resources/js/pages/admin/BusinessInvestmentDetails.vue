@@ -2,6 +2,11 @@
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { CircleAlert, Plus, SquarePen, Trash2 } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
+import BusinessSubLedgerCard from '@/components/admin/BusinessSubLedgerCard.vue';
+import type {
+    BusinessSubEntryItem,
+    BusinessSubSummary,
+} from '@/components/admin/BusinessSubLedgerCard.vue';
 import InvestmentLedgerPanel from '@/components/admin/InvestmentLedgerPanel.vue';
 import type { InvestmentLedger } from '@/components/admin/InvestmentLedgerPanel.vue';
 import LedgerEntryDialog from '@/components/admin/LedgerEntryDialog.vue';
@@ -50,6 +55,9 @@ type Props = {
     ledger: InvestmentLedger;
     transactions: BusinessTransactionItem[];
     transactionTypes: { value: string; label: string }[];
+    subEntries: BusinessSubEntryItem[];
+    subSummary: BusinessSubSummary;
+    subCategories: string[];
 };
 
 defineOptions({
@@ -266,6 +274,13 @@ const closeInvestment = () => {
                 />
             </CardContent>
         </Card>
+
+        <BusinessSubLedgerCard
+            :investment-id="props.investment.id"
+            :entries="props.subEntries"
+            :summary="props.subSummary"
+            :categories="props.subCategories"
+        />
 
         <LedgerEntryDialog
             v-model:isOpen="isTransactionDialogOpen"

@@ -6,7 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Ledger\Account;
 use App\Ledger\InvestmentReport;
 use App\Ledger\Ledger;
+use App\Ledger\Money;
 use App\Ledger\Postings\InvestmentPostings;
+use App\Models\BusinessSubEntry;
 use App\Models\BusinessTransaction;
 use App\Models\CycleInvestment;
 use App\Models\FundCycle;
@@ -112,7 +114,64 @@ class BusinessInvestmentController extends Controller
             'transactionTypes' => collect(BusinessTransaction::TYPES)
                 ->map(fn (string $type): array => ['value' => $type, 'label' => BusinessTransaction::typeLabel($type)])
                 ->values(),
+            ...$this->subLedgerProps($cycleInvestment),
         ]);
+    }
+
+    /**
+     * Note-only operator records. Summed from their own table on purpose:
+     * they are not journal money and never affect ISF balances.
+     *
+     * @return array{subEntries: mixed, subSummary: array<string, mixed>, subCategories: mixed}
+     */
+    private function subLedgerProps(CycleInvestment $investment): array
+    {
+        $entries = $investment->subEntries()
+            ->orderByDesc('entry_date')
+            ->orderByDesc('id')
+            ->get();
+
+        $totalExpense = (float) $entries->where('direction', BusinessSubEntry::DIRECTION_EXPENSE)->sum('amount');
+        $totalIncome = (float) $entries->where('direction', BusinessSubEntry::DIRECTION_INCOME)->sum('amount');
+
+        $capitalGiven = Money::toTaka(
+            $this->ledger->movementsByKind(Account::BusinessInvestment, $investment->dimensions())->get('business_invest', 0),
+        );
+
+        return [
+            'subEntries' => $entries
+                ->map(fn (BusinessSubEntry $entry): array => [
+                    'id' => $entry->id,
+                    'direction' => $entry->direction,
+                    'category' => $entry->category,
+                    'amount' => (float) $entry->amount,
+                    'entry_date' => $entry->entry_date?->format('Y-m-d'),
+                    'note' => $entry->note,
+                ])
+                ->values(),
+            'subSummary' => [
+                'total_expense' => $totalExpense,
+                'total_income' => $totalIncome,
+                'result' => round($totalIncome - $totalExpense, 2),
+                'capital_given' => $capitalGiven,
+                'unspent' => round($capitalGiven - $totalExpense, 2),
+                'by_category' => $entries
+                    ->groupBy(fn (BusinessSubEntry $entry): string => $entry->direction.'|'.$entry->category)
+                    ->map(fn ($group): array => [
+                        'direction' => $group->first()->direction,
+                        'category' => $group->first()->category,
+                        'total' => (float) $group->sum('amount'),
+                        'count' => $group->count(),
+                    ])
+                    ->sortBy([['direction', 'asc'], ['total', 'desc']])
+                    ->values(),
+            ],
+            'subCategories' => BusinessSubEntry::query()
+                ->distinct()
+                ->orderBy('category')
+                ->pluck('category')
+                ->values(),
+        ];
     }
 
     public function update(Request $request, CycleInvestment $cycleInvestment): RedirectResponse

@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Admin\AccountsController;
 use App\Http\Controllers\Admin\BusinessInvestmentController;
+use App\Http\Controllers\Admin\BusinessSubEntryController;
 use App\Http\Controllers\Admin\ChargeCategoryController;
 use App\Http\Controllers\Admin\ChargeListController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
@@ -149,6 +150,9 @@ Route::middleware(['auth', 'verified', 'admin'])->group(function () {
     Route::put('admin/businesses/{cycleInvestment}', [BusinessInvestmentController::class, 'update'])->name('admin.businesses.update');
     Route::post('admin/businesses/{cycleInvestment}/transactions', [BusinessInvestmentController::class, 'storeTransaction'])->name('admin.businesses.transactions.store');
     Route::delete('admin/businesses/{cycleInvestment}/transactions/{transaction}', [BusinessInvestmentController::class, 'destroyTransaction'])->name('admin.businesses.transactions.destroy');
+    Route::post('admin/businesses/{cycleInvestment}/sub-entries', [BusinessSubEntryController::class, 'store'])->name('admin.businesses.sub-entries.store');
+    Route::put('admin/businesses/{cycleInvestment}/sub-entries/{subEntry}', [BusinessSubEntryController::class, 'update'])->name('admin.businesses.sub-entries.update');
+    Route::delete('admin/businesses/{cycleInvestment}/sub-entries/{subEntry}', [BusinessSubEntryController::class, 'destroy'])->name('admin.businesses.sub-entries.destroy');
     Route::patch('admin/businesses/{cycleInvestment}/close', [BusinessInvestmentController::class, 'close'])->name('admin.businesses.close');
     Route::patch('admin/businesses/{cycleInvestment}/cancel', [BusinessInvestmentController::class, 'cancel'])->name('admin.businesses.cancel');
     Route::post('admin/fund-cycles/{fundCycle}/transactions', [FundCycleLedgerController::class, 'storeTransaction'])->name('admin.fund-cycles.transactions.store');

@@ -60,6 +60,11 @@ class CycleInvestment extends Model
         return $this->hasMany(BusinessTransaction::class);
     }
 
+    public function subEntries(): HasMany
+    {
+        return $this->hasMany(BusinessSubEntry::class);
+    }
+
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by_user_id');

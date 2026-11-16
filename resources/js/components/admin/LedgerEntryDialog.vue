@@ -33,6 +33,7 @@ export type LedgerField = {
     placeholder?: string;
     required?: boolean;
     help?: string;
+    suggestions?: string[];
 };
 
 type Props = {
@@ -176,7 +177,23 @@ watch(
                         :min="field.type === 'number' ? '0' : undefined"
                         :placeholder="field.placeholder"
                         :required="field.required"
+                        :list="
+                            field.suggestions?.length
+                                ? `ledger-field-${field.name}-suggestions`
+                                : undefined
+                        "
+                        autocomplete="off"
                     />
+                    <datalist
+                        v-if="field.suggestions?.length"
+                        :id="`ledger-field-${field.name}-suggestions`"
+                    >
+                        <option
+                            v-for="suggestion in field.suggestions"
+                            :key="suggestion"
+                            :value="suggestion"
+                        />
+                    </datalist>
 
                     <p v-if="field.help" class="text-xs text-muted-foreground">
                         {{ field.help }}
