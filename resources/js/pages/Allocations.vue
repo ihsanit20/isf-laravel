@@ -1,6 +1,12 @@
 <script setup lang="ts">
 import { Head, Link, useForm } from '@inertiajs/vue3';
-import { Landmark, Layers3, UsersRound, Wallet } from 'lucide-vue-next';
+import {
+    ArrowLeft,
+    Landmark,
+    Layers3,
+    UsersRound,
+    Wallet,
+} from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 import InputError from '@/components/InputError.vue';
 import EmptyState from '@/components/shared/EmptyState.vue';
@@ -80,6 +86,8 @@ type CycleResult = {
 
 type Props = {
     summary: {
+        due_count: number;
+        due_amount: number;
         total_allocations: number;
         total_allocated_amount: number;
         member_count: number;
@@ -90,6 +98,12 @@ type Props = {
     cycleResults: CycleResult[];
     selectedMemberId: number | null;
     selectedCycleId: number | null;
+    readOnly?: boolean;
+    viewingUser?: {
+        id: number;
+        name: string;
+        email: string;
+    };
 };
 
 defineOptions({
@@ -169,10 +183,18 @@ const memberRowMaps = computed(() =>
     })),
 );
 
-const cycleOptions = computed(() => props.memberTabs[0]?.filters.cycles ?? []);
+const cycleOptions = computed(() => [
+    ...new Set(props.memberTabs.flatMap((tab) => tab.filters.cycles)),
+]);
 
 const pivotRows = computed<PivotRow[]>(() => {
-    const baseRows = props.memberTabs[0]?.rows ?? [];
+    const baseRows = [
+        ...new Map(
+            props.memberTabs
+                .flatMap((tab) => tab.rows)
+                .map((row) => [`${row.cycle_id}::${row.slot_key}`, row]),
+        ).values(),
+    ];
     const slotSearch = slotFilter.value.trim().toLowerCase();
 
     return baseRows
@@ -301,18 +323,47 @@ const submit = () => {
 </script>
 
 <template>
-    <Head title="Investments" />
+    <Head
+        :title="
+            props.viewingUser
+                ? `${props.viewingUser.name} · Investments`
+                : 'Investments'
+        "
+    />
 
     <div class="flex flex-1 flex-col gap-6 p-4 md:p-6">
         <PageHeader
+            v-if="props.viewingUser"
+            :title="`${props.viewingUser.name} · Investments`"
+            :description="`Allocation history of ${props.viewingUser.email}. View only.`"
+        >
+            <template #actions>
+                <Button variant="outline" as-child>
+                    <Link href="/admin/users">
+                        <ArrowLeft class="size-4" />
+                        Back to users
+                    </Link>
+                </Button>
+            </template>
+        </PageHeader>
+        <PageHeader
+            v-else
             title="Investments"
             description="Every month of every cycle for all your members side by side. Allocate an open month straight from the table."
         />
 
         <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <StatCard
+                v-if="!props.readOnly"
                 label="Available to invest"
                 :value="formatMoney(props.summary.available_to_allocate)"
+                :icon="Wallet"
+            />
+            <StatCard
+                v-if="props.readOnly"
+                label="Due"
+                :value="formatMoney(props.summary.due_amount)"
+                :hint="`${props.summary.due_count} not allocated`"
                 :icon="Wallet"
             />
             <StatCard
@@ -337,9 +388,13 @@ const submit = () => {
             v-if="props.memberTabs.length === 0"
             :icon="UsersRound"
             title="No members yet"
-            description="Investments are made per member. Add a member first."
+            :description="
+                props.readOnly
+                    ? 'This user has no members.'
+                    : 'Investments are made per member. Add a member first.'
+            "
         >
-            <Button as-child>
+            <Button v-if="!props.readOnly" as-child>
                 <Link href="/my-membership/create">Add member</Link>
             </Button>
         </EmptyState>
@@ -367,6 +422,12 @@ const submit = () => {
                         </p>
                     </div>
                     <StatusBadge v-if="member.can_allocate" status="active" />
+                    <span
+                        v-else-if="props.readOnly"
+                        class="text-xs text-amber-700 dark:text-amber-300"
+                    >
+                        Not active yet
+                    </span>
                     <Link
                         v-else
                         href="/my-membership"
@@ -469,6 +530,12 @@ const submit = () => {
                                             {{ cell.row.allocated_at }}
                                         </p>
                                     </div>
+                                    <span
+                                        v-else-if="props.readOnly"
+                                        class="rounded-md bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/40 dark:text-amber-300"
+                                    >
+                                        Due
+                                    </span>
                                     <Button
                                         v-else
                                         size="sm"
@@ -608,6 +675,29 @@ const submit = () => {
                                                     {{ cell.row.allocated_at }}
                                                 </span>
                                             </div>
+                                            <div
+                                                v-else-if="props.readOnly"
+                                                class="grid justify-items-center gap-1"
+                                            >
+                                                <span
+                                                    class="flex items-center gap-2"
+                                                >
+                                                    <span
+                                                        class="font-medium tabular-nums"
+                                                    >
+                                                        {{
+                                                            formatMoney(
+                                                                cell.row.amount,
+                                                            )
+                                                        }}
+                                                    </span>
+                                                    <span
+                                                        class="rounded-md bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/40 dark:text-amber-300"
+                                                    >
+                                                        Due
+                                                    </span>
+                                                </span>
+                                            </div>
                                             <Button
                                                 v-else
                                                 size="sm"
@@ -699,7 +789,11 @@ const submit = () => {
                                     </td>
                                     <td class="border-l px-4 py-3 align-middle">
                                         <Link
-                                            :href="`/fund-cycles/${row.cycle_id}`"
+                                            :href="
+                                                props.readOnly
+                                                    ? `/admin/fund-cycles/${row.cycle_id}`
+                                                    : `/fund-cycles/${row.cycle_id}`
+                                            "
                                             class="font-medium hover:underline"
                                         >
                                             {{ row.cycle_name }}

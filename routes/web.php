@@ -25,6 +25,7 @@ use App\Http\Controllers\Admin\InvestmentChargeController;
 use App\Http\Controllers\Admin\JournalController;
 use App\Http\Controllers\Admin\MemberListController;
 use App\Http\Controllers\Admin\PayoutListController;
+use App\Http\Controllers\Admin\UserAllocationController;
 use App\Http\Controllers\Admin\UserListController;
 use App\Http\Controllers\BkashCallbackController;
 use App\Http\Controllers\DashboardController;
@@ -86,6 +87,7 @@ Route::middleware(['auth', 'verified', 'admin'])->group(function () {
     Route::get('admin/users', [UserListController::class, 'index'])->name('admin.users.index');
     Route::post('admin/users', [UserListController::class, 'store'])->name('admin.users.store');
     Route::put('admin/users/{user}', [UserListController::class, 'update'])->name('admin.users.update');
+    Route::get('admin/users/{user}/allocations', [UserAllocationController::class, 'show'])->name('admin.users.allocations');
     Route::get('admin/fund-cycles', [FundCycleController::class, 'index'])->name('admin.fund-cycles.index');
     Route::get('admin/fund-cycles/{fundCycle}', [FundCycleController::class, 'show'])->name('admin.fund-cycles.show');
     Route::get('admin/fund-cycles/{fundCycle}/allocations', [FundCycleController::class, 'allocations'])->name('admin.fund-cycles.allocations.index');

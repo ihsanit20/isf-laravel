@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { Head } from '@inertiajs/vue3';
-import { Plus, SquarePen } from 'lucide-vue-next';
+import { Head, Link } from '@inertiajs/vue3';
+import { Layers3, Plus, SquarePen } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 import UserFormDialog from '@/components/admin/UserFormDialog.vue';
 import PageHeader from '@/components/shared/PageHeader.vue';
@@ -151,8 +151,15 @@ const openEditDialog = (user: AdminUser) => {
                             </span>
                         </TableCell>
                         <TableCell class="pr-4 text-right">
+                            <Button variant="outline" size="sm" as-child>
+                                <Link :href="`/admin/users/${user.id}/allocations`">
+                                    <Layers3 class="size-4" />
+                                    Allocations
+                                </Link>
+                            </Button>
                             <Button
                                 v-if="user.can_edit"
+                                class="ml-2"
                                 variant="outline"
                                 size="sm"
                                 @click="openEditDialog(user)"
@@ -160,7 +167,10 @@ const openEditDialog = (user: AdminUser) => {
                                 <SquarePen class="size-4" />
                                 Edit
                             </Button>
-                            <span v-else class="text-xs text-muted-foreground">
+                            <span
+                                v-else
+                                class="ml-2 text-xs text-muted-foreground"
+                            >
                                 Restricted
                             </span>
                         </TableCell>
